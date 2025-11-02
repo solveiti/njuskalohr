@@ -1,16 +1,18 @@
 # Contributing to Njuskalo Store Scraper
 
-Thank you for your interest in contributing to this project! 
+Thank you for your interest in contributing to this project!
 
 ## How to Contribute
 
 ### Reporting Issues
+
 - Use the GitHub issue tracker to report bugs
 - Include detailed information about your environment
 - Provide steps to reproduce the issue
 - Include relevant log files or error messages
 
 ### Suggesting Features
+
 - Open an issue to discuss new features before implementing
 - Explain the use case and benefits
 - Consider backward compatibility
@@ -19,16 +21,19 @@ Thank you for your interest in contributing to this project!
 
 1. **Fork the repository**
 2. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
 
 3. **Make your changes**
+
    - Follow the existing code style
    - Add tests for new functionality
    - Update documentation as needed
 
 4. **Test your changes**
+
    ```bash
    # Run the test suite
    python tests/test_complete_workflow.py
@@ -37,11 +42,13 @@ Thank you for your interest in contributing to this project!
    ```
 
 5. **Commit your changes**
+
    ```bash
    git commit -m "Add: Brief description of your changes"
    ```
 
 6. **Push to your fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```

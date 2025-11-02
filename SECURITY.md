@@ -16,6 +16,7 @@ Please do not report security vulnerabilities through public GitHub issues.
 ## Security Considerations
 
 This scraper:
+
 - Respects website robots.txt and terms of service
 - Implements human-like delays to avoid server overload
 - Uses browser automation to avoid anti-bot measures ethically

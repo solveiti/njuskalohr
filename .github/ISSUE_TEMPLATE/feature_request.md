@@ -1,10 +1,9 @@
 ---
 name: Feature Request
 about: Suggest an idea for this project
-title: '[FEATURE] '
+title: "[FEATURE] "
 labels: enhancement
-assignees: ''
-
+assignees: ""
 ---
 
 **Is your feature request related to a problem? Please describe.**
@@ -20,6 +19,7 @@ A clear and concise description of any alternative solutions or features you've 
 Explain how this feature would be used and why it would be beneficial.
 
 **Implementation considerations**
+
 - Does this require changes to the scraping logic?
 - Would this affect website load or compliance?
 - Are there any ethical considerations?
