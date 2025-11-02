@@ -9,7 +9,7 @@ from njuskalo_sitemap_scraper import NjuskaloSitemapScraper
 import time
 
 
-def run_scraper(headless=False, output_file=None, max_stores=None, use_database=True):
+def run_scraper(headless=False, output_file=None, max_stores=None):
     """
     Run the sitemap-based store scraper with specified options.
 
@@ -17,7 +17,6 @@ def run_scraper(headless=False, output_file=None, max_stores=None, use_database=
         headless: Whether to run in headless mode
         output_file: Custom output filename
         max_stores: Maximum number of stores to scrape (for testing)
-        use_database: Whether to save data to PostgreSQL database
     """
     scraper = None
 
@@ -27,17 +26,15 @@ def run_scraper(headless=False, output_file=None, max_stores=None, use_database=
 
         # Create scraper
         print("🔧 Initializing browser...")
-        scraper = NjuskaloSitemapScraper(headless=headless, use_database=use_database)
+        scraper = NjuskaloSitemapScraper(headless=headless)
 
-        print("📊 Starting sitemap-based scraping workflow:")
+        print("�️  Starting sitemap-based scraping workflow:")
         print("   1. Downloading sitemap index XML")
         print("   2. Finding store-related sitemaps")
         print("   3. Extracting store URLs from XML files")
         print("   4. Visiting each store (trgovina) page")
         print("   5. Checking for Auto Moto category (categoryId=2)")
         print("   6. Extracting address and ad counts")
-        if use_database:
-            print("   7. Saving data to PostgreSQL database")
         print()
         print("⏳ This may take several minutes depending on the number of stores...")
 
@@ -56,8 +53,6 @@ def run_scraper(headless=False, output_file=None, max_stores=None, use_database=
             if success:
                 print("✅ Scraping completed successfully!")
                 print(f"📊 Results saved to: {output_file}")
-                if use_database:
-                    print("🗃️  Data also saved to PostgreSQL database")
 
                 # Show summary statistics
                 if len(stores_data) > 0:
@@ -80,75 +75,66 @@ def run_scraper(headless=False, output_file=None, max_stores=None, use_database=
                         print(f"📢 Total ads across all stores: {total_ads}")
                         print(f"📊 Average ads per store: {avg_ads:.1f}")
 
-                    if auto_moto_stores:
-                        print(f"\n🚗 Auto Moto Stores:")
-                        for store in auto_moto_stores[:5]:  # Show first 5
-                            store_name = store.get('name', 'Unknown')
-                            ads_count = store.get('ads_count', 'N/A')
-                            print(f"   • {store_name} ({ads_count} ads)")
-                        if len(auto_moto_stores) > 5:
-                            print(f"   ... and {len(auto_moto_stores) - 5} more")
+                    print("\n🔍 Sample Auto Moto stores:")
+                    for i, store in enumerate(auto_moto_stores[:5]):  # Show first 5
+                        name = store.get('name', 'Unknown')[:40]
+                        ads = store.get('ads_count', 'N/A')
+                        print(f"   {i+1}. {name}... ({ads} ads)")
+
+                    if len(auto_moto_stores) > 5:
+                        print(f"   ... and {len(auto_moto_stores) - 5} more")
 
             else:
-                print("❌ Failed to save results to Excel file")
-                return False
-
+                print("❌ Failed to save results")
         else:
-            print("❌ No data was scraped")
-            return False
-
-        return True
+            print("❌ No stores found. This could mean:")
+            print("   • No store URLs found in sitemaps")
+            print("   • Website structure has changed")
+            print("   • Network connectivity issues")
+            print("💡 Check sitemap_scraper.log for detailed information")
 
     except KeyboardInterrupt:
-        print("\n\n⏹️  Scraping interrupted by user")
-        return False
+        print("\n⛔ Scraping interrupted by user")
 
     except Exception as e:
-        print(f"❌ An error occurred: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+        print(f"❌ Error occurred: {e}")
+        print("💡 Check sitemap_scraper.log for detailed error information")
 
     finally:
-        # Clean up browser
-        if scraper and scraper.driver:
-            try:
-                scraper.driver.quit()
-                print("🔧 Browser closed")
-            except Exception:
-                pass
+        if scraper:
+            print("🔒 Closing browser...")
+            scraper.close()
 
 
 def main():
-    """Main function with command line argument parsing."""
-    import argparse
+    """Main function with command line options."""
 
-    parser = argparse.ArgumentParser(description='Njuskalo Store Scraper')
-    parser.add_argument('--headless', action='store_true', help='Run browser in headless mode')
-    parser.add_argument('--output', help='Output Excel filename')
-    parser.add_argument('--max-stores', type=int, help='Maximum number of stores to scrape (for testing)')
-    parser.add_argument('--no-database', action='store_true', help='Disable database storage')
+    print("Select scraping mode:")
+    print("1. Normal mode (with browser window)")
+    print("2. Headless mode (no browser window - faster)")
+    print("3. Test mode (headless, limited stores)")
+    print("4. Exit")
 
-    args = parser.parse_args()
+    try:
+        choice = input("\nEnter your choice (1-4): ").strip()
 
-    use_database = not args.no_database
+        if choice == "1":
+            run_scraper(headless=False)
+        elif choice == "2":
+            run_scraper(headless=True)
+        elif choice == "3":
+            print("🧪 Running in test mode (first 10 stores only)")
+            run_scraper(headless=True, max_stores=10)
+        elif choice == "4":
+            print("👋 Goodbye!")
+            sys.exit(0)
+        else:
+            print("❌ Invalid choice. Please run the script again.")
+            sys.exit(1)
 
-    print("Starting Njuskalo scraper...")
-    success = run_scraper(
-        headless=args.headless,
-        output_file=args.output,
-        max_stores=args.max_stores,
-        use_database=use_database
-    )
-
-    if success:
-        print("\n🎉 Scraping completed successfully!")
-        if use_database:
-            print("💡 Use 'python db_manager.py stats' to view database statistics")
-            print("💡 Use 'python db_manager.py list-valid' to view stored data")
-    else:
-        print("\n💥 Scraping failed or was interrupted")
-        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        sys.exit(0)
 
 
 if __name__ == "__main__":

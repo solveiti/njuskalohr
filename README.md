@@ -12,7 +12,7 @@ This scraper is designed to:
 4. Visit each store page to scrape information
 5. Check if stores post in categoryId 2 ("Auto moto" category)
 6. Extract store address and number of ads from the entities-count class
-7. Save all data to an Excel file
+7. Save all data to an Excel file and PostgreSQL database
 
 ## 🚀 Quick Start
 
@@ -31,7 +31,26 @@ This will:
 - Create a Python virtual environment
 - Install required Python packages
 
-### 2. Run the Scraper
+### 2. Database Setup (Optional but Recommended)
+
+Set up PostgreSQL database for data persistence:
+
+```bash
+# Install PostgreSQL if not already installed
+sudo apt-get install postgresql postgresql-contrib  # Ubuntu/Debian
+
+# Run database setup
+python setup_database.py
+```
+
+This will:
+
+- Install PostgreSQL Python dependencies
+- Create database and user
+- Generate .env configuration file
+- Test database connection
+
+### 3. Run the Scraper
 
 Start the scraper:
 
@@ -46,7 +65,39 @@ chmod +x run_scraper.py
 ./run_scraper.py
 ```
 
-### 3. Test Sitemap Functionality
+For command line options:
+
+```bash
+python run_scraper.py --help
+python run_scraper.py --headless --max-stores 10  # Test run
+python run_scraper.py --no-database  # Skip database storage
+```
+
+### 4. Database Management
+
+Use the database management tool:
+
+```bash
+# View database statistics
+python db_manager.py stats
+
+# List valid stores
+python db_manager.py list-valid --limit 20
+
+# List invalid/failed URLs
+python db_manager.py list-invalid
+
+# Search stores
+python db_manager.py search --query "auto"
+
+# Export data to JSON
+python db_manager.py export --output exported_data.json
+
+# Create/recreate database tables
+python db_manager.py create-tables
+```
+
+### 5. Test Sitemap Functionality
 
 Before running the full scraper, you can test the sitemap functionality:
 
@@ -65,7 +116,50 @@ Before running the full scraper, you can test the sitemap functionality:
 - **Excel Output**: Saves results in a structured Excel file
 - **Comprehensive Logging**: Detailed logs for debugging and monitoring
 
-## 🔧 Configuration
+## �️ Database Schema
+
+The PostgreSQL database stores scraped data in the following structure:
+
+### `scraped_stores` Table
+
+| Column     | Type                     | Description                             |
+| ---------- | ------------------------ | --------------------------------------- |
+| id         | SERIAL PRIMARY KEY       | Auto-incrementing unique identifier     |
+| url        | VARCHAR(2048) UNIQUE     | Store URL (unique constraint)           |
+| results    | JSONB                    | Complete store data in JSON format      |
+| is_valid   | BOOLEAN                  | Whether the URL is accessible and valid |
+| created_at | TIMESTAMP WITH TIME ZONE | When the record was first created       |
+| updated_at | TIMESTAMP WITH TIME ZONE | When the record was last updated        |
+
+### JSONB Results Structure
+
+The `results` column contains:
+
+```json
+{
+  "url": "https://www.njuskalo.hr/trgovina/example",
+  "name": "Store Name",
+  "address": "Store Address",
+  "ads_count": 123,
+  "has_auto_moto": true,
+  "categories": [
+    {
+      "text": "Auto i motori",
+      "href": "/categoryi/auti-categoryId=2"
+    }
+  ],
+  "error": null
+}
+```
+
+### Database Features
+
+- **Automatic Timestamps**: `created_at` and `updated_at` managed by triggers
+- **Upsert Operations**: Updates existing records when URL already exists
+- **GIN Indexing**: Fast JSON queries on the `results` column
+- **Data Integrity**: URL uniqueness and proper foreign key constraints
+
+## �🔧 Configuration
 
 Main settings can be found in `config.py`:
 
@@ -73,6 +167,16 @@ Main settings can be found in `config.py`:
 - `MIN_DELAY`/`MAX_DELAY`: Timing delays between actions
 - `AUTO_MOTO_CATEGORY_ID`: Target category ID (default: 2)
 - Various CSS selectors for different page elements
+
+Database configuration is in `.env`:
+
+```env
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=njuskalohr
+DATABASE_USER=your_username
+DATABASE_PASSWORD=your_password
+```
 
 ## 📊 Output
 
@@ -115,6 +219,8 @@ The scraper can handle stores like:
 - **lxml**: XML parsing
 - **beautifulsoup4**: HTML parsing
 - **webdriver-manager**: Automatic ChromeDriver management
+- **psycopg2-binary**: PostgreSQL database adapter
+- **python-dotenv**: Environment variable management
 
 ### Browser Settings
 
@@ -140,6 +246,13 @@ The scraper uses Chrome with anti-detection settings:
 2. **Permission denied**: Don't run as root/sudo
 3. **No stores found**: Check if website structure has changed
 4. **Slow performance**: Adjust timing delays in config.py
+5. **Database connection failed**:
+   - Check PostgreSQL is running: `sudo systemctl status postgresql`
+   - Verify credentials in `.env` file
+   - Test connection: `python db_manager.py stats`
+6. **psycopg2 installation failed**:
+   - Install PostgreSQL development headers: `sudo apt-get install libpq-dev`
+   - Use binary version: `pip install psycopg2-binary`
 
 ### Logs
 

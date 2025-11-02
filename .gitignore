@@ -18,6 +18,11 @@ var/
 wheels/
 pip-wheel-metadata/
 share/python-wheels/
+
+# Environment variables
+.env
+.env.local
+.env.backup
 *.egg-info/
 .installed.cfg
 *.egg

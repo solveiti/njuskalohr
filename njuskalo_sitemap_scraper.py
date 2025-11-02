@@ -31,6 +31,7 @@ from typing import List, Dict, Optional
 import re
 from bs4 import BeautifulSoup
 import os
+from database import NjuskaloDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -47,12 +48,13 @@ logger = logging.getLogger(__name__)
 class NjuskaloSitemapScraper:
     """Web scraper for Njuskalo stores using sitemap approach."""
 
-    def __init__(self, headless: bool = False):
+    def __init__(self, headless: bool = False, use_database: bool = True):
         """
         Initialize the scraper with Chrome WebDriver.
 
         Args:
             headless: Whether to run Chrome in headless mode
+            use_database: Whether to use database for storing results
         """
         self.driver = None
         self.base_url = "https://www.njuskalo.hr"
@@ -62,6 +64,8 @@ class NjuskaloSitemapScraper:
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         self.headless = headless
+        self.use_database = use_database
+        self.database = None
         self.stores_data = []
 
     def setup_browser(self):
@@ -520,10 +524,21 @@ class NjuskaloSitemapScraper:
                 'error': str(e)
             }
 
-    def run_full_scrape(self, max_stores: int = None) -> List[Dict]:
+    def run_full_scrape(self, max_stores: int = None, initialize_db: bool = True) -> List[Dict]:
         """Run the complete scraping workflow."""
         try:
             logger.info("Starting Njuskalo sitemap scraping workflow")
+
+            # Initialize database if enabled
+            if self.use_database and initialize_db:
+                try:
+                    self.database = NjuskaloDatabase()
+                    self.database.connect()
+                    self.database.create_tables()
+                    logger.info("Database initialized successfully")
+                except Exception as e:
+                    logger.error(f"Failed to initialize database: {e}")
+                    self.use_database = False  # Fall back to non-database mode
 
             # Setup browser
             if not self.setup_browser():
@@ -619,19 +634,61 @@ class NjuskaloSitemapScraper:
             for i, store_url in enumerate(store_urls_list, 1):
                 logger.info(f"Processing store {i}/{len(store_urls_list)}: {store_url}")
 
-                store_data = self.scrape_store_info(store_url)
-                if store_data:
-                    self.stores_data.append(store_data)
+                try:
+                    store_data = self.scrape_store_info(store_url)
+                    if store_data:
+                        self.stores_data.append(store_data)
+
+                        # Save to database if enabled
+                        if self.use_database and self.database:
+                            is_valid = store_data.get('error') is None
+                            success = self.database.save_store_data(
+                                url=store_url,
+                                store_data=store_data,
+                                is_valid=is_valid
+                            )
+                            if success:
+                                logger.debug(f"Saved store data to database: {store_url}")
+                            else:
+                                logger.warning(f"Failed to save store data to database: {store_url}")
+                    else:
+                        # Mark URL as invalid in database
+                        if self.use_database and self.database:
+                            self.database.mark_url_invalid(store_url)
+                            logger.debug(f"Marked URL as invalid in database: {store_url}")
+
+                except Exception as e:
+                    logger.error(f"Error processing store {store_url}: {e}")
+                    # Mark as invalid in database
+                    if self.use_database and self.database:
+                        self.database.mark_url_invalid(store_url)
 
                 # Random delay between store visits
                 time.sleep(random.uniform(3, 7))
 
             logger.info(f"Completed scraping {len(self.stores_data)} stores")
+
+            # Print database statistics if enabled
+            if self.use_database and self.database:
+                try:
+                    stats = self.database.get_database_stats()
+                    logger.info(f"Database stats - Total: {stats['total_stores']}, Valid: {stats['valid_stores']}, Invalid: {stats['invalid_stores']}")
+                except Exception as e:
+                    logger.warning(f"Failed to get database stats: {e}")
+
             return self.stores_data
 
         except Exception as e:
             logger.error(f"Error in full scrape workflow: {e}")
             return self.stores_data
+        finally:
+            # Clean up database connection
+            if self.use_database and self.database:
+                try:
+                    self.database.disconnect()
+                    logger.info("Database connection closed")
+                except Exception as e:
+                    logger.warning(f"Error closing database connection: {e}")
 
     def save_to_excel(self, filename: str = None) -> bool:
         """Save scraped data to Excel file."""
