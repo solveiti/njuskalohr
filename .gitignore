@@ -23,6 +23,20 @@ share/python-wheels/
 .env
 .env.local
 .env.backup
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+celery_worker.pid
+celery_beat.pid
+celery_worker.log
+celery_beat.log
+
+# FastAPI / Uvicorn
+*.pid
+
+# Redis
+dump.rdb
 *.egg-info/
 .installed.cfg
 *.egg

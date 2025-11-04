@@ -97,7 +97,69 @@ python db_manager.py export --output exported_data.json
 python db_manager.py create-tables
 ```
 
-### 5. Test Sitemap Functionality
+### 5. API Setup (FastAPI + Celery + Redis)
+
+Set up the REST API with scheduled jobs:
+
+```bash
+# Install Redis (Ubuntu/Debian)
+sudo apt-get install redis-server
+
+# Set up API environment
+python setup_api.py
+
+# Start all services
+./start_all.sh
+```
+
+#### API Services:
+
+- **FastAPI Dashboard**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Flower (Task Monitor)**: http://localhost:5555
+- **Redis**: localhost:6379
+
+#### Service Management:
+
+```bash
+# Start all services
+./start_all.sh
+
+# Start individual services
+./start_worker.sh    # Celery worker
+./start_beat.sh      # Celery beat scheduler
+./start_api.sh       # FastAPI server
+
+# Stop all services
+./stop_all.sh
+
+# Using Docker Compose
+docker-compose up -d
+docker-compose down
+```
+
+#### API Endpoints:
+
+```bash
+# Start scraping task
+curl -X POST "http://localhost:8000/scrape/start" \
+  -H "Content-Type: application/json" \
+  -d '{"max_stores": 10, "use_database": true}'
+
+# Check task status
+curl "http://localhost:8000/scrape/status/{task_id}"
+
+# Get database stats
+curl "http://localhost:8000/database/stats"
+
+# Search stores
+curl "http://localhost:8000/database/search?query=auto"
+
+# Health check
+curl "http://localhost:8000/health"
+```
+
+### 6. Test Sitemap Functionality
 
 Before running the full scraper, you can test the sitemap functionality:
 
