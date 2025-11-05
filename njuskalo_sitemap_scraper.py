@@ -32,6 +32,9 @@ import re
 from bs4 import BeautifulSoup
 import os
 from database import NjuskaloDatabase
+import tempfile
+import tempfile
+
 
 # Configure logging
 logging.basicConfig(
@@ -75,6 +78,10 @@ class NjuskaloSitemapScraper:
 
             if self.headless:
                 chrome_options.add_argument("--headless")
+
+            # Create unique temporary user data directory
+            user_data_dir = tempfile.mkdtemp()  # Creates a unique temp directory
+            chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
             # Anti-detection options
             chrome_options.add_argument("--no-sandbox")

@@ -22,6 +22,8 @@ import requests
 from urllib.parse import urljoin
 import logging
 from typing import List, Dict, Optional
+import tempfile
+
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +56,9 @@ class NjuskaloCarScraper:
     def setup_driver(self) -> None:
         """Set up Chrome WebDriver with options to mimic human behavior."""
         chrome_options = Options()
+        # Create unique temporary user data directory
+        user_data_dir = tempfile.mkdtemp()  # Creates a unique temp directory
+        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
         # Add user agent to mimic real browser
         chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")

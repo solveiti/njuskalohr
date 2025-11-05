@@ -20,6 +20,7 @@ import sys
 from urllib.parse import urljoin
 import logging
 from typing import List, Dict, Optional
+import tempfile
 
 # Configure logging
 logging.basicConfig(
@@ -110,6 +111,10 @@ class NjuskaloCarScraperChromium:
             )
 
         chrome_options = Options()
+
+        # Create unique temporary user data directory
+        user_data_dir = tempfile.mkdtemp()  # Creates a unique temp directory
+        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
         # Set the Chrome binary location
         chrome_options.binary_location = self.chrome_path
