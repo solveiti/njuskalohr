@@ -129,7 +129,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Njuskalo Store Scraper')
-    parser.add_argument('--headless', action='store_true', help='Run browser in headless mode')
+    parser.add_argument('--no-headless', action='store_true', help='Run browser in visible mode (default is headless)')
     parser.add_argument('--output', help='Output Excel filename')
     parser.add_argument('--max-stores', type=int, help='Maximum number of stores to scrape (for testing)')
     parser.add_argument('--no-database', action='store_true', help='Disable database storage')
@@ -140,7 +140,7 @@ def main():
 
     print("Starting Njuskalo scraper...")
     success = run_scraper(
-        headless=args.headless,
+        headless=not args.no_headless,
         output_file=args.output,
         max_stores=args.max_stores,
         use_database=use_database

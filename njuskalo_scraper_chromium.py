@@ -466,7 +466,7 @@ def main():
         print("==========================================")
         print("Initializing scraper...")
 
-        scraper = NjuskaloCarScraperChromium(headless=False)  # Visible browser for testing
+        scraper = NjuskaloCarScraperChromium(headless=True)  # Headless browser by default
 
         print("Scraping car listings...")
         cars_data = scraper.scrape_cars()

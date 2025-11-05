@@ -451,8 +451,8 @@ def main():
         print("===================")
         print("Initializing scraper...")
 
-        # Create scraper instance (set headless=False for visible browser during testing)
-        scraper = NjuskaloCarScraper(headless=False)
+        # Create scraper instance (headless by default, use headless=False for visible browser during testing)
+        scraper = NjuskaloCarScraper(headless=True)
 
         print("Scraping car listings...")
 

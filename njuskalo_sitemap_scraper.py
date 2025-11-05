@@ -1122,8 +1122,8 @@ class NjuskaloSitemapScraper:
 
 
 if __name__ == "__main__":
-    # Example usage - use visible browser for manual testing/debugging
-    scraper = NjuskaloSitemapScraper(headless=False)
+    # Example usage - headless by default, use headless=False for manual testing/debugging
+    scraper = NjuskaloSitemapScraper(headless=True)
 
     try:
         # For testing, limit to 5 stores
