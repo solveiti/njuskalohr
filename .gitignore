@@ -74,6 +74,10 @@ debug_*.html
 step*.html
 decompressed_*.xml
 
+# Data dump directory (Excel files)
+datadump/
+datadump/*.xlsx
+
 # Temporary files
 *.tmp
 *.temp

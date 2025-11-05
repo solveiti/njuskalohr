@@ -26,6 +26,7 @@ USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 
 # Output settings
 OUTPUT_FILENAME = "njuskalo_stores.xlsx"
+OUTPUT_DIRECTORY = "datadump"  # Directory for Excel file outputs
 LOG_LEVEL = "INFO"
 
 # Store page selectors

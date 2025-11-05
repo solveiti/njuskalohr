@@ -45,6 +45,11 @@ def run_scraper(headless=False, output_file=None, max_stores=None, use_database=
         stores_data = scraper.run_full_scrape(max_stores=max_stores)
 
         if stores_data:
+            # Create datadump directory
+            import os
+            datadump_dir = "datadump"
+            os.makedirs(datadump_dir, exist_ok=True)
+
             # Generate filename if not provided
             if not output_file:
                 timestamp = int(time.time())
@@ -55,9 +60,9 @@ def run_scraper(headless=False, output_file=None, max_stores=None, use_database=
 
             if success:
                 print("✅ Scraping completed successfully!")
-                print(f"📊 Results saved to: {output_file}")
+                print(f"📊 Results saved to: datadump/{output_file}")
                 if use_database:
-                    print("🗃️  Data also saved to PostgreSQL database")
+                    print("🗃️  Data also saved to MySQL database")
 
                 # Show summary statistics
                 if len(stores_data) > 0:

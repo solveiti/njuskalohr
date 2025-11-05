@@ -691,15 +691,24 @@ class NjuskaloSitemapScraper:
                     logger.warning(f"Error closing database connection: {e}")
 
     def save_to_excel(self, filename: str = None) -> bool:
-        """Save scraped data to Excel file."""
+        """Save scraped data to Excel file in datadump directory."""
         try:
             if not self.stores_data:
                 logger.warning("No data to save")
                 return False
 
+            # Create datadump directory if it doesn't exist
+            import os
+            datadump_dir = "datadump"
+            os.makedirs(datadump_dir, exist_ok=True)
+
             if not filename:
                 timestamp = int(time.time())
                 filename = f"njuskalo_stores_{timestamp}.xlsx"
+
+            # Ensure filename goes to datadump directory
+            if not filename.startswith(datadump_dir):
+                filename = os.path.join(datadump_dir, filename)
 
             # Prepare data for DataFrame
             df_data = []

@@ -40,7 +40,7 @@ def test_complete_workflow():
 
             # Save to Excel
             if scraper.save_to_excel("test_workflow_results.xlsx"):
-                print(f"\n📄 Results saved to test_workflow_results.xlsx")
+                print(f"\n📄 Results saved to datadump/test_workflow_results.xlsx")
 
             return True
         else:

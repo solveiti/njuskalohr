@@ -44,7 +44,7 @@ def test_single_store():
             # Save to Excel for inspection
             scraper.stores_data = [store_data]
             if scraper.save_to_excel("test_single_store.xlsx"):
-                print("📄 Results saved to test_single_store.xlsx")
+                print("📄 Results saved to datadump/test_single_store.xlsx")
 
             return True
         else:

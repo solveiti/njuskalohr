@@ -360,7 +360,7 @@ class NjuskaloCarScraper:
 
     def save_to_excel(self, cars_data: List[Dict[str, str]], filename: str = "njuskalo_cars.xlsx") -> bool:
         """
-        Save car data to Excel file.
+        Save car data to Excel file in datadump directory.
 
         Args:
             cars_data: List of car data dictionaries
@@ -373,6 +373,15 @@ class NjuskaloCarScraper:
             if not cars_data:
                 logger.warning("No data to save")
                 return False
+
+            # Create datadump directory if it doesn't exist
+            import os
+            datadump_dir = "datadump"
+            os.makedirs(datadump_dir, exist_ok=True)
+
+            # Ensure filename goes to datadump directory
+            if not filename.startswith(datadump_dir):
+                filename = os.path.join(datadump_dir, filename)
 
             # Create DataFrame
             df = pd.DataFrame(cars_data)

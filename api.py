@@ -384,9 +384,12 @@ async def cleanup_excel_files(days_old: int = 7):
 # Download Excel file
 @app.get("/download/{filename}")
 async def download_file(filename: str):
-    """Download generated Excel files"""
+    """Download generated Excel files from datadump directory"""
     try:
-        file_path = os.path.join(os.getcwd(), filename)
+        # Look for files in datadump directory
+        datadump_dir = "datadump"
+        file_path = os.path.join(datadump_dir, filename)
+
         if os.path.exists(file_path) and filename.endswith('.xlsx'):
             return FileResponse(
                 path=file_path,

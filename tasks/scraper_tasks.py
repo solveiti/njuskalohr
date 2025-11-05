@@ -83,7 +83,11 @@ def run_full_scrape_task(self, max_stores: Optional[int] = None, use_database: b
         stores_with_ads = len([s for s in stores_data if s.get('ads_count') is not None])
         stores_with_address = len([s for s in stores_data if s.get('address')])
 
-        # Save to Excel
+        # Save to Excel in datadump directory
+        import os
+        datadump_dir = "datadump"
+        os.makedirs(datadump_dir, exist_ok=True)
+
         timestamp = int(start_time.timestamp())
         excel_filename = f"njuskalo_stores_{timestamp}.xlsx"
         excel_saved = scraper.save_to_excel(excel_filename)
@@ -290,7 +294,9 @@ def cleanup_old_excel_files_task(days_old: int = 7) -> Dict[str, Any]:
     from pathlib import Path
 
     try:
-        pattern = "njuskalo_stores_*.xlsx"
+        # Look for files in datadump directory
+        datadump_dir = "datadump"
+        pattern = os.path.join(datadump_dir, "njuskalo_stores_*.xlsx")
         files = glob.glob(pattern)
 
         deleted_files = []
