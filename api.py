@@ -23,7 +23,7 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from celery_config import celery_app
-from tasks.scraper_tasks import run_full_scrape_task, test_scraper_task, get_database_stats_task, cleanup_old_excel_files_task
+from tasks.scraper_tasks import run_full_scrape_task, run_auto_moto_only_scrape_task, test_scraper_task, get_database_stats_task, cleanup_old_excel_files_task
 from database import NjuskaloDatabase
 
 # Create FastAPI app
@@ -143,6 +143,23 @@ async def start_scraping(request: ScrapeRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start scraping task: {str(e)}")
+
+
+@app.post("/scrape/auto-moto", response_model=TaskResponse)
+async def start_auto_moto_scraping(request: ScrapeRequest):
+    """Start auto moto only scraping task (most efficient for car data)"""
+    try:
+        task = run_auto_moto_only_scrape_task.delay(
+            max_stores=request.max_stores
+        )
+
+        return TaskResponse(
+            task_id=task.id,
+            status="PENDING",
+            message=f"Auto moto scraping task started with ID: {task.id}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start auto moto scraping task: {str(e)}")
 
 
 # Get task status

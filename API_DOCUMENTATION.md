@@ -115,6 +115,52 @@ Response:
 }
 ```
 
+#### Start Auto Moto Only Scraping (Optimized)
+
+```http
+POST /scrape/auto-moto
+Content-Type: application/json
+
+{
+  "max_stores": 50
+}
+```
+
+**Features:**
+
+- ⚡ Most efficient scraping mode
+- 🎯 Only processes stores known to have car ads
+- 📊 Detailed vehicle statistics (new vs used)
+- 🚀 Significantly faster than full scrape
+
+Response:
+
+```json
+{
+  "task_id": "xyz789-abc123",
+  "status": "PENDING",
+  "message": "Auto moto scraping task started with ID: xyz789-abc123"
+}
+```
+
+Result includes additional vehicle statistics:
+
+```json
+{
+  "task_id": "xyz789-abc123",
+  "status": "SUCCESS",
+  "message": "Auto moto only scraping completed successfully",
+  "total_stores_scraped": 25,
+  "auto_moto_stores": 25,
+  "stores_with_new_vehicles": 20,
+  "stores_with_used_vehicles": 23,
+  "total_new_vehicles": 145,
+  "total_used_vehicles": 387,
+  "execution_time_seconds": 95.3,
+  "excel_file": "njuskalo_auto_moto_stores_1699123456.xlsx"
+}
+```
+
 #### Cancel Task
 
 ```http

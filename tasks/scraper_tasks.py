@@ -168,6 +168,137 @@ def run_full_scrape_task(self, max_stores: Optional[int] = None, use_database: b
         raise Exception(f"Scraping task failed: {error_msg}")
 
 
+@celery_app.task(base=CallbackTask, bind=True)
+def run_auto_moto_only_scrape_task(self, max_stores: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Run optimized scraping that only processes known auto moto stores.
+    This is the most efficient method for getting car-related data.
+
+    Args:
+        max_stores: Maximum number of stores to scrape (optional)
+
+    Returns:
+        Dict with scraping results and statistics
+    """
+    start_time = datetime.now()
+    task_id = self.request.id
+
+    logger.info(f"Starting auto moto only scrape task {task_id} with max_stores={max_stores}")
+
+    try:
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Initializing auto moto scraper", "progress": 5, "start_time": start_time.isoformat()}
+        )
+
+        # Create scraper instance
+        scraper = NjuskaloSitemapScraper(headless=True, use_database=True)
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Running auto moto only scrape", "progress": 20, "start_time": start_time.isoformat()}
+        )
+
+        # Run the auto moto only scraping
+        stores_data = scraper.run_auto_moto_only_scrape(max_stores=max_stores)
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Processing results", "progress": 90, "start_time": start_time.isoformat()}
+        )
+
+        # Generate statistics
+        total_stores = len(stores_data)
+        auto_moto_stores = total_stores  # All should be auto moto
+        stores_with_new_vehicles = len([s for s in stores_data if s.get('new_ads_count', 0) > 0])
+        stores_with_used_vehicles = len([s for s in stores_data if s.get('used_ads_count', 0) > 0])
+        total_new_vehicles = sum(s.get('new_ads_count', 0) for s in stores_data)
+        total_used_vehicles = sum(s.get('used_ads_count', 0) for s in stores_data)
+
+        # Save to Excel in datadump directory
+        import os
+        datadump_dir = "datadump"
+        os.makedirs(datadump_dir, exist_ok=True)
+
+        timestamp = int(start_time.timestamp())
+        excel_filename = f"njuskalo_auto_moto_stores_{timestamp}.xlsx"
+        excel_saved = scraper.save_to_excel(excel_filename)
+
+        # Get database stats
+        db_stats = None
+        try:
+            with NjuskaloDatabase() as db:
+                db_stats = db.get_database_stats()
+                auto_moto_db_count = len(db.get_auto_moto_stores())
+                non_auto_moto_db_count = len(db.get_non_auto_moto_stores())
+                db_stats['auto_moto_stores'] = auto_moto_db_count
+                db_stats['non_auto_moto_stores'] = non_auto_moto_db_count
+        except Exception as e:
+            logger.warning(f"Failed to get database stats: {e}")
+
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        result = {
+            "task_id": task_id,
+            "status": "SUCCESS",
+            "message": "Auto moto only scraping completed successfully",
+            "total_stores_scraped": total_stores,
+            "auto_moto_stores": auto_moto_stores,
+            "stores_with_new_vehicles": stores_with_new_vehicles,
+            "stores_with_used_vehicles": stores_with_used_vehicles,
+            "total_new_vehicles": total_new_vehicles,
+            "total_used_vehicles": total_used_vehicles,
+            "execution_time_seconds": execution_time,
+            "excel_file": excel_filename if excel_saved else None,
+            "database_stats": db_stats,
+            "errors": []
+        }
+
+        logger.info(f"Auto moto task {task_id} completed successfully: {total_stores} stores scraped in {execution_time:.2f}s")
+
+        # Clean up browser
+        if scraper.driver:
+            try:
+                scraper.driver.quit()
+            except Exception:
+                pass
+
+        return result
+
+    except Exception as e:
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        error_msg = str(e)
+        error_traceback = traceback.format_exc()
+
+        logger.error(f"Auto moto task {task_id} failed after {execution_time:.2f}s: {error_msg}")
+        logger.error(f"Traceback: {error_traceback}")
+
+        # Clean up browser in case of error
+        try:
+            if 'scraper' in locals() and scraper.driver:
+                scraper.driver.quit()
+        except Exception:
+            pass
+
+        # Return error details
+        result = {
+            "task_id": task_id,
+            "status": "FAILED",
+            "message": error_msg,
+            "execution_time_seconds": execution_time,
+            "errors": [error_msg]
+        }
+
+        # Re-raise the exception so Celery marks the task as failed
+        raise Exception(f"Auto moto scraping task failed: {error_msg}")
+
+
 @celery_app.task(base=CallbackTask)
 def test_scraper_task() -> Dict[str, Any]:
     """

@@ -651,37 +651,88 @@ class NjuskaloSitemapScraper:
                 'error': str(e)
             }
 
-    def run_full_scrape(self, max_stores: int = None, initialize_db: bool = True) -> List[Dict]:
-        """Run the complete scraping workflow."""
+    def discover_and_add_new_urls(self) -> List[str]:
+        """
+        Discover new store URLs from sitemaps and add them to the database.
+
+        Returns:
+            List of new URLs that were added to the database
+        """
+        logger.info("Starting URL discovery process...")
+
+        # Get all store URLs from sitemaps
+        all_store_urls = self._get_all_store_urls_from_sitemaps()
+
+        if not all_store_urls:
+            logger.warning("No store URLs found in sitemaps")
+            return []
+
+        logger.info(f"Found {len(all_store_urls)} total store URLs in sitemaps")
+
+        # Get existing URLs from database
+        existing_urls = set()
+        if self.use_database and self.database:
+            existing_urls = self.database.get_existing_urls()
+            logger.info(f"Found {len(existing_urls)} existing URLs in database")
+
+        # Find new URLs
+        new_urls = [url for url in all_store_urls if url not in existing_urls]
+        logger.info(f"Found {len(new_urls)} new URLs to add")
+
+        # Add new URLs to database with minimal placeholder data
+        if new_urls and self.use_database and self.database:
+            added_count = 0
+            for url in new_urls:
+                placeholder_data = {
+                    'url': url,
+                    'name': None,
+                    'address': None,
+                    'ads_count': None,
+                    'has_auto_moto': None,  # Will be determined during scraping
+                    'categories': [],
+                    'new_ads_count': 0,
+                    'used_ads_count': 0,
+                    'scraped': False  # Flag to indicate not yet scraped
+                }
+
+                success = self.database.save_store_data(
+                    url=url,
+                    store_data=placeholder_data,
+                    is_valid=True
+                )
+
+                if success:
+                    added_count += 1
+                else:
+                    logger.warning(f"Failed to add URL to database: {url}")
+
+            logger.info(f"Successfully added {added_count} new URLs to database")
+
+        return new_urls
+
+    def _get_all_store_urls_from_sitemaps(self) -> List[str]:
+        """
+        Get all store URLs from sitemaps without scraping individual stores.
+
+        Returns:
+            List of all store URLs found in sitemaps
+        """
         try:
-            logger.info("Starting Njuskalo sitemap scraping workflow")
-
-            # Initialize database if enabled
-            if self.use_database and initialize_db:
-                try:
-                    self.database = NjuskaloDatabase()
-                    self.database.connect()
-                    self.database.create_tables()
-                    logger.info("Database initialized successfully")
-                except Exception as e:
-                    logger.error(f"Failed to initialize database: {e}")
-                    self.use_database = False  # Fall back to non-database mode
-
             # Setup browser
             if not self.setup_browser():
-                logger.error("Failed to setup browser")
+                logger.error("Failed to setup browser for URL discovery")
                 return []
 
-            # Step 1: Download sitemap index using browser
+            # Step 1: Download sitemap index
             sitemap_index_content = self.download_sitemap_index()
             if not sitemap_index_content:
-                logger.error("Failed to download sitemap index")
+                logger.error("Failed to download sitemap index for URL discovery")
                 return []
 
             # Step 2: Parse sitemap index to get individual sitemap URLs
             sitemap_urls = self.parse_sitemap_index(sitemap_index_content)
             if not sitemap_urls:
-                logger.error("No sitemap URLs found")
+                logger.error("No sitemap URLs found for URL discovery")
                 return []
 
             all_store_urls = set()  # Use set to avoid duplicates
@@ -690,7 +741,7 @@ class NjuskaloSitemapScraper:
             stores_sitemap_found = False
             for sitemap_url in sitemap_urls:
                 if 'stores' in sitemap_url.lower() or 'trgovina' in sitemap_url.lower():
-                    logger.info(f"Processing stores sitemap: {sitemap_url}")
+                    logger.info(f"Processing stores sitemap for URL discovery: {sitemap_url}")
                     stores_sitemap_found = True
 
                     # Download the stores sitemap index (non-gzipped)
@@ -704,7 +755,7 @@ class NjuskaloSitemapScraper:
 
                     # Process each stores XML file (usually .xml.gz files)
                     for stores_xml_url in stores_xml_urls:
-                        logger.info(f"Processing stores XML file: {stores_xml_url}")
+                        logger.info(f"Processing stores XML file for URLs: {stores_xml_url}")
 
                         # Check if it's a .gz file and use appropriate download method
                         if stores_xml_url.endswith('.gz'):
@@ -721,16 +772,16 @@ class NjuskaloSitemapScraper:
                         all_store_urls.update(store_urls)
 
                         # Delay between XML downloads
-                        time.sleep(random.uniform(2, 4))
+                        time.sleep(random.uniform(1, 2))
 
                     # Delay between sitemap processing
-                    time.sleep(random.uniform(1, 3))
+                    time.sleep(random.uniform(1, 2))
 
             # If no stores sitemap found, process all sitemaps as fallback
             if not stores_sitemap_found:
-                logger.info("No specific stores sitemap found, processing all sitemaps")
+                logger.info("No specific stores sitemap found, processing all sitemaps for URL discovery")
                 for sitemap_url in sitemap_urls:
-                    logger.info(f"Processing sitemap: {sitemap_url}")
+                    logger.info(f"Processing sitemap for URL discovery: {sitemap_url}")
 
                     # Download and extract sitemap
                     sitemap_content = self.download_sitemap_with_browser(sitemap_url)
@@ -743,28 +794,84 @@ class NjuskaloSitemapScraper:
                     all_store_urls.update(store_urls)
 
                     # Small delay between sitemap downloads
-                    time.sleep(random.uniform(2, 4))
+                    time.sleep(random.uniform(1, 2))
 
-                    # Break early if we have enough URLs for testing
-                    if max_stores and len(all_store_urls) >= max_stores * 2:  # Get extra to account for filtering
-                        break
+            return list(all_store_urls)
 
-            logger.info(f"Found total of {len(all_store_urls)} unique store URLs")
+        except Exception as e:
+            logger.error(f"Error during URL discovery: {e}")
+            return []
 
-            # Convert to list and limit if needed
-            store_urls_list = list(all_store_urls)
-            if max_stores:
-                store_urls_list = store_urls_list[:max_stores]
-                logger.info(f"Limited to first {len(store_urls_list)} stores for testing")
+    def run_full_scrape(self, max_stores: int = None, initialize_db: bool = True) -> List[Dict]:
+        """Run the optimized scraping workflow that focuses on auto moto stores."""
+        try:
+            logger.info("Starting optimized Njuskalo sitemap scraping workflow")
 
-            # Step 4: Scrape each store
-            for i, store_url in enumerate(store_urls_list, 1):
-                logger.info(f"Processing store {i}/{len(store_urls_list)}: {store_url}")
+            # Initialize database if enabled
+            if self.use_database and initialize_db:
+                try:
+                    self.database = NjuskaloDatabase()
+                    self.database.connect()
+                    self.database.create_tables()
+                    logger.info("Database initialized successfully")
+                except Exception as e:
+                    logger.error(f"Failed to initialize database: {e}")
+                    self.use_database = False  # Fall back to non-database mode
+
+            # Step 1: Discover and add new URLs to database
+            new_urls = self.discover_and_add_new_urls()
+            logger.info(f"URL discovery completed. Found {len(new_urls)} new URLs")
+
+            # Step 2: Determine which stores to scrape
+            stores_to_scrape = []
+
+            if self.use_database and self.database:
+                # Get existing auto moto stores (already identified as having car ads)
+                auto_moto_stores = self.database.get_auto_moto_stores()
+                logger.info(f"Found {len(auto_moto_stores)} existing auto moto stores")
+
+                # Add URLs of auto moto stores that need re-scraping
+                for store in auto_moto_stores:
+                    stores_to_scrape.append(store['url'])
+
+                # Add new URLs that haven't been scraped yet
+                # We need to scrape these to determine if they have car ads
+                new_store_urls = [url for url in new_urls]
+                stores_to_scrape.extend(new_store_urls)
+
+                logger.info(f"Total stores to scrape: {len(stores_to_scrape)} (Auto moto: {len(auto_moto_stores)}, New: {len(new_store_urls)})")
+            else:
+                # Fallback: if no database, just scrape new URLs
+                stores_to_scrape = new_urls
+                logger.info(f"No database available, will scrape {len(stores_to_scrape)} new URLs")
+
+            # Limit stores if max_stores is specified
+            if max_stores and len(stores_to_scrape) > max_stores:
+                stores_to_scrape = stores_to_scrape[:max_stores]
+                logger.info(f"Limited to first {len(stores_to_scrape)} stores for testing")
+
+            # Step 3: Setup browser for scraping
+            if not self.setup_browser():
+                logger.error("Failed to setup browser")
+                return []
+
+            # Step 4: Scrape selected stores
+            auto_moto_count = 0
+            non_auto_moto_count = 0
+
+            for i, store_url in enumerate(stores_to_scrape, 1):
+                logger.info(f"Processing store {i}/{len(stores_to_scrape)}: {store_url}")
 
                 try:
                     store_data = self.scrape_store_info(store_url)
                     if store_data:
                         self.stores_data.append(store_data)
+
+                        # Track auto moto vs non-auto moto
+                        if store_data.get('has_auto_moto'):
+                            auto_moto_count += 1
+                        else:
+                            non_auto_moto_count += 1
 
                         # Save to database if enabled
                         if self.use_database and self.database:
@@ -794,6 +901,7 @@ class NjuskaloSitemapScraper:
                 time.sleep(random.uniform(3, 7))
 
             logger.info(f"Completed scraping {len(self.stores_data)} stores")
+            logger.info(f"Auto moto stores: {auto_moto_count}, Non-auto moto stores: {non_auto_moto_count}")
 
             # Print database statistics if enabled
             if self.use_database and self.database:
@@ -806,7 +914,95 @@ class NjuskaloSitemapScraper:
             return self.stores_data
 
         except Exception as e:
-            logger.error(f"Error in full scrape workflow: {e}")
+            logger.error(f"Error in optimized scrape workflow: {e}")
+            return self.stores_data
+        finally:
+            # Clean up database connection
+            if self.use_database and self.database:
+                try:
+                    self.database.disconnect()
+                    logger.info("Database connection closed")
+                except Exception as e:
+                    logger.warning(f"Error closing database connection: {e}")
+
+    def run_auto_moto_only_scrape(self, max_stores: int = None) -> List[Dict]:
+        """
+        Run scraping workflow that only processes stores known to have auto moto category.
+        This is the most efficient mode for getting car-related data.
+        """
+        try:
+            logger.info("Starting auto moto only scraping workflow")
+
+            # Initialize database
+            if self.use_database:
+                try:
+                    self.database = NjuskaloDatabase()
+                    self.database.connect()
+                    self.database.create_tables()
+                    logger.info("Database initialized successfully")
+                except Exception as e:
+                    logger.error(f"Failed to initialize database: {e}")
+                    return []
+            else:
+                logger.error("Database is required for auto moto only scraping")
+                return []
+
+            # Get auto moto stores from database
+            auto_moto_stores = self.database.get_auto_moto_stores()
+
+            if not auto_moto_stores:
+                logger.warning("No auto moto stores found in database. Run full scrape first to identify auto moto stores.")
+                return []
+
+            logger.info(f"Found {len(auto_moto_stores)} auto moto stores to scrape")
+
+            # Limit stores if specified
+            stores_to_scrape = [store['url'] for store in auto_moto_stores]
+            if max_stores and len(stores_to_scrape) > max_stores:
+                stores_to_scrape = stores_to_scrape[:max_stores]
+                logger.info(f"Limited to first {len(stores_to_scrape)} auto moto stores")
+
+            # Setup browser
+            if not self.setup_browser():
+                logger.error("Failed to setup browser")
+                return []
+
+            # Scrape only auto moto stores
+            for i, store_url in enumerate(stores_to_scrape, 1):
+                logger.info(f"Processing auto moto store {i}/{len(stores_to_scrape)}: {store_url}")
+
+                try:
+                    store_data = self.scrape_store_info(store_url)
+                    if store_data:
+                        self.stores_data.append(store_data)
+
+                        # Update database with latest data
+                        if self.database:
+                            is_valid = store_data.get('error') is None
+                            success = self.database.save_store_data(
+                                url=store_url,
+                                store_data=store_data,
+                                is_valid=is_valid
+                            )
+                            if success:
+                                logger.debug(f"Updated store data in database: {store_url}")
+                            else:
+                                logger.warning(f"Failed to update store data in database: {store_url}")
+
+                except Exception as e:
+                    logger.error(f"Error processing auto moto store {store_url}: {e}")
+                    if self.database:
+                        self.database.mark_url_invalid(store_url)
+
+                # Random delay between store visits
+                time.sleep(random.uniform(3, 7))
+
+            logger.info(f"Completed scraping {len(self.stores_data)} auto moto stores")
+
+            return self.stores_data
+
+        except Exception as e:
+            logger.error(f"Error in auto moto only scrape workflow: {e}")
             return self.stores_data
         finally:
             # Clean up database connection
