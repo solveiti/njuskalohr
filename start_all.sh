@@ -26,12 +26,12 @@ sleep 3
 
 # Start FastAPI server (foreground)
 echo "Starting FastAPI server..."
-echo "Dashboard will be available at: http://localhost:8000"
-echo "API documentation will be available at: http://localhost:8000/docs"
+echo "Dashboard will be available at: http://localhost:9090"
+echo "API documentation will be available at: http://localhost:9090/docs"
 echo ""
 echo "Press Ctrl+C to stop all services"
 
 # Trap SIGINT to stop all services
 trap 'echo "Stopping services..."; pkill -F celery_worker.pid; pkill -F celery_beat.pid; exit' INT
 
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn api:app --host 0.0.0.0 --port 9090 --reload
