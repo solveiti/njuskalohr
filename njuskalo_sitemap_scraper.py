@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 class NjuskaloSitemapScraper:
     """Web scraper for Njuskalo stores using sitemap approach."""
 
-    def __init__(self, headless: bool = False, use_database: bool = True):
+    def __init__(self, headless: bool = True, use_database: bool = True):
         """
         Initialize the scraper with Chrome WebDriver.
 
@@ -1088,7 +1088,7 @@ class NjuskaloSitemapScraper:
 
 
 if __name__ == "__main__":
-    # Example usage
+    # Example usage - use visible browser for manual testing/debugging
     scraper = NjuskaloSitemapScraper(headless=False)
 
     try:

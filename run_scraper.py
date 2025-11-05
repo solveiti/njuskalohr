@@ -9,7 +9,7 @@ from njuskalo_sitemap_scraper import NjuskaloSitemapScraper
 import time
 
 
-def run_scraper(headless=False, output_file=None, max_stores=None, use_database=True):
+def run_scraper(headless=True, output_file=None, max_stores=None, use_database=True):
     """
     Run the sitemap-based store scraper with specified options.
 

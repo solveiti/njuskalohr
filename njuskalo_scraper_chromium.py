@@ -83,7 +83,7 @@ def install_chromium():
 class NjuskaloCarScraperChromium:
     """Web scraper for Njuskalo car listings using Chromium/Chrome."""
 
-    def __init__(self, headless: bool = False):
+    def __init__(self, headless: bool = True):
         """Initialize the scraper with Chrome/Chromium WebDriver."""
         self.driver = None
         self.base_url = "https://www.njuskalo.hr"
@@ -466,7 +466,7 @@ def main():
         print("==========================================")
         print("Initializing scraper...")
 
-        scraper = NjuskaloCarScraperChromium(headless=False)
+        scraper = NjuskaloCarScraperChromium(headless=False)  # Visible browser for testing
 
         print("Scraping car listings...")
         cars_data = scraper.scrape_cars()

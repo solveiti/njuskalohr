@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class NjuskaloCarScraper:
     """Web scraper for Njuskalo car listings with human-like behavior simulation."""
 
-    def __init__(self, headless: bool = False):
+    def __init__(self, headless: bool = True):
         """
         Initialize the scraper with Chrome WebDriver.
 
@@ -451,7 +451,7 @@ def main():
         print("===================")
         print("Initializing scraper...")
 
-        # Create scraper instance (set headless=True to run without GUI)
+        # Create scraper instance (set headless=False for visible browser during testing)
         scraper = NjuskaloCarScraper(headless=False)
 
         print("Scraping car listings...")

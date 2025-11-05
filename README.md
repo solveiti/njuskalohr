@@ -69,7 +69,8 @@ For command line options:
 
 ```bash
 python run_scraper.py --help
-python run_scraper.py --headless --max-stores 10  # Test run
+python run_scraper.py --max-stores 10  # Test run (runs headless by default)
+python run_scraper.py --no-headless --max-stores 10  # Test run with visible browser
 python run_scraper.py --no-database  # Skip database storage
 ```
 

@@ -4,7 +4,7 @@ Configuration settings for Njuskalo sitemap-based store scraper.
 """
 
 # Scraping settings
-HEADLESS_MODE = False
+HEADLESS_MODE = True
 BASE_URL = "https://www.njuskalo.hr"
 SITEMAP_INDEX_URL = "https://www.njuskalo.hr/sitemap-index.xml"
 STORES_SITEMAP_URL = "https://www.njuskalo.hr/sitemap-index-stores.xml"
