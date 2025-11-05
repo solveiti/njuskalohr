@@ -10,16 +10,18 @@ services:
     command: redis-server --appendonly yes
     restart: unless-stopped
 
-  postgres:
-    image: postgres:15-alpine
+  mysql:
+    image: mysql:8.0
     environment:
-      POSTGRES_DB: njuskalohr
-      POSTGRES_USER: njuskalo_user
-      POSTGRES_PASSWORD: njuskalo_password
+      MYSQL_DATABASE: njuskalohr
+      MYSQL_USER: hellios
+      MYSQL_PASSWORD: 6hell6is6
+      MYSQL_ROOT_PASSWORD: root_password_change_me
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     restart: unless-stopped
 
   njuskalo_worker:
@@ -30,12 +32,12 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
     environment:
       - DISPLAY=${DISPLAY}
-      - DATABASE_URL=postgresql://njuskalo_user:njuskalo_password@postgres:5432/njuskalohr
+      - DATABASE_URL=mysql+pymysql://hellios:6hell6is6@mysql:3306/njuskalohr
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
-      - postgres
+      - mysql
     restart: unless-stopped
     deploy:
       resources:
@@ -50,12 +52,12 @@ services:
     volumes:
       - .:/app
     environment:
-      - DATABASE_URL=postgresql://njuskalo_user:njuskalo_password@postgres:5432/njuskalohr
+      - DATABASE_URL=mysql+pymysql://hellios:6hell6is6@mysql:3306/njuskalohr
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
-      - postgres
+      - mysql
     restart: unless-stopped
 
   njuskalo_api:
@@ -66,14 +68,14 @@ services:
     volumes:
       - .:/app
     environment:
-      - DATABASE_URL=postgresql://njuskalo_user:njuskalo_password@postgres:5432/njuskalohr
+      - DATABASE_URL=mysql+pymysql://hellios:6hell6is6@mysql:3306/njuskalohr
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - API_HOST=0.0.0.0
       - API_PORT=8000
     depends_on:
       - redis
-      - postgres
+      - mysql
       - njuskalo_worker
     restart: unless-stopped
 
@@ -91,4 +93,4 @@ services:
 
 volumes:
   redis_data:
-  postgres_data:
+  mysql_data:

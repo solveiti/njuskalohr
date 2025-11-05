@@ -405,4 +405,9 @@ if __name__ == "__main__":
     port = int(os.getenv("API_PORT", 8000))
     reload = os.getenv("API_RELOAD", "True").lower() == "true"
 
-    uvicorn.run(app, host=host, port=port, reload=reload)
+    if reload:
+        # Use import string for reload mode
+        uvicorn.run("api:app", host=host, port=port, reload=reload)
+    else:
+        # Use app object for non-reload mode
+        uvicorn.run(app, host=host, port=port, reload=reload)
