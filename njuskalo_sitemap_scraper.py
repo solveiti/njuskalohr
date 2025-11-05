@@ -6,9 +6,9 @@ This script scrapes store information from njuskalo.hr by:
 1. Downloading the sitemap index XML
 2. Finding store-related sitemaps
 3. Downloading and extracting gzipped XML files
-4. Visiting store URLs (trgovina) to scrape store data
+4. Visiting store URLs (trgovina) with categoryId=2 filter to show only car ads
 5. Checking if stores post in categoryId 2 ("Auto moto")
-6. Extracting address and ad count information
+6. Extracting address and ad count information for car-related ads only
 """
 
 import time
@@ -315,6 +315,34 @@ class NjuskaloSitemapScraper:
             logger.error(f"Failed to extract store URLs: {e}")
             return []
 
+    def add_car_category_filter(self, url: str) -> str:
+        """
+        Add categoryId=2 parameter to URL to filter for cars only.
+
+        This ensures that when visiting store pages, only car-related ads
+        are displayed, which improves the accuracy of vehicle counting
+        and eliminates irrelevant listings.
+
+        Args:
+            url: The original store URL
+
+        Returns:
+            URL with categoryId=2 parameter added
+        """
+        try:
+            if '?' in url:
+                # URL already has parameters, add categoryId as additional parameter
+                filtered_url = f"{url}&categoryId=2"
+            else:
+                # URL has no parameters, add categoryId as first parameter
+                filtered_url = f"{url}?categoryId=2"
+
+            logger.debug(f"Added car filter to URL: {url} -> {filtered_url}")
+            return filtered_url
+        except Exception as e:
+            logger.warning(f"Failed to add car filter to URL {url}: {e}")
+            return url
+
     def count_vehicle_ads(self, store_url: str) -> Dict[str, int]:
         """Count 'Novo vozilo' and 'Rabljeno vozilo' ads by paginating through all store ads."""
         new_count = 0
@@ -322,13 +350,16 @@ class NjuskaloSitemapScraper:
         page = 1
         max_pages = 20  # Safety limit to prevent infinite loops
 
+        # Add car category filter to base URL
+        filtered_store_url = self.add_car_category_filter(store_url)
+
         try:
             while page <= max_pages:
-                # Construct paginated URL
-                if '?' in store_url:
-                    paginated_url = f"{store_url}&page={page}"
+                # Construct paginated URL with car filter
+                if '?' in filtered_store_url:
+                    paginated_url = f"{filtered_store_url}&page={page}"
                 else:
-                    paginated_url = f"{store_url}?page={page}"
+                    paginated_url = f"{filtered_store_url}?page={page}"
 
                 logger.info(f"Checking page {page} of store ads: {paginated_url}")
 
@@ -350,7 +381,8 @@ class NjuskaloSitemapScraper:
                     '.ad-item',
                     '.listing-item',
                     '[data-testid="ad-item"]',
-                    '.classified-item'
+                    '.classified-item',
+                    '.entity-flag'
                 ]
 
                 ads_found = False
@@ -429,9 +461,11 @@ class NjuskaloSitemapScraper:
     def scrape_store_info(self, store_url: str) -> Optional[Dict]:
         """Scrape information from a store page."""
         try:
-            logger.info(f"Scraping store: {store_url}")
+            # Add car category filter to URL
+            filtered_url = self.add_car_category_filter(store_url)
+            logger.info(f"Scraping store: {store_url} (filtered: {filtered_url})")
 
-            self.driver.get(store_url)
+            self.driver.get(filtered_url)
 
             # Random delay to mimic human behavior
             time.sleep(random.uniform(2, 5))
