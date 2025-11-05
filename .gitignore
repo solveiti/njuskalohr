@@ -29,8 +29,6 @@ celerybeat-schedule
 celerybeat.pid
 celery_worker.pid
 celery_beat.pid
-celery_worker.log
-celery_beat.log
 
 # FastAPI / Uvicorn
 *.pid
@@ -65,7 +63,6 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-*.log
 sitemap_scraper.log
 scraper.log
 *.xlsx
@@ -73,6 +70,10 @@ scraper.log
 debug_*.html
 step*.html
 decompressed_*.xml
+
+# Logs directory
+logs/
+logs/*.log
 
 # Data dump directory (Excel files)
 datadump/

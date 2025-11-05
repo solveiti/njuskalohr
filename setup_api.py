@@ -204,7 +204,7 @@ User={user}
 Group={user}
 WorkingDirectory={app_dir}
 Environment=PATH={app_dir}/.venv/bin
-ExecStart={app_dir}/.venv/bin/celery -A celery_config worker --loglevel=info --pidfile={app_dir}/celery_worker.pid --detach
+ExecStart={app_dir}/.venv/bin/celery -A celery_config worker --loglevel=info --pidfile={app_dir}/celery_worker.pid --logfile={app_dir}/logs/celery_worker.log --detach
 ExecStop=/bin/kill -s TERM $MAINPID
 PIDFile={app_dir}/celery_worker.pid
 Restart=always
@@ -224,7 +224,7 @@ User={user}
 Group={user}
 WorkingDirectory={app_dir}
 Environment=PATH={app_dir}/.venv/bin
-ExecStart={app_dir}/.venv/bin/celery -A celery_config beat --loglevel=info --pidfile={app_dir}/celery_beat.pid --detach
+ExecStart={app_dir}/.venv/bin/celery -A celery_config beat --loglevel=info --pidfile={app_dir}/celery_beat.pid --logfile={app_dir}/logs/celery_beat.log --detach
 ExecStop=/bin/kill -s TERM $MAINPID
 PIDFile={app_dir}/celery_beat.pid
 Restart=always
@@ -315,7 +315,7 @@ def main():
     print("4. View API docs: http://localhost:8000/docs")
     print("5. Monitor tasks: http://localhost:5555 (Flower)")
     print("\nUseful commands:")
-    print("- View logs: tail -f celery_worker.log celery_beat.log")
+    print("- View logs: tail -f logs/celery_worker.log logs/celery_beat.log")
     print("- Stop services: ./stop_all.sh")
     print("- Monitor Redis: redis-cli monitor")
 

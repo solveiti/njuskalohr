@@ -43,7 +43,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('migration.log'),
+        logging.FileHandler('logs/migration.log'),
         logging.StreamHandler()
     ]
 )

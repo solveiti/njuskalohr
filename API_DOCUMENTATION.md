@@ -323,10 +323,10 @@ API_PORT=8000
 
 ```bash
 # View real-time logs
-tail -f celery_worker.log celery_beat.log
+tail -f logs/celery_worker.log logs/celery_beat.log
 
 # API logs (if running in background)
-tail -f api.log
+tail -f logs/api.log
 ```
 
 ### Redis Monitoring
@@ -364,7 +364,7 @@ celery -A celery_config purge
 
 2. **Worker Not Processing Tasks**
 
-   - Check worker logs: `tail -f celery_worker.log`
+   - Check worker logs: `tail -f logs/celery_worker.log`
    - Restart worker: `./stop_all.sh && ./start_all.sh`
 
 3. **Database Connection Error**

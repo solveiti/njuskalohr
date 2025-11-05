@@ -15,11 +15,11 @@ echo "Starting all Njuskalo scraper services..."
 
 # Start Celery worker in background
 echo "Starting Celery worker..."
-celery -A celery_config worker --loglevel=info --concurrency=4 --detach --pidfile=celery_worker.pid --logfile=celery_worker.log
+celery -A celery_config worker --loglevel=info --concurrency=4 --detach --pidfile=celery_worker.pid --logfile=logs/celery_worker.log
 
 # Start Celery beat in background
 echo "Starting Celery beat scheduler..."
-celery -A celery_config beat --loglevel=info --detach --pidfile=celery_beat.pid --logfile=celery_beat.log
+celery -A celery_config beat --loglevel=info --detach --pidfile=celery_beat.pid --logfile=logs/celery_beat.log
 
 # Give Celery services time to start
 sleep 3

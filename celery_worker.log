@@ -1,0 +1,542 @@
+[2025-11-05 10:46:57,340: INFO/ForkPoolWorker-2] Successfully scraped store: Auto centar Rajković (Auto Moto: True, Ads: 27)
+[2025-11-05 10:46:57,354: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/acrajkovic
+[2025-11-05 10:46:59,893: INFO/ForkPoolWorker-3] Processing store 518/2985: https://www.njuskalo.hr/trgovina/sulog
+[2025-11-05 10:46:59,894: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/sulog
+[2025-11-05 10:47:00,774: INFO/ForkPoolWorker-4] Processing store 155/2985: https://www.njuskalo.hr/trgovina/plovila-mlakar
+[2025-11-05 10:47:00,774: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/plovila-mlakar
+[2025-11-05 10:47:01,536: INFO/ForkPoolWorker-1] Successfully scraped store: OPG Rebić (Auto Moto: False, Ads: 2)
+[2025-11-05 10:47:01,550: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/opgmarkorebic
+[2025-11-05 10:47:02,721: INFO/ForkPoolWorker-2] Processing store 1211/2985: https://www.njuskalo.hr/trgovina/CoolPlay
+[2025-11-05 10:47:02,721: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/CoolPlay
+[2025-11-05 10:47:05,450: INFO/ForkPoolWorker-1] Processing store 874/2985: https://www.njuskalo.hr/trgovina/vamaautomobili
+[2025-11-05 10:47:05,450: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/vamaautomobili
+[2025-11-05 10:47:06,328: INFO/ForkPoolWorker-3] Successfully scraped store: OPG ŠULOG (Auto Moto: False, Ads: 298)
+[2025-11-05 10:47:06,341: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/sulog
+[2025-11-05 10:47:06,822: INFO/ForkPoolWorker-4] Successfully scraped store: Mlakar Plovila d.o.o. (Auto Moto: True, Ads: 15)
+[2025-11-05 10:47:06,834: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/plovila-mlakar
+[2025-11-05 10:47:08,952: INFO/ForkPoolWorker-2] Successfully scraped store: Cool Play (Auto Moto: False, Ads: 5)
+[2025-11-05 10:47:08,965: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/CoolPlay
+[2025-11-05 10:47:10,620: INFO/ForkPoolWorker-1] Successfully scraped store: VA-MA AUTOMOBILI (Auto Moto: True, Ads: 5)
+[2025-11-05 10:47:10,633: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/vamaautomobili
+[2025-11-05 10:47:11,604: INFO/ForkPoolWorker-4] Processing store 156/2985: https://www.njuskalo.hr/trgovina/Rabljena-Lj
+[2025-11-05 10:47:11,604: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/Rabljena-Lj
+[2025-11-05 10:47:12,191: INFO/ForkPoolWorker-3] Processing store 519/2985: https://www.njuskalo.hr/trgovina/ZlatnaRibicazg
+[2025-11-05 10:47:12,191: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/ZlatnaRibicazg
+[2025-11-05 10:47:12,398: INFO/ForkPoolWorker-2] Processing store 1212/2985: https://www.njuskalo.hr/trgovina/MX1MX2
+[2025-11-05 10:47:12,398: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/MX1MX2
+[2025-11-05 10:47:15,934: INFO/ForkPoolWorker-3] Successfully scraped store: Zlatna Ribica (Auto Moto: True, Ads: 649)
+[2025-11-05 10:47:15,937: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/ZlatnaRibicazg
+[2025-11-05 10:47:16,755: INFO/ForkPoolWorker-4] Successfully scraped store: Avtotehna Vis d.o.o. (Auto Moto: True, Ads: 97)
+[2025-11-05 10:47:16,759: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/Rabljena-Lj
+[2025-11-05 10:47:16,867: INFO/ForkPoolWorker-2] Successfully scraped store: MOTO MATUŠIĆ (Auto Moto: True, Ads: 13)
+[2025-11-05 10:47:16,880: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/MX1MX2
+[2025-11-05 10:47:17,082: INFO/ForkPoolWorker-1] Processing store 875/2985: https://www.njuskalo.hr/trgovina/MerkandMerk
+[2025-11-05 10:47:17,082: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/MerkandMerk
+[2025-11-05 10:47:20,291: INFO/ForkPoolWorker-1] Successfully scraped store: Merk and Merk Dry Marina Vodice (Auto Moto: False, Ads: 1)
+[2025-11-05 10:47:20,304: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/MerkandMerk
+[2025-11-05 10:47:20,532: INFO/ForkPoolWorker-4] Processing store 157/2985: https://www.njuskalo.hr/trgovina/Unicumauto1
+[2025-11-05 10:47:20,533: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/Unicumauto1
+[2025-11-05 10:47:22,357: INFO/ForkPoolWorker-3] Processing store 520/2985: https://www.njuskalo.hr/trgovina/alestoautomobili
+[2025-11-05 10:47:22,357: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/alestoautomobili
+[2025-11-05 10:47:23,448: INFO/ForkPoolWorker-2] Processing store 1213/2985: https://www.njuskalo.hr/trgovina/HAMAMG
+[2025-11-05 10:47:23,448: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/HAMAMG
+[2025-11-05 10:47:25,315: INFO/ForkPoolWorker-4] Successfully scraped store: Unicum Auto d.o.o (Auto Moto: True, Ads: 4)
+[2025-11-05 10:47:25,319: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/Unicumauto1
+[2025-11-05 10:47:26,937: INFO/ForkPoolWorker-3] Successfully scraped store: Alesto Automobili j.d.o.o (Auto Moto: True, Ads: 20)
+[2025-11-05 10:47:26,950: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/alestoautomobili
+[2025-11-05 10:47:27,123: INFO/ForkPoolWorker-1] Processing store 876/2985: https://www.njuskalo.hr/trgovina/auto-arbanas
+[2025-11-05 10:47:27,123: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/auto-arbanas
+[2025-11-05 10:47:29,328: INFO/ForkPoolWorker-4] Processing store 158/2985: https://www.njuskalo.hr/trgovina/ivram
+[2025-11-05 10:47:29,328: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/ivram
+[2025-11-05 10:47:29,568: INFO/ForkPoolWorker-2] Successfully scraped store: HAMAMG (Auto Moto: True, Ads: 1)
+[2025-11-05 10:47:29,581: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/HAMAMG
+[2025-11-05 10:47:32,605: INFO/ForkPoolWorker-1] Successfully scraped store: Auto Arbanas (Auto Moto: True, Ads: 49)
+[2025-11-05 10:47:32,617: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/auto-arbanas
+[2025-11-05 10:47:33,565: INFO/ForkPoolWorker-3] Processing store 521/2985: https://www.njuskalo.hr/trgovina/alteres
+[2025-11-05 10:47:33,565: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/alteres
+[2025-11-05 10:47:34,130: INFO/ForkPoolWorker-4] Successfully scraped store: ivram (Auto Moto: False, Ads: 5)
+[2025-11-05 10:47:34,143: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/ivram
+[2025-11-05 10:47:35,745: INFO/ForkPoolWorker-2] Processing store 1214/2985: https://www.njuskalo.hr/trgovina/sentio
+[2025-11-05 10:47:35,745: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/sentio
+[2025-11-05 10:47:38,247: INFO/ForkPoolWorker-1] Processing store 877/2985: https://www.njuskalo.hr/trgovina/berikoobjekti
+[2025-11-05 10:47:38,247: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/berikoobjekti
+[2025-11-05 10:47:39,334: INFO/ForkPoolWorker-3] Successfully scraped store: Invixio (Auto Moto: False, Ads: 9)
+[2025-11-05 10:47:39,347: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/alteres
+[2025-11-05 10:47:40,189: INFO/ForkPoolWorker-4] Processing store 159/2985: https://www.njuskalo.hr/trgovina/KOUSilnica
+[2025-11-05 10:47:40,190: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/KOUSilnica
+[2025-11-05 10:47:42,470: INFO/ForkPoolWorker-1] Successfully scraped store: BERIKO montažni OBJEKTI (Auto Moto: False, Ads: 17)
+[2025-11-05 10:47:42,483: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/berikoobjekti
+[2025-11-05 10:47:43,176: INFO/ForkPoolWorker-2] Successfully scraped store: SENTIO d.o.o. (Auto Moto: True, Ads: 40)
+[2025-11-05 10:47:43,189: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/sentio
+[2025-11-05 10:47:45,066: INFO/ForkPoolWorker-4] Successfully scraped store: KOUSilnica (Auto Moto: True, Ads: 10)
+[2025-11-05 10:47:45,081: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/KOUSilnica
+[2025-11-05 10:47:45,271: INFO/ForkPoolWorker-3] Processing store 522/2985: https://www.njuskalo.hr/trgovina/AutoFull032
+[2025-11-05 10:47:45,271: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/AutoFull032
+[2025-11-05 10:47:48,389: INFO/ForkPoolWorker-2] Processing store 1215/2985: https://www.njuskalo.hr/trgovina/baterije-panasonic
+[2025-11-05 10:47:48,390: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/baterije-panasonic
+[2025-11-05 10:47:48,536: INFO/ForkPoolWorker-4] Processing store 160/2985: https://www.njuskalo.hr/trgovina/meca
+[2025-11-05 10:47:48,536: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/meca
+[2025-11-05 10:47:49,100: INFO/ForkPoolWorker-1] Processing store 878/2985: https://www.njuskalo.hr/trgovina/kombi-dostavna-vozila
+[2025-11-05 10:47:49,101: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/kombi-dostavna-vozila
+[2025-11-05 10:47:50,345: INFO/ForkPoolWorker-3] Successfully scraped store: Full032 (Auto Moto: True, Ads: 6)
+[2025-11-05 10:47:50,361: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/AutoFull032
+[2025-11-05 10:47:52,948: INFO/ForkPoolWorker-2] Successfully scraped store: Baterije Panasonic (Auto Moto: False, Ads: 4)
+[2025-11-05 10:47:52,961: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/baterije-panasonic
+[2025-11-05 10:47:53,206: INFO/ForkPoolWorker-1] Successfully scraped store: KOMBI I DOSTAVNA VOZILA d.o.o. (Auto Moto: True, Ads: 9)
+[2025-11-05 10:47:53,219: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/kombi-dostavna-vozila
+[2025-11-05 10:47:54,836: INFO/ForkPoolWorker-4] Successfully scraped store: Sisak Auto (Auto Moto: True, Ads: 66)
+[2025-11-05 10:47:54,849: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/meca
+[2025-11-05 10:47:55,698: INFO/ForkPoolWorker-3] Processing store 523/2985: https://www.njuskalo.hr/trgovina/mercedes-benz-leasing
+[2025-11-05 10:47:55,698: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/mercedes-benz-leasing
+[2025-11-05 10:47:56,898: INFO/ForkPoolWorker-1] Processing store 879/2985: https://www.njuskalo.hr/trgovina/toplinecars
+[2025-11-05 10:47:56,898: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/toplinecars
+[2025-11-05 10:47:58,587: INFO/ForkPoolWorker-2] Processing store 1216/2985: https://www.njuskalo.hr/trgovina/elnino3690
+[2025-11-05 10:47:58,587: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/elnino3690
+[2025-11-05 10:48:01,150: INFO/ForkPoolWorker-3] Successfully scraped store: Mobil leasing (Auto Moto: True, Ads: 2)
+[2025-11-05 10:48:01,163: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/mercedes-benz-leasing
+[2025-11-05 10:48:01,435: INFO/ForkPoolWorker-4] Processing store 161/2985: https://www.njuskalo.hr/trgovina/markosagud
+[2025-11-05 10:48:01,435: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/markosagud
+[2025-11-05 10:48:01,972: INFO/ForkPoolWorker-1] Successfully scraped store: Top Line Cars d.o.o. (Auto Moto: True, Ads: 4)
+[2025-11-05 10:48:01,985: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/toplinecars
+[2025-11-05 10:48:02,065: INFO/ForkPoolWorker-2] Successfully scraped store: OPG Prusec (Auto Moto: False, Ads: 4)
+[2025-11-05 10:48:02,068: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/elnino3690
+[2025-11-05 10:48:06,754: INFO/ForkPoolWorker-4] Successfully scraped store: markosagud (Auto Moto: False, Ads: 10)
+[2025-11-05 10:48:06,767: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/markosagud
+[2025-11-05 10:48:07,337: INFO/ForkPoolWorker-3] Processing store 524/2985: https://www.njuskalo.hr/trgovina/medicline
+[2025-11-05 10:48:07,337: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/medicline
+[2025-11-05 10:48:07,823: INFO/ForkPoolWorker-1] Processing store 880/2985: https://www.njuskalo.hr/trgovina/amautodoo
+[2025-11-05 10:48:07,823: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/amautodoo
+[2025-11-05 10:48:08,244: INFO/ForkPoolWorker-2] Processing store 1217/2985: https://www.njuskalo.hr/trgovina/minibuscroatia
+[2025-11-05 10:48:08,244: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/minibuscroatia
+[2025-11-05 10:48:12,416: INFO/ForkPoolWorker-3] Successfully scraped store: MEDICline d.o.o. (Auto Moto: True, Ads: 4)
+[2025-11-05 10:48:12,429: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/medicline
+[2025-11-05 10:48:12,454: INFO/ForkPoolWorker-4] Processing store 162/2985: https://www.njuskalo.hr/trgovina/HOTELSALONAPALACE
+[2025-11-05 10:48:12,454: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/HOTELSALONAPALACE
+[2025-11-05 10:48:14,320: INFO/ForkPoolWorker-2] Successfully scraped store: MinibusCroatia (Auto Moto: True, Ads: 7)
+[2025-11-05 10:48:14,333: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/minibuscroatia
+[2025-11-05 10:48:16,511: INFO/ForkPoolWorker-4] Successfully scraped store: HOTELSALONAPALACE (Auto Moto: False, Ads: 1)
+[2025-11-05 10:48:16,514: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/HOTELSALONAPALACE
+[2025-11-05 10:48:17,796: INFO/ForkPoolWorker-2] Processing store 1218/2985: https://www.njuskalo.hr/trgovina/subadventure
+[2025-11-05 10:48:17,797: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/subadventure
+[2025-11-05 10:48:18,556: INFO/ForkPoolWorker-3] Processing store 525/2985: https://www.njuskalo.hr/trgovina/acjedan
+[2025-11-05 10:48:18,556: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/acjedan
+[2025-11-05 10:48:22,019: INFO/ForkPoolWorker-4] Processing store 163/2985: https://www.njuskalo.hr/trgovina/aszeljko
+[2025-11-05 10:48:22,019: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/aszeljko
+[2025-11-05 10:48:23,139: INFO/ForkPoolWorker-2] Successfully scraped store: ZADAR SUB (Auto Moto: False, Ads: 244)
+[2025-11-05 10:48:23,151: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/subadventure
+[2025-11-05 10:48:24,575: INFO/ForkPoolWorker-3] Successfully scraped store: AUTO CENTAR JEDAN D.O.O. (Auto Moto: True, Ads: 11)
+[2025-11-05 10:48:24,587: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/acjedan
+[2025-11-05 10:48:26,584: INFO/ForkPoolWorker-4] Successfully scraped store: Auto salon Zeljko (Auto Moto: True, Ads: 21)
+[2025-11-05 10:48:26,597: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/aszeljko
+[2025-11-05 10:48:26,976: INFO/ForkPoolWorker-1] Successfully scraped store: A.M. AUTO d.o.o. (Auto Moto: True, Ads: 33)
+[2025-11-05 10:48:26,989: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/amautodoo
+[2025-11-05 10:48:27,774: INFO/ForkPoolWorker-3] Processing store 526/2985: https://www.njuskalo.hr/trgovina/autocentarbrabec
+[2025-11-05 10:48:27,775: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/autocentarbrabec
+[2025-11-05 10:48:28,823: INFO/ForkPoolWorker-2] Processing store 1219/2985: https://www.njuskalo.hr/trgovina/greenautodijelovi
+[2025-11-05 10:48:28,824: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/greenautodijelovi
+[2025-11-05 10:48:31,469: INFO/ForkPoolWorker-1] Processing store 881/2985: https://www.njuskalo.hr/trgovina/zalagaonicaimportanecentar
+[2025-11-05 10:48:31,469: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/zalagaonicaimportanecentar
+[2025-11-05 10:48:31,871: INFO/ForkPoolWorker-3] Successfully scraped store: AUTO CENTAR BRABEC (Auto Moto: True, Ads: 5)
+[2025-11-05 10:48:31,884: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/autocentarbrabec
+[2025-11-05 10:48:33,049: INFO/ForkPoolWorker-4] Processing store 164/2985: https://www.njuskalo.hr/trgovina/ecostar
+[2025-11-05 10:48:33,049: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/ecostar
+[2025-11-05 10:48:35,590: INFO/ForkPoolWorker-1] Successfully scraped store: Zalagaonica Mesnička (Auto Moto: False, Ads: 251)
+[2025-11-05 10:48:35,603: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/zalagaonicaimportanecentar
+[2025-11-05 10:48:35,959: INFO/ForkPoolWorker-2] Successfully scraped store: AUTO DIJELOVI (Auto Moto: True, Ads: 167)
+[2025-11-05 10:48:35,972: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/greenautodijelovi
+[2025-11-05 10:48:36,189: INFO/ForkPoolWorker-3] Processing store 527/2985: https://www.njuskalo.hr/trgovina/secodoo
+[2025-11-05 10:48:36,189: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/secodoo
+[2025-11-05 10:48:37,748: INFO/ForkPoolWorker-4] Successfully scraped store: Ecostar d.o.o Prodaja rabljenih vozila (Auto Moto: True, Ads: 18)
+[2025-11-05 10:48:37,762: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/ecostar
+[2025-11-05 10:48:40,962: INFO/ForkPoolWorker-1] Processing store 882/2985: https://www.njuskalo.hr/trgovina/intermoto
+[2025-11-05 10:48:40,962: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/intermoto
+[2025-11-05 10:48:42,111: INFO/ForkPoolWorker-3] Successfully scraped store: S-ECO d.o.o. (Auto Moto: False, Ads: 27)
+[2025-11-05 10:48:42,114: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/secodoo
+[2025-11-05 10:48:42,219: INFO/ForkPoolWorker-2] Processing store 1220/2985: https://www.njuskalo.hr/trgovina/autotril
+[2025-11-05 10:48:42,220: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/autotril
+[2025-11-05 10:48:44,118: INFO/ForkPoolWorker-4] Processing store 165/2985: https://www.njuskalo.hr/trgovina/pogra535
+[2025-11-05 10:48:44,118: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/pogra535
+[2025-11-05 10:48:46,867: INFO/ForkPoolWorker-2] Successfully scraped store: Auto Tril d.o.o. (Auto Moto: True, Ads: 43)
+[2025-11-05 10:48:46,880: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/autotril
+[2025-11-05 10:48:47,684: INFO/ForkPoolWorker-1] Successfully scraped store: INTERMOTO ZAGREB (Auto Moto: True, Ads: 7)
+[2025-11-05 10:48:47,697: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/intermoto
+[2025-11-05 10:48:48,678: INFO/ForkPoolWorker-3] Processing store 528/2985: https://www.njuskalo.hr/trgovina/adi-88
+[2025-11-05 10:48:48,678: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/adi-88
+[2025-11-05 10:48:50,760: INFO/ForkPoolWorker-4] Successfully scraped store: Pogra d.o.o. (Auto Moto: True, Ads: 25)
+[2025-11-05 10:48:50,773: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/pogra535
+[2025-11-05 10:48:51,486: INFO/ForkPoolWorker-1] Processing store 883/2985: https://www.njuskalo.hr/trgovina/strmecgradnja
+[2025-11-05 10:48:51,486: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/strmecgradnja
+[2025-11-05 10:48:51,487: INFO/ForkPoolWorker-2] Processing store 1221/2985: https://www.njuskalo.hr/trgovina/ENEL-ATM
+[2025-11-05 10:48:51,487: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/ENEL-ATM
+[2025-11-05 10:48:54,466: INFO/ForkPoolWorker-3] Successfully scraped store: AUTOMOBILI ADIPROMET D.O.O. (Auto Moto: True, Ads: 47)
+[2025-11-05 10:48:54,479: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/adi-88
+[2025-11-05 10:48:55,237: INFO/ForkPoolWorker-4] Processing store 166/2985: https://www.njuskalo.hr/trgovina/denisn10
+[2025-11-05 10:48:55,237: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/denisn10
+[2025-11-05 10:48:55,852: INFO/ForkPoolWorker-1] Successfully scraped store: STRMEC - GRADNJA d.o.o. (Auto Moto: False, Ads: 12)
+[2025-11-05 10:48:55,865: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/strmecgradnja
+[2025-11-05 10:48:57,168: INFO/ForkPoolWorker-2] Successfully scraped store: ENEL-ATM (Auto Moto: True, Ads: 1)
+[2025-11-05 10:48:57,180: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/ENEL-ATM
+[2025-11-05 10:48:59,371: INFO/ForkPoolWorker-1] Processing store 884/2985: https://www.njuskalo.hr/trgovina/almalaundry
+[2025-11-05 10:48:59,371: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/almalaundry
+[2025-11-05 10:49:00,699: INFO/ForkPoolWorker-3] Processing store 529/2985: https://www.njuskalo.hr/trgovina/demi-auti
+[2025-11-05 10:49:00,700: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/demi-auti
+[2025-11-05 10:49:00,943: INFO/ForkPoolWorker-4] Successfully scraped store: DNA d.o.o. (Auto Moto: True, Ads: 16)
+[2025-11-05 10:49:00,956: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/denisn10
+[2025-11-05 10:49:01,532: INFO/ForkPoolWorker-2] Processing store 1222/2985: https://www.njuskalo.hr/trgovina/gradur-raso
+[2025-11-05 10:49:01,532: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/gradur-raso
+[2025-11-05 10:49:04,850: INFO/ForkPoolWorker-1] Successfully scraped store: Alma BP Laundry Machines (Auto Moto: True, Ads: 100)
+[2025-11-05 10:49:04,862: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/almalaundry
+[2025-11-05 10:49:05,480: INFO/ForkPoolWorker-3] Successfully scraped store: DeMi-auti (Auto Moto: True, Ads: 52)
+[2025-11-05 10:49:05,493: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/demi-auti
+[2025-11-05 10:49:06,296: INFO/ForkPoolWorker-2] Successfully scraped store: GraDur Rašo d.o.o. (Auto Moto: False, Ads: 2)
+[2025-11-05 10:49:06,309: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/gradur-raso
+[2025-11-05 10:49:06,859: INFO/ForkPoolWorker-4] Processing store 167/2985: https://www.njuskalo.hr/trgovina/grifon
+[2025-11-05 10:49:06,859: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/grifon
+[2025-11-05 10:49:09,323: INFO/ForkPoolWorker-1] Processing store 885/2985: https://www.njuskalo.hr/trgovina/Paradajz095
+[2025-11-05 10:49:09,324: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/Paradajz095
+[2025-11-05 10:49:10,550: INFO/ForkPoolWorker-2] Processing store 1223/2985: https://www.njuskalo.hr/trgovina/malerijatim
+[2025-11-05 10:49:10,550: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/malerijatim
+[2025-11-05 10:49:11,581: INFO/ForkPoolWorker-3] Processing store 530/2985: https://www.njuskalo.hr/trgovina/PCBautomobili
+[2025-11-05 10:49:11,581: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/PCBautomobili
+[2025-11-05 10:49:12,905: INFO/ForkPoolWorker-4] Successfully scraped store: Grifon (Auto Moto: True, Ads: 15)
+[2025-11-05 10:49:12,918: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/grifon
+[2025-11-05 10:49:15,379: INFO/ForkPoolWorker-1] Successfully scraped store: Pali-Vozi (Auto Moto: False, Ads: 7)
+[2025-11-05 10:49:15,392: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/Paradajz095
+[2025-11-05 10:49:16,255: INFO/ForkPoolWorker-2] Successfully scraped store: Tim M (Auto Moto: True, Ads: 3)
+[2025-11-05 10:49:16,258: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/malerijatim
+[2025-11-05 10:49:18,071: INFO/ForkPoolWorker-3] Successfully scraped store: PCB automobili (Auto Moto: True, Ads: 13)
+[2025-11-05 10:49:18,084: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/PCBautomobili
+[2025-11-05 10:49:19,797: INFO/ForkPoolWorker-4] Processing store 168/2985: https://www.njuskalo.hr/trgovina/mehanikastriga
+[2025-11-05 10:49:19,797: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/mehanikastriga
+[2025-11-05 10:49:20,312: INFO/ForkPoolWorker-1] Processing store 886/2985: https://www.njuskalo.hr/trgovina/euro-zov
+[2025-11-05 10:49:20,312: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/euro-zov
+[2025-11-05 10:49:22,363: INFO/ForkPoolWorker-2] Processing store 1224/2985: https://www.njuskalo.hr/trgovina/maric3
+[2025-11-05 10:49:22,363: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/maric3
+[2025-11-05 10:49:24,755: INFO/ForkPoolWorker-3] Processing store 531/2985: https://www.njuskalo.hr/trgovina/BalkanPickers
+[2025-11-05 10:49:24,755: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/BalkanPickers
+[2025-11-05 10:49:26,312: INFO/ForkPoolWorker-4] Successfully scraped store: Mehanika štriga d.o.o. (Auto Moto: True, Ads: 215)
+[2025-11-05 10:49:26,325: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/mehanikastriga
+[2025-11-05 10:49:27,409: INFO/ForkPoolWorker-1] Successfully scraped store: Euro Zov (Auto Moto: True, Ads: 84)
+[2025-11-05 10:49:27,422: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/euro-zov
+[2025-11-05 10:49:29,084: INFO/ForkPoolWorker-3] Successfully scraped store: Balkan Pickers (Auto Moto: False, Ads: 1)
+[2025-11-05 10:49:29,097: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/BalkanPickers
+[2025-11-05 10:49:30,905: INFO/ForkPoolWorker-2] Successfully scraped store: MARIC d.o.o (Auto Moto: True, Ads: 768)
+[2025-11-05 10:49:30,908: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/maric3
+[2025-11-05 10:49:30,976: INFO/ForkPoolWorker-4] Processing store 169/2985: https://www.njuskalo.hr/trgovina/auto-sami
+[2025-11-05 10:49:30,976: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/auto-sami
+[2025-11-05 10:49:33,807: INFO/ForkPoolWorker-1] Processing store 887/2985: https://www.njuskalo.hr/trgovina/auto-motomania
+[2025-11-05 10:49:33,807: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/auto-motomania
+[2025-11-05 10:49:34,392: INFO/ForkPoolWorker-2] Processing store 1225/2985: https://www.njuskalo.hr/trgovina/agromehanizacija
+[2025-11-05 10:49:34,392: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/agromehanizacija
+[2025-11-05 10:49:35,455: INFO/ForkPoolWorker-3] Processing store 532/2985: https://www.njuskalo.hr/trgovina/aerotehna
+[2025-11-05 10:49:35,455: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/aerotehna
+[2025-11-05 10:49:37,580: INFO/ForkPoolWorker-4] Successfully scraped store: SAMI AUTOMOBILI d.o.o (Auto Moto: True, Ads: 26)
+[2025-11-05 10:49:37,593: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/auto-sami
+[2025-11-05 10:49:38,521: INFO/ForkPoolWorker-2] Successfully scraped store: Agro mehanizacija d.o.o. Danijel Bernobić (Auto Moto: True, Ads: 53)
+[2025-11-05 10:49:38,533: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/agromehanizacija
+[2025-11-05 10:49:39,622: INFO/ForkPoolWorker-3] Successfully scraped store: Aerotehna (Auto Moto: False, Ads: 6)
+[2025-11-05 10:49:39,635: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/aerotehna
+[2025-11-05 10:49:41,007: INFO/ForkPoolWorker-4] Processing store 170/2985: https://www.njuskalo.hr/trgovina/fortunadigital
+[2025-11-05 10:49:41,008: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/fortunadigital
+[2025-11-05 10:49:41,085: INFO/ForkPoolWorker-1] Successfully scraped store: AUTO - MOTO MANIA d.o.o. (Auto Moto: True, Ads: 22)
+[2025-11-05 10:49:41,088: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/auto-motomania
+[2025-11-05 10:49:43,186: INFO/ForkPoolWorker-3] Processing store 533/2985: https://www.njuskalo.hr/trgovina/salonotok
+[2025-11-05 10:49:43,186: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/salonotok
+[2025-11-05 10:49:43,282: INFO/ForkPoolWorker-2] Processing store 1226/2985: https://www.njuskalo.hr/trgovina/BartoniPools
+[2025-11-05 10:49:43,282: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/BartoniPools
+[2025-11-05 10:49:45,546: INFO/ForkPoolWorker-4] Successfully scraped store: Fortuna Digital (Auto Moto: False, Ads: 1)
+[2025-11-05 10:49:45,558: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/fortunadigital
+[2025-11-05 10:49:46,776: INFO/ForkPoolWorker-1] Processing store 888/2985: https://www.njuskalo.hr/trgovina/slineautomobili
+[2025-11-05 10:49:46,776: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/slineautomobili
+[2025-11-05 10:49:48,617: INFO/ForkPoolWorker-3] Successfully scraped store: AutoSalon Otok (Auto Moto: True, Ads: 16)
+[2025-11-05 10:49:48,620: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/salonotok
+[2025-11-05 10:49:50,128: INFO/ForkPoolWorker-2] Successfully scraped store: Bartoni Pools - bazeni i oprema za bazen (Auto Moto: False, Ads: 20)
+[2025-11-05 10:49:50,131: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/BartoniPools
+[2025-11-05 10:49:51,826: INFO/ForkPoolWorker-4] Processing store 171/2985: https://www.njuskalo.hr/trgovina/svijetsivanja
+[2025-11-05 10:49:51,826: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/svijetsivanja
+[2025-11-05 10:49:52,735: INFO/ForkPoolWorker-1] Successfully scraped store: S-Line Automobili (Auto Moto: True, Ads: 26)
+[2025-11-05 10:49:52,748: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/slineautomobili
+[2025-11-05 10:49:52,911: INFO/ForkPoolWorker-3] Processing store 534/2985: https://www.njuskalo.hr/trgovina/omsun
+[2025-11-05 10:49:52,911: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/omsun
+[2025-11-05 10:49:57,044: INFO/ForkPoolWorker-2] Processing store 1227/2985: https://www.njuskalo.hr/trgovina/maluba11zagreb
+[2025-11-05 10:49:57,044: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/maluba11zagreb
+[2025-11-05 10:49:57,192: INFO/ForkPoolWorker-4] Successfully scraped store: Svijet Šivanja (Auto Moto: False, Ads: 62)
+[2025-11-05 10:49:57,195: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/svijetsivanja
+[2025-11-05 10:49:57,413: INFO/ForkPoolWorker-1] Processing store 889/2985: https://www.njuskalo.hr/trgovina/Autodio1
+[2025-11-05 10:49:57,413: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/Autodio1
+[2025-11-05 10:49:58,558: INFO/ForkPoolWorker-3] Successfully scraped store: omsun (Auto Moto: False, Ads: 548)
+[2025-11-05 10:49:58,571: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/omsun
+[2025-11-05 10:50:01,401: INFO/ForkPoolWorker-4] Processing store 172/2985: https://www.njuskalo.hr/trgovina/autotrade
+[2025-11-05 10:50:01,401: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/autotrade
+[2025-11-05 10:50:02,255: INFO/ForkPoolWorker-2] Successfully scraped store: Maluba zagreb (Auto Moto: True, Ads: 30)
+[2025-11-05 10:50:02,258: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/maluba11zagreb
+[2025-11-05 10:50:03,104: INFO/ForkPoolWorker-1] Successfully scraped store: autodio1 (Auto Moto: True, Ads: 28)
+[2025-11-05 10:50:03,116: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/Autodio1
+[2025-11-05 10:50:04,956: INFO/ForkPoolWorker-3] Processing store 535/2985: https://www.njuskalo.hr/trgovina/keramika-palorec
+[2025-11-05 10:50:04,957: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/keramika-palorec
+[2025-11-05 10:50:05,957: INFO/ForkPoolWorker-4] Successfully scraped store: NIPPON AUTO (Auto Moto: True, Ads: 102)
+[2025-11-05 10:50:05,970: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/autotrade
+[2025-11-05 10:50:08,603: INFO/ForkPoolWorker-2] Processing store 1228/2985: https://www.njuskalo.hr/trgovina/a2scelje
+[2025-11-05 10:50:08,603: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/a2scelje
+[2025-11-05 10:50:09,960: INFO/ForkPoolWorker-1] Processing store 890/2985: https://www.njuskalo.hr/trgovina/nalavto
+[2025-11-05 10:50:09,961: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/nalavto
+[2025-11-05 10:50:10,327: INFO/ForkPoolWorker-4] Processing store 173/2985: https://www.njuskalo.hr/trgovina/vesnarejc
+[2025-11-05 10:50:10,327: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/vesnarejc
+[2025-11-05 10:50:11,123: INFO/ForkPoolWorker-3] Successfully scraped store: Keramika Palorec (Auto Moto: False, Ads: 45)
+[2025-11-05 10:50:11,136: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/keramika-palorec
+[2025-11-05 10:50:12,921: INFO/ForkPoolWorker-2] Successfully scraped store: A2S Celje (Auto Moto: True, Ads: 5)
+[2025-11-05 10:50:12,935: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/a2scelje
+[2025-11-05 10:50:14,375: INFO/ForkPoolWorker-1] Successfully scraped store: NAL AVTO (Auto Moto: True, Ads: 89)
+[2025-11-05 10:50:14,388: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/nalavto
+[2025-11-05 10:50:15,061: INFO/ForkPoolWorker-4] Successfully scraped store: Mrzlica d.o.o. (Auto Moto: False, Ads: 3)
+[2025-11-05 10:50:15,073: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/vesnarejc
+[2025-11-05 10:50:15,438: INFO/ForkPoolWorker-3] Processing store 536/2985: https://www.njuskalo.hr/trgovina/ian-bazeni-nekretnine
+[2025-11-05 10:50:15,439: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/ian-bazeni-nekretnine
+[2025-11-05 10:50:16,105: INFO/ForkPoolWorker-2] Processing store 1229/2985: https://www.njuskalo.hr/trgovina/98777
+[2025-11-05 10:50:16,106: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/98777
+[2025-11-05 10:50:18,568: INFO/ForkPoolWorker-1] Processing store 891/2985: https://www.njuskalo.hr/trgovina/inkica777
+[2025-11-05 10:50:18,568: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/inkica777
+[2025-11-05 10:50:19,200: INFO/ForkPoolWorker-3] Successfully scraped store: Ian Bazeni i Nekretnine (Auto Moto: True, Ads: 36)
+[2025-11-05 10:50:19,203: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/ian-bazeni-nekretnine
+[2025-11-05 10:50:20,095: INFO/ForkPoolWorker-4] Processing store 174/2985: https://www.njuskalo.hr/trgovina/auto-moto-pavic
+[2025-11-05 10:50:20,095: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/auto-moto-pavic
+[2025-11-05 10:50:21,421: INFO/ForkPoolWorker-2] Successfully scraped store: Moto Art (Auto Moto: True, Ads: 24)
+[2025-11-05 10:50:21,434: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/98777
+[2025-11-05 10:50:22,445: INFO/ForkPoolWorker-3] Processing store 537/2985: https://www.njuskalo.hr/trgovina/Trubicatrubi
+[2025-11-05 10:50:22,445: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/Trubicatrubi
+[2025-11-05 10:50:25,317: INFO/ForkPoolWorker-1] Successfully scraped store: 777 SVAŠTARA (Auto Moto: True, Ads: 1832)
+[2025-11-05 10:50:25,329: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/inkica777
+[2025-11-05 10:50:26,677: INFO/ForkPoolWorker-4] Successfully scraped store: Auto Moto Pavić (Auto Moto: True, Ads: 25)
+[2025-11-05 10:50:26,690: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/auto-moto-pavic
+[2025-11-05 10:50:27,083: INFO/ForkPoolWorker-2] Processing store 1230/2985: https://www.njuskalo.hr/trgovina/bagi-rent
+[2025-11-05 10:50:27,083: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/bagi-rent
+[2025-11-05 10:50:27,745: INFO/ForkPoolWorker-3] Successfully scraped store: Trubicatrubi (Auto Moto: True, Ads: 10)
+[2025-11-05 10:50:27,758: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/Trubicatrubi
+[2025-11-05 10:50:29,427: INFO/ForkPoolWorker-1] Processing store 892/2985: https://www.njuskalo.hr/trgovina/astrcz
+[2025-11-05 10:50:29,428: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/astrcz
+[2025-11-05 10:50:31,804: INFO/ForkPoolWorker-3] Processing store 538/2985: https://www.njuskalo.hr/trgovina/zaky83
+[2025-11-05 10:50:31,805: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/zaky83
+[2025-11-05 10:50:31,942: INFO/ForkPoolWorker-4] Processing store 175/2985: https://www.njuskalo.hr/trgovina/avtoodpad
+[2025-11-05 10:50:31,942: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/avtoodpad
+[2025-11-05 10:50:32,881: INFO/ForkPoolWorker-2] Successfully scraped store: BAGI - najam, servis, prodaja strojeva i opreme za građevinarstvo (Auto Moto: False, Ads: 336)
+[2025-11-05 10:50:32,894: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/bagi-rent
+[2025-11-05 10:50:34,319: INFO/ForkPoolWorker-1] Successfully scraped store: TRCZ automobili (Auto Moto: True, Ads: 417)
+[2025-11-05 10:50:34,332: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/astrcz
+[2025-11-05 10:50:36,660: INFO/ForkPoolWorker-2] Processing store 1231/2985: https://www.njuskalo.hr/trgovina/rinkovecdoo
+[2025-11-05 10:50:36,660: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/rinkovecdoo
+[2025-11-05 10:50:36,826: INFO/ForkPoolWorker-4] Successfully scraped store: dijelovi i oprema (Auto Moto: True, Ads: 2024)
+[2025-11-05 10:50:36,839: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/avtoodpad
+[2025-11-05 10:50:37,150: INFO/ForkPoolWorker-3] Successfully scraped store: OPG Smješka (Auto Moto: False, Ads: 3)
+[2025-11-05 10:50:37,163: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/zaky83
+[2025-11-05 10:50:39,386: INFO/ForkPoolWorker-1] Processing store 893/2985: https://www.njuskalo.hr/trgovina/DIT-GERAS
+[2025-11-05 10:50:39,387: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/DIT-GERAS
+[2025-11-05 10:50:41,621: INFO/ForkPoolWorker-3] Processing store 539/2985: https://www.njuskalo.hr/trgovina/ambijent1
+[2025-11-05 10:50:41,621: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/ambijent1
+[2025-11-05 10:50:41,735: INFO/ForkPoolWorker-2] Successfully scraped store: RinkovecDoo (Auto Moto: False, Ads: 102)
+[2025-11-05 10:50:41,748: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/rinkovecdoo
+[2025-11-05 10:50:42,841: INFO/ForkPoolWorker-4] Processing store 176/2985: https://www.njuskalo.hr/trgovina/MARINEPRO
+[2025-11-05 10:50:42,842: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/MARINEPRO
+[2025-11-05 10:50:43,823: INFO/ForkPoolWorker-1] Successfully scraped store: TOPWIN HRVATSKA (Auto Moto: False, Ads: 9)
+[2025-11-05 10:50:43,835: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/DIT-GERAS
+[2025-11-05 10:50:46,327: INFO/ForkPoolWorker-3] Successfully scraped store: AMBIJENT (Auto Moto: False, Ads: 12)
+[2025-11-05 10:50:46,338: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/ambijent1
+[2025-11-05 10:50:46,465: INFO/ForkPoolWorker-2] Processing store 1232/2985: https://www.njuskalo.hr/trgovina/rabljenavoziladubrovnik
+[2025-11-05 10:50:46,465: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/rabljenavoziladubrovnik
+[2025-11-05 10:50:48,012: INFO/ForkPoolWorker-4] Successfully scraped store: PROMARINE (Auto Moto: False, Ads: 53)
+[2025-11-05 10:50:48,029: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/MARINEPRO
+[2025-11-05 10:50:50,592: INFO/ForkPoolWorker-1] Processing store 894/2985: https://www.njuskalo.hr/trgovina/farmos
+[2025-11-05 10:50:50,592: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/farmos
+[2025-11-05 10:50:51,492: INFO/ForkPoolWorker-4] Processing store 177/2985: https://www.njuskalo.hr/trgovina/ds-auto
+[2025-11-05 10:50:51,492: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/ds-auto
+[2025-11-05 10:50:51,914: INFO/ForkPoolWorker-2] Successfully scraped store: DU AutoGroup (Auto Moto: True, Ads: 23)
+[2025-11-05 10:50:51,928: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/rabljenavoziladubrovnik
+[2025-11-05 10:50:53,220: INFO/ForkPoolWorker-3] Processing store 540/2985: https://www.njuskalo.hr/trgovina/KarloPecenec
+[2025-11-05 10:50:53,220: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/KarloPecenec
+[2025-11-05 10:50:54,984: INFO/ForkPoolWorker-1] Successfully scraped store: Farmos obrt za trgovinu (Auto Moto: False, Ads: 93)
+[2025-11-05 10:50:54,997: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/farmos
+[2025-11-05 10:50:55,465: INFO/ForkPoolWorker-4] Successfully scraped store: DS AUTO (Auto Moto: True, Ads: 9)
+[2025-11-05 10:50:55,478: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/ds-auto
+[2025-11-05 10:50:56,854: INFO/ForkPoolWorker-2] Processing store 1233/2985: https://www.njuskalo.hr/trgovina/technomobilevk
+[2025-11-05 10:50:56,854: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/technomobilevk
+[2025-11-05 10:50:58,221: INFO/ForkPoolWorker-3] Successfully scraped store: Testarossa d.o.o. (Auto Moto: True, Ads: 5)
+[2025-11-05 10:50:58,234: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/KarloPecenec
+[2025-11-05 10:51:00,377: INFO/ForkPoolWorker-4] Processing store 178/2985: https://www.njuskalo.hr/trgovina/timeus
+[2025-11-05 10:51:00,377: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/timeus
+[2025-11-05 10:51:00,912: INFO/ForkPoolWorker-2] Successfully scraped store: tehno shop vinkovci (Auto Moto: False, Ads: 214)
+[2025-11-05 10:51:00,925: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/technomobilevk
+[2025-11-05 10:51:01,866: INFO/ForkPoolWorker-1] Processing store 895/2985: https://www.njuskalo.hr/trgovina/auto-simic
+[2025-11-05 10:51:01,867: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/auto-simic
+[2025-11-05 10:51:03,705: INFO/ForkPoolWorker-3] Processing store 541/2985: https://www.njuskalo.hr/trgovina/AutoMyWay1
+[2025-11-05 10:51:03,705: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/AutoMyWay1
+[2025-11-05 10:51:07,330: INFO/ForkPoolWorker-3] Successfully scraped store: AUTO MY WAY d.o.o. (Auto Moto: True, Ads: 1)
+[2025-11-05 10:51:07,343: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/AutoMyWay1
+[2025-11-05 10:51:07,493: INFO/ForkPoolWorker-2] Processing store 1234/2985: https://www.njuskalo.hr/trgovina/dorifuto55
+[2025-11-05 10:51:07,493: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/dorifuto55
+[2025-11-05 10:51:07,730: INFO/ForkPoolWorker-1] Successfully scraped store: Auto Šimić (Auto Moto: True, Ads: 8)
+[2025-11-05 10:51:07,743: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/auto-simic
+[2025-11-05 10:51:07,751: INFO/ForkPoolWorker-4] Successfully scraped store: TIMEUS D.O.O. (Auto Moto: True, Ads: 14)
+[2025-11-05 10:51:07,754: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/timeus
+[2025-11-05 10:51:10,980: INFO/ForkPoolWorker-1] Processing store 896/2985: https://www.njuskalo.hr/trgovina/vettura-doo
+[2025-11-05 10:51:10,980: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/vettura-doo
+[2025-11-05 10:51:11,327: INFO/ForkPoolWorker-3] Processing store 542/2985: https://www.njuskalo.hr/trgovina/zoranm1312
+[2025-11-05 10:51:11,327: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/zoranm1312
+[2025-11-05 10:51:11,704: INFO/ForkPoolWorker-2] Successfully scraped store: KINK D.O.O. (Auto Moto: True, Ads: 4387)
+[2025-11-05 10:51:11,717: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/dorifuto55
+[2025-11-05 10:51:11,853: INFO/ForkPoolWorker-4] Processing store 179/2985: https://www.njuskalo.hr/trgovina/Energysupport
+[2025-11-05 10:51:11,853: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/Energysupport
+[2025-11-05 10:51:14,831: INFO/ForkPoolWorker-2] Processing store 1235/2985: https://www.njuskalo.hr/trgovina/AlenS7
+[2025-11-05 10:51:14,831: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/AlenS7
+[2025-11-05 10:51:15,999: INFO/ForkPoolWorker-3] Successfully scraped store: ZoranM1312 (Auto Moto: True, Ads: 19)
+[2025-11-05 10:51:16,011: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/zoranm1312
+[2025-11-05 10:51:16,879: INFO/ForkPoolWorker-1] Successfully scraped store: Vettura d.o.o. (Auto Moto: True, Ads: 8)
+[2025-11-05 10:51:16,892: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/vettura-doo
+[2025-11-05 10:51:17,362: INFO/ForkPoolWorker-4] Successfully scraped store: Energysupport (Auto Moto: False, Ads: 1)
+[2025-11-05 10:51:17,375: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/Energysupport
+[2025-11-05 10:51:19,713: INFO/ForkPoolWorker-3] Processing store 543/2985: https://www.njuskalo.hr/trgovina/renpro
+[2025-11-05 10:51:19,713: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/renpro
+[2025-11-05 10:51:19,863: INFO/ForkPoolWorker-2] Successfully scraped store: VIP line d.o.o. (Auto Moto: True, Ads: 16)
+[2025-11-05 10:51:19,875: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/AlenS7
+[2025-11-05 10:51:21,359: INFO/ForkPoolWorker-1] Processing store 897/2985: https://www.njuskalo.hr/trgovina/PVC_stolarija_ZOMA
+[2025-11-05 10:51:21,359: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/PVC_stolarija_ZOMA
+[2025-11-05 10:51:23,626: INFO/ForkPoolWorker-4] Processing store 180/2985: https://www.njuskalo.hr/trgovina/dban1309
+[2025-11-05 10:51:23,626: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/dban1309
+[2025-11-05 10:51:24,269: INFO/ForkPoolWorker-2] Processing store 1236/2985: https://www.njuskalo.hr/trgovina/repromax
+[2025-11-05 10:51:24,269: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/repromax
+[2025-11-05 10:51:24,975: INFO/ForkPoolWorker-3] Successfully scraped store: RENPRO AUTOMOBILI (Auto Moto: True, Ads: 52)
+[2025-11-05 10:51:24,989: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/renpro
+[2025-11-05 10:51:25,208: INFO/ForkPoolWorker-1] Successfully scraped store: ZOMA PROZORI I VRATA (Auto Moto: False, Ads: 1)
+[2025-11-05 10:51:25,221: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/PVC_stolarija_ZOMA
+[2025-11-05 10:51:28,746: INFO/ForkPoolWorker-4] Successfully scraped store: dban1309 (Auto Moto: False, Ads: 1)
+[2025-11-05 10:51:28,759: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/dban1309
+[2025-11-05 10:51:30,066: INFO/ForkPoolWorker-2] Successfully scraped store: Repromax krovna oprema doo (Auto Moto: False, Ads: 15)
+[2025-11-05 10:51:30,079: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/repromax
+[2025-11-05 10:51:30,277: INFO/ForkPoolWorker-1] Processing store 898/2985: https://www.njuskalo.hr/trgovina/elkersolutions
+[2025-11-05 10:51:30,278: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/elkersolutions
+[2025-11-05 10:51:31,335: INFO/ForkPoolWorker-3] Processing store 544/2985: https://www.njuskalo.hr/trgovina/NOVI_GRAD_DOO
+[2025-11-05 10:51:31,336: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/NOVI_GRAD_DOO
+[2025-11-05 10:51:33,256: INFO/ForkPoolWorker-2] Processing store 1237/2985: https://www.njuskalo.hr/trgovina/autosalonstil2003
+[2025-11-05 10:51:33,256: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/autosalonstil2003
+[2025-11-05 10:51:33,722: INFO/ForkPoolWorker-1] Successfully scraped store: Elker Solutions (Auto Moto: False, Ads: 12)
+[2025-11-05 10:51:33,735: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/elkersolutions
+[2025-11-05 10:51:35,521: INFO/ForkPoolWorker-4] Processing store 181/2985: https://www.njuskalo.hr/trgovina/iconnectservis
+[2025-11-05 10:51:35,521: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/iconnectservis
+[2025-11-05 10:51:36,688: INFO/ForkPoolWorker-3] Successfully scraped store: NOVI GRAD D.O.O. (Auto Moto: False, Ads: 35)
+[2025-11-05 10:51:36,701: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/NOVI_GRAD_DOO
+[2025-11-05 10:51:40,286: INFO/ForkPoolWorker-1] Processing store 899/2985: https://www.njuskalo.hr/trgovina/raritet
+[2025-11-05 10:51:40,286: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/raritet
+[2025-11-05 10:51:40,338: INFO/ForkPoolWorker-4] Successfully scraped store: iconnectservis (Auto Moto: False, Ads: 233)
+[2025-11-05 10:51:40,351: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/iconnectservis
+[2025-11-05 10:51:41,693: INFO/ForkPoolWorker-2] Successfully scraped store: AUTOSALON STIL (Auto Moto: True, Ads: 57)
+[2025-11-05 10:51:41,706: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/autosalonstil2003
+[2025-11-05 10:51:41,854: INFO/ForkPoolWorker-3] Processing store 545/2985: https://www.njuskalo.hr/trgovina/platinare123
+[2025-11-05 10:51:41,854: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/platinare123
+[2025-11-05 10:51:44,162: INFO/ForkPoolWorker-1] Successfully scraped store: PARKETI PETRINA (Auto Moto: True, Ads: 12)
+[2025-11-05 10:51:44,173: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/raritet
+[2025-11-05 10:51:44,630: INFO/ForkPoolWorker-4] Processing store 182/2985: https://www.njuskalo.hr/trgovina/asupermario
+[2025-11-05 10:51:44,630: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/asupermario
+[2025-11-05 10:51:46,755: INFO/ForkPoolWorker-2] Processing store 1238/2985: https://www.njuskalo.hr/trgovina/muzikalijecremona
+[2025-11-05 10:51:46,755: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/muzikalijecremona
+[2025-11-05 10:51:46,834: INFO/ForkPoolWorker-3] Successfully scraped store: Roster Auto (Auto Moto: True, Ads: 11)
+[2025-11-05 10:51:46,847: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/platinare123
+[2025-11-05 10:51:49,103: INFO/ForkPoolWorker-1] Processing store 900/2985: https://www.njuskalo.hr/trgovina/rosto
+[2025-11-05 10:51:49,103: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/rosto
+[2025-11-05 10:51:50,497: INFO/ForkPoolWorker-3] Processing store 546/2985: https://www.njuskalo.hr/trgovina/s-grupa
+[2025-11-05 10:51:50,497: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/s-grupa
+[2025-11-05 10:51:50,650: INFO/ForkPoolWorker-4] Successfully scraped store: LKW MARIO d.o.o (Auto Moto: True, Ads: 63)
+[2025-11-05 10:51:50,663: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/asupermario
+[2025-11-05 10:51:53,517: INFO/ForkPoolWorker-2] Successfully scraped store: Muzikalije CREMONA (Auto Moto: False, Ads: 122)
+[2025-11-05 10:51:53,530: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/muzikalijecremona
+[2025-11-05 10:51:54,307: INFO/ForkPoolWorker-1] Successfully scraped store: Voga Voga d.o.o. (Auto Moto: True, Ads: 1)
+[2025-11-05 10:51:54,319: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/rosto
+[2025-11-05 10:51:55,487: INFO/ForkPoolWorker-3] Successfully scraped store: JONI-GRUPA (Auto Moto: True, Ads: 19)
+[2025-11-05 10:51:55,500: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/s-grupa
+[2025-11-05 10:51:57,161: INFO/ForkPoolWorker-4] Processing store 183/2985: https://www.njuskalo.hr/trgovina/autopromet-zagreb
+[2025-11-05 10:51:57,161: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/autopromet-zagreb
+[2025-11-05 10:51:57,570: INFO/ForkPoolWorker-2] Processing store 1239/2985: https://www.njuskalo.hr/trgovina/petra-otpremnistvo
+[2025-11-05 10:51:57,570: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/petra-otpremnistvo
+[2025-11-05 10:51:58,417: INFO/ForkPoolWorker-1] Processing store 901/2985: https://www.njuskalo.hr/trgovina/sentierohr
+[2025-11-05 10:51:58,418: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/sentierohr
+[2025-11-05 10:52:01,887: INFO/ForkPoolWorker-4] Successfully scraped store: AUTOPROMET ZAGREB (Auto Moto: True, Ads: 8)
+[2025-11-05 10:52:01,900: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/autopromet-zagreb
+[2025-11-05 10:52:02,032: INFO/ForkPoolWorker-3] Processing store 547/2985: https://www.njuskalo.hr/trgovina/Pomagala_Svjetlost
+[2025-11-05 10:52:02,032: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/Pomagala_Svjetlost
+[2025-11-05 10:52:02,692: INFO/ForkPoolWorker-2] Successfully scraped store: PO AUTOMOBILI - Sesvete, Kašinska cesta 83, ☎️01/2028111 (Auto Moto: True, Ads: 40)
+[2025-11-05 10:52:02,705: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/petra-otpremnistvo
+[2025-11-05 10:52:04,627: INFO/ForkPoolWorker-1] Successfully scraped store: Sentiero (Auto Moto: False, Ads: 8)
+[2025-11-05 10:52:04,640: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/sentierohr
+[2025-11-05 10:52:06,529: INFO/ForkPoolWorker-4] Processing store 184/2985: https://www.njuskalo.hr/trgovina/autocentar-bilic
+[2025-11-05 10:52:06,529: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/autocentar-bilic
+[2025-11-05 10:52:07,943: INFO/ForkPoolWorker-1] Processing store 902/2985: https://www.njuskalo.hr/trgovina/Ljubicmontaza
+[2025-11-05 10:52:07,943: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/Ljubicmontaza
+[2025-11-05 10:52:07,985: INFO/ForkPoolWorker-3] Successfully scraped store: Ortopedska pomagala Svjetlost (Auto Moto: True, Ads: 48)
+[2025-11-05 10:52:07,999: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/Pomagala_Svjetlost
+[2025-11-05 10:52:08,214: INFO/ForkPoolWorker-2] Processing store 1240/2985: https://www.njuskalo.hr/trgovina/jurkanica
+[2025-11-05 10:52:08,215: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/jurkanica
+[2025-11-05 10:52:11,718: INFO/ForkPoolWorker-4] Successfully scraped store: Autocentar Bilić d.o.o. (Auto Moto: True, Ads: 12)
+[2025-11-05 10:52:11,732: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/autocentar-bilic
+[2025-11-05 10:52:11,920: INFO/ForkPoolWorker-1] Successfully scraped store: Ljubicmontaza (Auto Moto: False, Ads: 3)
+[2025-11-05 10:52:11,933: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/Ljubicmontaza
+[2025-11-05 10:52:12,170: INFO/ForkPoolWorker-3] Processing store 548/2985: https://www.njuskalo.hr/trgovina/letan-nekretnine
+[2025-11-05 10:52:12,170: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/letan-nekretnine
+[2025-11-05 10:52:13,470: INFO/ForkPoolWorker-2] Successfully scraped store: Multi (Auto Moto: False, Ads: 54)
+[2025-11-05 10:52:13,483: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/jurkanica
+[2025-11-05 10:52:16,165: INFO/ForkPoolWorker-1] Processing store 903/2985: https://www.njuskalo.hr/trgovina/alukontura
+[2025-11-05 10:52:16,166: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/alukontura
+[2025-11-05 10:52:17,659: INFO/ForkPoolWorker-4] Processing store 185/2985: https://www.njuskalo.hr/trgovina/Gradevinske-usluge
+[2025-11-05 10:52:17,660: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/Gradevinske-usluge
+[2025-11-05 10:52:18,003: INFO/ForkPoolWorker-3] Successfully scraped store: Letan Nekretnine (Auto Moto: False, Ads: 25)
+[2025-11-05 10:52:18,007: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/letan-nekretnine
+[2025-11-05 10:52:18,655: INFO/ForkPoolWorker-2] Processing store 1241/2985: https://www.njuskalo.hr/trgovina/solodom
+[2025-11-05 10:52:18,655: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/solodom
+[2025-11-05 10:52:21,842: INFO/ForkPoolWorker-1] Successfully scraped store: alukontura (Auto Moto: True, Ads: 1)
+[2025-11-05 10:52:21,855: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/alukontura
+[2025-11-05 10:52:22,822: INFO/ForkPoolWorker-4] Successfully scraped store: PRO - RENT (Auto Moto: True, Ads: 22)
+[2025-11-05 10:52:22,836: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/Gradevinske-usluge
+[2025-11-05 10:52:23,050: INFO/ForkPoolWorker-2] Successfully scraped store: SOLO DOM d.o.o. (Auto Moto: True, Ads: 103)
+[2025-11-05 10:52:23,063: INFO/ForkPoolWorker-2] Updated store data for URL: https://www.njuskalo.hr/trgovina/solodom
+[2025-11-05 10:52:23,448: INFO/ForkPoolWorker-3] Processing store 549/2985: https://www.njuskalo.hr/trgovina/andelko0101
+[2025-11-05 10:52:23,448: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/andelko0101
+[2025-11-05 10:52:26,082: INFO/ForkPoolWorker-2] Processing store 1242/2985: https://www.njuskalo.hr/trgovina/autoberinac
+[2025-11-05 10:52:26,082: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/autoberinac
+[2025-11-05 10:52:26,603: INFO/ForkPoolWorker-4] Processing store 186/2985: https://www.njuskalo.hr/trgovina/lnb-cars
+[2025-11-05 10:52:26,603: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/lnb-cars
+[2025-11-05 10:52:26,734: INFO/ForkPoolWorker-1] Processing store 904/2985: https://www.njuskalo.hr/trgovina/ADRIARED
+[2025-11-05 10:52:26,734: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/ADRIARED
+[2025-11-05 10:52:27,777: INFO/ForkPoolWorker-3] Successfully scraped store: V.G. GRADNJA doo (Auto Moto: True, Ads: 12)
+[2025-11-05 10:52:27,790: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/andelko0101
+[2025-11-05 10:52:30,443: INFO/ForkPoolWorker-1] Successfully scraped store: ADRIA RED d.o.o. . PARTNER HÖNA & CONTIO HRVATSKA (Auto Moto: False, Ads: 5)
+[2025-11-05 10:52:30,457: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/ADRIARED
+[2025-11-05 10:52:31,006: INFO/ForkPoolWorker-2] Successfully scraped store: AUTO BERINAC (Auto Moto: True, Ads: 4)
+[2025-11-05 10:52:31,019: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/autoberinac
+[2025-11-05 10:52:33,032: INFO/ForkPoolWorker-4] Successfully scraped store: LNB CARS (Auto Moto: True, Ads: 16)
+[2025-11-05 10:52:33,045: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/lnb-cars
+[2025-11-05 10:52:34,626: INFO/ForkPoolWorker-3] Processing store 550/2985: https://www.njuskalo.hr/trgovina/gridng
+[2025-11-05 10:52:34,626: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/gridng
+[2025-11-05 10:52:34,849: INFO/ForkPoolWorker-2] Processing store 1243/2985: https://www.njuskalo.hr/trgovina/QuantResearch
+[2025-11-05 10:52:34,850: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/QuantResearch
+[2025-11-05 10:52:35,415: INFO/ForkPoolWorker-1] Processing store 905/2985: https://www.njuskalo.hr/trgovina/ak-novosel
+[2025-11-05 10:52:35,415: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/ak-novosel
+[2025-11-05 10:52:39,181: INFO/ForkPoolWorker-3] Successfully scraped store: GRID d.o.o. Nova Gradiška (Auto Moto: False, Ads: 18)
+[2025-11-05 10:52:39,194: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/gridng
+[2025-11-05 10:52:39,290: INFO/ForkPoolWorker-1] Successfully scraped store: Auto kuća Novosel (Auto Moto: True, Ads: 9)
+[2025-11-05 10:52:39,293: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/ak-novosel
+[2025-11-05 10:52:39,599: INFO/ForkPoolWorker-4] Processing store 187/2985: https://www.njuskalo.hr/trgovina/antiva1
+[2025-11-05 10:52:39,600: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/antiva1
+[2025-11-05 10:52:40,912: INFO/ForkPoolWorker-2] Successfully scraped store: Statistička obrada (Auto Moto: False, Ads: 1)
+[2025-11-05 10:52:40,925: INFO/ForkPoolWorker-2] Inserted store data for URL: https://www.njuskalo.hr/trgovina/QuantResearch
+[2025-11-05 10:52:43,275: INFO/ForkPoolWorker-4] Successfully scraped store: ANTIVA (Auto Moto: False, Ads: 1)
+[2025-11-05 10:52:43,288: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/antiva1
+[2025-11-05 10:52:43,941: INFO/ForkPoolWorker-3] Processing store 551/2985: https://www.njuskalo.hr/trgovina/torbarina
+[2025-11-05 10:52:43,941: INFO/ForkPoolWorker-3] Scraping store: https://www.njuskalo.hr/trgovina/torbarina
+[2025-11-05 10:52:45,941: INFO/ForkPoolWorker-1] Processing store 906/2985: https://www.njuskalo.hr/trgovina/kprud
+[2025-11-05 10:52:45,941: INFO/ForkPoolWorker-1] Scraping store: https://www.njuskalo.hr/trgovina/kprud
+[2025-11-05 10:52:46,548: INFO/ForkPoolWorker-4] Processing store 188/2985: https://www.njuskalo.hr/trgovina/NoaLog
+[2025-11-05 10:52:46,549: INFO/ForkPoolWorker-4] Scraping store: https://www.njuskalo.hr/trgovina/NoaLog
+[2025-11-05 10:52:46,698: INFO/ForkPoolWorker-2] Processing store 1244/2985: https://www.njuskalo.hr/trgovina/sportmare
+[2025-11-05 10:52:46,698: INFO/ForkPoolWorker-2] Scraping store: https://www.njuskalo.hr/trgovina/sportmare
+[2025-11-05 10:52:49,677: INFO/ForkPoolWorker-3] Successfully scraped store: Torbarina prikolice (Auto Moto: True, Ads: 9)
+[2025-11-05 10:52:49,690: INFO/ForkPoolWorker-3] Updated store data for URL: https://www.njuskalo.hr/trgovina/torbarina
+[2025-11-05 10:52:51,824: INFO/ForkPoolWorker-4] Successfully scraped store: Noalog (Auto Moto: True, Ads: 587)
+[2025-11-05 10:52:51,837: INFO/ForkPoolWorker-4] Updated store data for URL: https://www.njuskalo.hr/trgovina/NoaLog
+[2025-11-05 10:52:53,102: INFO/ForkPoolWorker-1] Successfully scraped store: KAMEN PRUD d.o.o. (Auto Moto: False, Ads: 11)
+[2025-11-05 10:52:53,115: INFO/ForkPoolWorker-1] Updated store data for URL: https://www.njuskalo.hr/trgovina/kprud
