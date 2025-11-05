@@ -244,13 +244,15 @@ DATABASE_PASSWORD=your_password
 
 The scraper generates an Excel file with the following columns:
 
-- **Store Name**: Extracted store name
-- **URL**: Store page URL
-- **Address**: Store address information
-- **Ads Count**: Number of ads posted by the store
-- **Has Auto Moto**: Boolean indicating if store posts in Auto Moto category
-- **Categories Count**: Number of categories the store posts in
-- **Error**: Any errors encountered during scraping
+- **id**: Sequential ID number
+- **vat**: VAT number (if available)
+- **name**: Store/item name
+- **subname**: Store category or item brand
+- **address**: Store/item location address
+- **total**: Total count of items/ads
+- **new**: Count of new items (1 for new, 0 for used)
+- **used**: Count of used items (1 for used, 0 for new)
+- **test**: Additional data field (URLs, notes, etc.)
 
 ## 🔍 Example Store
 

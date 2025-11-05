@@ -308,6 +308,117 @@ class NjuskaloSitemapScraper:
             logger.error(f"Failed to extract store URLs: {e}")
             return []
 
+    def count_vehicle_ads(self, store_url: str) -> Dict[str, int]:
+        """Count 'Novo vozilo' and 'Rabljeno vozilo' ads by paginating through all store ads."""
+        new_count = 0
+        used_count = 0
+        page = 1
+        max_pages = 20  # Safety limit to prevent infinite loops
+
+        try:
+            while page <= max_pages:
+                # Construct paginated URL
+                if '?' in store_url:
+                    paginated_url = f"{store_url}&page={page}"
+                else:
+                    paginated_url = f"{store_url}?page={page}"
+
+                logger.info(f"Checking page {page} of store ads: {paginated_url}")
+
+                self.driver.get(paginated_url)
+                time.sleep(random.uniform(1, 3))
+
+                # Wait for page to load
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "body"))
+                    )
+                except TimeoutException:
+                    logger.warning(f"Page {page} failed to load")
+                    break
+
+                # Look for ads on this page
+                ad_selectors = [
+                    '.entity-item',
+                    '.ad-item',
+                    '.listing-item',
+                    '[data-testid="ad-item"]',
+                    '.classified-item'
+                ]
+
+                ads_found = False
+                page_new_count = 0
+                page_used_count = 0
+
+                for selector in ad_selectors:
+                    try:
+                        ad_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                        if ad_elements:
+                            ads_found = True
+                            for ad_element in ad_elements:
+                                try:
+                                    ad_text = ad_element.text.lower()
+                                    if 'novo vozilo' in ad_text:
+                                        page_new_count += 1
+                                    elif 'rabljeno vozilo' in ad_text:
+                                        page_used_count += 1
+                                except Exception:
+                                    continue
+                            break
+                    except Exception:
+                        continue
+
+                # If no ads found with standard selectors, try searching page text
+                if not ads_found:
+                    try:
+                        page_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
+                        page_new_count = page_text.count('novo vozilo')
+                        page_used_count = page_text.count('rabljeno vozilo')
+
+                        # If we found vehicle mentions, consider this a valid page
+                        if page_new_count > 0 or page_used_count > 0:
+                            ads_found = True
+                    except Exception:
+                        pass
+
+                new_count += page_new_count
+                used_count += page_used_count
+
+                logger.info(f"Page {page}: Found {page_new_count} new vehicles, {page_used_count} used vehicles")
+
+                # Check if there's a next page
+                next_page_exists = False
+                next_selectors = [
+                    '.pagination .next',
+                    '.pagination .page-next',
+                    'a[aria-label="Next"]',
+                    '.pager .next',
+                    '[data-testid="next-page"]'
+                ]
+
+                for selector in next_selectors:
+                    try:
+                        next_element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        if next_element.is_enabled() and not next_element.get_attribute('disabled'):
+                            next_page_exists = True
+                            break
+                    except NoSuchElementException:
+                        continue
+
+                # Also check if we found no ads on this page (might indicate end)
+                if not ads_found or not next_page_exists:
+                    logger.info(f"No more pages found after page {page}")
+                    break
+
+                page += 1
+
+        except Exception as e:
+            logger.error(f"Error counting vehicle ads: {e}")
+
+        result = {'new_count': new_count, 'used_count': used_count}
+        logger.info(f"Total vehicle counts - New: {new_count}, Used: {used_count}")
+        return result
+
     def scrape_store_info(self, store_url: str) -> Optional[Dict]:
         """Scrape information from a store page."""
         try:
@@ -330,6 +441,8 @@ class NjuskaloSitemapScraper:
                 'ads_count': None,
                 'has_auto_moto': False,
                 'categories': [],
+                'new_ads_count': 0,
+                'used_ads_count': 0,
                 'error': None
             }
 
@@ -509,7 +622,19 @@ class NjuskaloSitemapScraper:
             except Exception as e:
                 logger.warning(f"Could not check for Auto moto category: {e}")
 
-            logger.info(f"Successfully scraped store: {store_data['name'] or 'Unknown'} (Auto Moto: {store_data['has_auto_moto']}, Ads: {store_data['ads_count']})")
+            # Count new and used vehicle ads if this store has auto moto category
+            if store_data['has_auto_moto']:
+                try:
+                    logger.info("Counting vehicle ads (new vs used)...")
+                    vehicle_counts = self.count_vehicle_ads(store_url)
+                    store_data['new_ads_count'] = vehicle_counts['new_count']
+                    store_data['used_ads_count'] = vehicle_counts['used_count']
+                except Exception as e:
+                    logger.warning(f"Could not count vehicle ads: {e}")
+                    store_data['new_ads_count'] = 0
+                    store_data['used_ads_count'] = 0
+
+            logger.info(f"Successfully scraped store: {store_data['name'] or 'Unknown'} (Auto Moto: {store_data['has_auto_moto']}, Ads: {store_data['ads_count']}, New: {store_data['new_ads_count']}, Used: {store_data['used_ads_count']})")
             return store_data
 
         except Exception as e:
@@ -521,6 +646,8 @@ class NjuskaloSitemapScraper:
                 'ads_count': None,
                 'has_auto_moto': False,
                 'categories': [],
+                'new_ads_count': 0,
+                'used_ads_count': 0,
                 'error': str(e)
             }
 
@@ -710,21 +837,31 @@ class NjuskaloSitemapScraper:
             if not filename.startswith(datadump_dir):
                 filename = os.path.join(datadump_dir, filename)
 
-            # Prepare data for DataFrame
+            # Prepare data for DataFrame with specific header format
             df_data = []
-            for store in self.stores_data:
+            for i, store in enumerate(self.stores_data, start=1):
                 row = {
-                    'Store Name': store.get('name', ''),
-                    'URL': store.get('url', ''),
-                    'Address': store.get('address', ''),
-                    'Ads Count': store.get('ads_count', ''),
-                    'Has Auto Moto': store.get('has_auto_moto', False),
-                    'Categories Count': len(store.get('categories', [])),
-                    'Error': store.get('error', '')
+                    'id': i,  # Sequential ID
+                    'vat': '',  # VAT - set as empty since no data available on scraped page
+                    'name': store.get('name', ''),  # Store name
+                    'subname': store.get('subname', ''),  # Store subname/category
+                    'address': store.get('address', ''),  # Store address
+                    'total': store.get('ads_count', 0),  # Total number of ads (old ads_count)
+                    'new': store.get('new_ads_count', 0),  # New vehicle ads count
+                    'used': store.get('used_ads_count', 0),  # Used vehicle ads count
+                    'test': 0  # Test field - set to 0 for now
                 }
                 df_data.append(row)
 
             df = pd.DataFrame(df_data)
+
+            # Ensure columns are in the correct order
+            column_order = ['id', 'vat', 'name', 'subname', 'address', 'total', 'new', 'used', 'test']
+            df = df.reindex(columns=column_order)
+
+            # Fill NaN values with empty strings for VAT column
+            df['vat'] = df['vat'].fillna('')
+
             df.to_excel(filename, index=False)
 
             logger.info(f"Data saved to {filename}")

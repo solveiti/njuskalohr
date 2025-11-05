@@ -383,12 +383,30 @@ class NjuskaloCarScraper:
             if not filename.startswith(datadump_dir):
                 filename = os.path.join(datadump_dir, filename)
 
-            # Create DataFrame
-            df = pd.DataFrame(cars_data)
+            # Create DataFrame with specific header format
+            df_data = []
+            for i, car in enumerate(cars_data, start=1):
+                row = {
+                    'id': i,  # Sequential ID
+                    'vat': '',  # VAT - set as empty since no data available on scraped page
+                    'name': car.get('name', ''),  # Car name/title
+                    'subname': car.get('brand', ''),  # Car brand as subname
+                    'address': car.get('location', ''),  # Car location
+                    'total': 1,  # Each car counts as 1
+                    'new': 1 if car.get('condition', '').lower() == 'new' else 0,  # New car flag
+                    'used': 1 if car.get('condition', '').lower() == 'used' else 0,  # Used car flag
+                    'test': 0  # Test field - set to 0 for now
+                }
+                df_data.append(row)
 
-            # Reorder columns
-            column_order = ['name', 'brand', 'ad_link', 'image_link']
+            df = pd.DataFrame(df_data)
+
+            # Ensure columns are in the correct order
+            column_order = ['id', 'vat', 'name', 'subname', 'address', 'total', 'new', 'used', 'test']
             df = df.reindex(columns=column_order)
+
+            # Fill NaN values with empty strings for VAT column
+            df['vat'] = df['vat'].fillna('')
 
             # Save to Excel
             df.to_excel(filename, index=False, engine='openpyxl')
@@ -399,6 +417,12 @@ class NjuskaloCarScraper:
             print(f"Total cars scraped: {len(cars_data)}")
             print(f"Data saved to: {filename}")
             print(f"Columns: {', '.join(column_order)}")
+
+            # Show data breakdown
+            new_count = sum(1 for car in cars_data if car.get('condition', '').lower() == 'new')
+            used_count = sum(1 for car in cars_data if car.get('condition', '').lower() == 'used')
+            print(f"New cars: {new_count}")
+            print(f"Used cars: {used_count}")
 
             return True
 
