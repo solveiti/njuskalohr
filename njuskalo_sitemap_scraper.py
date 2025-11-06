@@ -48,7 +48,171 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class NjuskaloSitemapScraper:
+class AntiDetectionMixin:
+    """Mixin class providing advanced anti-detection methods."""
+
+    def get_smart_delay(self, min_seconds: float = 5.0, max_seconds: float = 15.0,
+                       operation_type: str = "store_visit") -> float:
+        """
+        Generate intelligent random delays based on operation type.
+
+        Args:
+            min_seconds: Minimum delay
+            max_seconds: Maximum delay
+            operation_type: Type of operation for context-specific delays
+
+        Returns:
+            Delay in seconds
+        """
+        base_delays = {
+            "store_visit": (8.0, 20.0),      # Between store visits - longest delay
+            "page_load": (2.0, 5.0),         # After page loads
+            "pagination": (3.0, 8.0),        # Between page navigations
+            "data_extraction": (1.0, 3.0),   # During data extraction
+            "sitemap_download": (4.0, 10.0), # Between sitemap downloads
+            "error_recovery": (15.0, 30.0)   # After errors - extra long
+        }
+
+        if operation_type in base_delays:
+            min_delay, max_delay = base_delays[operation_type]
+        else:
+            min_delay, max_delay = min_seconds, max_seconds
+
+        # Add some randomness with weighted distribution (favor middle range)
+        delay = random.triangular(min_delay, max_delay, (min_delay + max_delay) / 2)
+
+        # Occasionally add extra long delays (5% chance)
+        if random.random() < 0.05:
+            delay += random.uniform(10, 25)
+            logger.info(f"Added extra stealth delay: {delay:.1f}s")
+
+        return delay
+
+    def smart_sleep(self, operation_type: str = "store_visit",
+                   min_seconds: float = None, max_seconds: float = None) -> None:
+        """Sleep with intelligent delays based on operation type."""
+        delay = self.get_smart_delay(
+            min_seconds or 5.0,
+            max_seconds or 15.0,
+            operation_type
+        )
+        logger.debug(f"Sleeping {delay:.1f}s for {operation_type}")
+        time.sleep(delay)
+
+    def add_human_behavior(self) -> None:
+        """Add realistic human-like behavior patterns."""
+        try:
+            # Random mouse movements
+            if hasattr(self, 'driver') and self.driver:
+                from selenium.webdriver.common.action_chains import ActionChains
+                actions = ActionChains(self.driver)
+
+                # Get window size for realistic movements
+                window_size = self.driver.get_window_size()
+
+                # Multiple small mouse movements
+                for _ in range(random.randint(2, 5)):
+                    x = random.randint(100, window_size['width'] - 100)
+                    y = random.randint(100, window_size['height'] - 100)
+
+                    try:
+                        body = self.driver.find_element(By.TAG_NAME, "body")
+                        actions.move_to_element_with_offset(body, x, y).perform()
+                        time.sleep(random.uniform(0.1, 0.5))
+                    except Exception:
+                        break
+
+                # Random scrolling patterns
+                self.human_scroll_pattern()
+
+        except Exception as e:
+            logger.debug(f"Human behavior simulation failed: {e}")
+
+    def human_scroll_pattern(self) -> None:
+        """Simulate realistic human scrolling patterns."""
+        try:
+            if hasattr(self, 'driver') and self.driver:
+                # Scroll down in chunks
+                for _ in range(random.randint(2, 4)):
+                    scroll_amount = random.randint(200, 600)
+                    self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+                    time.sleep(random.uniform(0.3, 1.2))
+
+                # Sometimes scroll back up
+                if random.random() > 0.6:
+                    back_scroll = random.randint(100, 300)
+                    self.driver.execute_script(f"window.scrollBy(0, -{back_scroll});")
+                    time.sleep(random.uniform(0.2, 0.8))
+
+                # Final scroll to top occasionally
+                if random.random() > 0.8:
+                    self.driver.execute_script("window.scrollTo(0, 0);")
+                    time.sleep(random.uniform(0.5, 1.5))
+
+        except Exception as e:
+            logger.debug(f"Scroll pattern failed: {e}")
+
+    def rotate_user_agent(self) -> str:
+        """Get a random realistic user agent."""
+        user_agents = [
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
+        ]
+        return random.choice(user_agents)
+
+    def add_request_headers(self) -> dict:
+        """Generate realistic request headers."""
+        headers = {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+        }
+        return headers
+
+    def accept_cookies(self) -> None:
+        """Accept cookies if cookie banner is present."""
+        try:
+            cookie_selectors = [
+                "[data-testid='cookie-accept-all']",
+                ".cookie-accept",
+                "#cookie-accept",
+                "button[id*='cookie']",
+                "button[class*='cookie']",
+                ".gdpr-accept",
+                "[data-cy='accept-all']",
+                ".accept-all-cookies",
+                ".cookie-consent-accept"
+            ]
+
+            for selector in cookie_selectors:
+                try:
+                    cookie_button = WebDriverWait(self.driver, 3).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
+                    )
+                    cookie_button.click()
+                    logger.info("Cookie banner accepted")
+                    self.smart_sleep("data_extraction", min_seconds=0.5, max_seconds=2.0)
+                    return
+                except TimeoutException:
+                    continue
+
+        except Exception as e:
+            logger.debug(f"No cookie banner found or error accepting: {e}")
+
+
+class NjuskaloSitemapScraper(AntiDetectionMixin):
     """Web scraper for Njuskalo stores using sitemap approach."""
 
     def __init__(self, headless: bool = True, use_database: bool = True):
@@ -71,39 +235,73 @@ class NjuskaloSitemapScraper:
         self.database = None
         self.stores_data = []
 
-    def setup_browser(self):
-        """Set up Chrome WebDriver with optimal settings."""
+    def setup_browser(self) -> bool:
+        """Set up Chrome WebDriver with enhanced anti-detection measures."""
         try:
             chrome_options = Options()
+
+            # Create unique temporary user data directory
+            user_data_dir = tempfile.mkdtemp()
+            chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+
+            # Enhanced anti-detection arguments
+            chrome_options.add_argument(f"--user-agent={self.rotate_user_agent()}")
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+
+            # Additional stealth options
+            chrome_options.add_argument("--no-first-run")
+            chrome_options.add_argument("--no-service-autorun")
+            chrome_options.add_argument("--password-store=basic")
+            chrome_options.add_argument("--use-mock-keychain")
+            chrome_options.add_argument("--disable-component-extensions-with-background-pages")
+            chrome_options.add_argument("--disable-default-apps")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-background-timer-throttling")
+            chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+            chrome_options.add_argument("--disable-renderer-backgrounding")
+            chrome_options.add_argument("--disable-features=TranslateUI")
+            chrome_options.add_argument("--disable-ipc-flooding-protection")
+
+            # Randomize window size slightly
+            width = random.randint(1366, 1920)
+            height = random.randint(768, 1080)
+            chrome_options.add_argument(f"--window-size={width},{height}")
+
+            # Standard options
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--disable-web-security")
 
             if self.headless:
                 chrome_options.add_argument("--headless")
 
-            # Create unique temporary user data directory
-            user_data_dir = tempfile.mkdtemp()  # Creates a unique temp directory
-            chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
-
-            # Anti-detection options
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--start-maximized")
-
-            # User agent
-            chrome_options.add_argument(
-                "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-
+            # Setup Chrome service
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-            # Execute script to hide automation
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            # Advanced anti-detection scripts
+            stealth_scripts = [
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
+                "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
+                "Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en']})",
+                "window.chrome = {runtime: {}}",
+                "Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})})",
+            ]
 
-            logger.info("Browser setup completed successfully")
+            for script in stealth_scripts:
+                try:
+                    self.driver.execute_script(script)
+                except Exception as e:
+                    logger.debug(f"Stealth script failed: {e}")
+
+            # Set realistic timeouts
+            self.driver.implicitly_wait(10)
+            self.driver.set_page_load_timeout(30)
+
+            logger.info("Browser setup completed successfully with enhanced anti-detection")
             return True
 
         except Exception as e:
@@ -118,8 +316,9 @@ class NjuskaloSitemapScraper:
             # Navigate to the sitemap index URL
             self.driver.get(self.sitemap_index_url)
 
-            # Wait a moment for page to load
-            time.sleep(random.uniform(1, 3))
+            # Enhanced delay and human behavior
+            self.smart_sleep("sitemap_download")
+            self.add_human_behavior()
 
             # Get the page source
             xml_content = self.driver.page_source
@@ -141,6 +340,8 @@ class NjuskaloSitemapScraper:
 
         except Exception as e:
             logger.error(f"Failed to download sitemap index with browser: {e}")
+            # Add error recovery delay
+            self.smart_sleep("error_recovery")
             return None
 
     def parse_sitemap_index(self, xml_content: str) -> List[str]:
@@ -190,8 +391,9 @@ class NjuskaloSitemapScraper:
             # Navigate to the sitemap URL
             self.driver.get(sitemap_url)
 
-            # Wait for page to load
-            time.sleep(random.uniform(2, 4))
+            # Enhanced delay and behavior simulation
+            self.smart_sleep("sitemap_download")
+            self.add_human_behavior()
 
             # Get the page source
             xml_content = self.driver.page_source
@@ -343,8 +545,93 @@ class NjuskaloSitemapScraper:
             logger.warning(f"Failed to add car filter to URL {url}: {e}")
             return url
 
+    def detect_vehicle_flags(self) -> Dict[str, int]:
+        """
+        Detect vehicle flags on the current page using enhanced selectors.
+
+        Returns:
+            Dictionary with 'new_count' and 'used_count' keys
+        """
+        new_count = 0
+        used_count = 0
+
+        try:
+            # Primary method: Look for specific vehicle flags in li.entity-flag span.flag elements
+            flag_elements = self.driver.find_elements(By.CSS_SELECTOR, "li.entity-flag span.flag")
+            if flag_elements:
+                logger.debug(f"Found {len(flag_elements)} entity-flag elements")
+                for flag_element in flag_elements:
+                    try:
+                        flag_text = flag_element.text.lower()
+                        if 'novo vozilo' in flag_text:
+                            new_count += 1
+                            logger.debug(f"Found 'Novo vozilo' flag: {flag_text}")
+                        elif 'rabljeno vozilo' in flag_text:
+                            used_count += 1
+                            logger.debug(f"Found 'Rabljeno vozilo' flag: {flag_text}")
+                    except Exception as e:
+                        logger.debug(f"Error reading flag text: {e}")
+                        continue
+
+                # Return early if we found flags using the primary method
+                if new_count > 0 or used_count > 0:
+                    return {'new_count': new_count, 'used_count': used_count}
+
+            # Secondary method: Look for flags in broader entity-flag containers
+            flag_containers = self.driver.find_elements(By.CSS_SELECTOR, "li.entity-flag")
+            if flag_containers:
+                logger.debug(f"Found {len(flag_containers)} entity-flag containers")
+                for container in flag_containers:
+                    try:
+                        container_text = container.text.lower()
+                        if 'novo vozilo' in container_text:
+                            new_count += 1
+                        elif 'rabljeno vozilo' in container_text:
+                            used_count += 1
+                    except Exception as e:
+                        logger.debug(f"Error reading container text: {e}")
+                        continue
+
+                # Return if we found any flags
+                if new_count > 0 or used_count > 0:
+                    return {'new_count': new_count, 'used_count': used_count}
+
+            # Fallback method: Search in various ad elements
+            ad_selectors = [
+                '.entity-item',
+                '.ad-item',
+                '.listing-item',
+                '[data-testid="ad-item"]',
+                '.classified-item'
+            ]
+
+            for selector in ad_selectors:
+                try:
+                    ad_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if ad_elements:
+                        for ad_element in ad_elements:
+                            try:
+                                ad_text = ad_element.text.lower()
+                                if 'novo vozilo' in ad_text:
+                                    new_count += 1
+                                elif 'rabljeno vozilo' in ad_text:
+                                    used_count += 1
+                            except Exception:
+                                continue
+                        break  # Exit after first successful selector
+                except Exception:
+                    continue
+
+        except Exception as e:
+            logger.warning(f"Error in vehicle flag detection: {e}")
+
+        return {'new_count': new_count, 'used_count': used_count}
+
     def count_vehicle_ads(self, store_url: str) -> Dict[str, int]:
-        """Count 'Novo vozilo' and 'Rabljeno vozilo' ads by paginating through all store ads."""
+        """
+        Count 'Novo vozilo' and 'Rabljeno vozilo' ads by paginating through all store ads.
+        Uses enhanced detection to find vehicle flags in li.entity-flag span.flag elements.
+        """
         new_count = 0
         used_count = 0
         page = 1
@@ -364,7 +651,10 @@ class NjuskaloSitemapScraper:
                 logger.info(f"Checking page {page} of store ads: {paginated_url}")
 
                 self.driver.get(paginated_url)
-                time.sleep(random.uniform(1, 3))
+
+                # Enhanced delays for pagination
+                self.smart_sleep("pagination")
+                self.add_human_behavior()
 
                 # Wait for page to load
                 try:
@@ -375,37 +665,13 @@ class NjuskaloSitemapScraper:
                     logger.warning(f"Page {page} failed to load")
                     break
 
-                # Look for ads on this page
-                ad_selectors = [
-                    '.entity-item',
-                    '.ad-item',
-                    '.listing-item',
-                    '[data-testid="ad-item"]',
-                    '.classified-item',
-                    '.entity-flag'
-                ]
+                # Use enhanced vehicle flag detection
+                page_counts = self.detect_vehicle_flags()
+                page_new_count = page_counts['new_count']
+                page_used_count = page_counts['used_count']
 
-                ads_found = False
-                page_new_count = 0
-                page_used_count = 0
-
-                for selector in ad_selectors:
-                    try:
-                        ad_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                        if ad_elements:
-                            ads_found = True
-                            for ad_element in ad_elements:
-                                try:
-                                    ad_text = ad_element.text.lower()
-                                    if 'novo vozilo' in ad_text:
-                                        page_new_count += 1
-                                    elif 'rabljeno vozilo' in ad_text:
-                                        page_used_count += 1
-                                except Exception:
-                                    continue
-                            break
-                    except Exception:
-                        continue
+                # Check if we found any vehicles on this page
+                ads_found = page_new_count > 0 or page_used_count > 0
 
                 # If no ads found with standard selectors, try searching page text
                 if not ads_found:
@@ -467,13 +733,17 @@ class NjuskaloSitemapScraper:
 
             self.driver.get(filtered_url)
 
-            # Random delay to mimic human behavior
-            time.sleep(random.uniform(2, 5))
+            # Enhanced delay and human behavior simulation
+            self.smart_sleep("page_load")
+            self.add_human_behavior()
 
             # Wait for page to load
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
+
+            # Additional delay before data extraction
+            self.smart_sleep("data_extraction")
 
             store_data = {
                 'url': store_url,
@@ -938,8 +1208,20 @@ class NjuskaloSitemapScraper:
                     if self.use_database and self.database:
                         self.database.mark_url_invalid(store_url)
 
-                # Random delay between store visits
-                time.sleep(random.uniform(3, 7))
+                # Enhanced random delay between store visits with progress-based scaling
+                progress_factor = i / len(stores_to_scrape)
+
+                # Increase delays as we progress to avoid pattern detection
+                if progress_factor > 0.7:  # After 70% completion, use longer delays
+                    self.smart_sleep("store_visit", min_seconds=12.0, max_seconds=25.0)
+                else:
+                    self.smart_sleep("store_visit")
+
+                # Occasionally add extra long breaks (every 10-15 stores)
+                if i % random.randint(10, 15) == 0:
+                    extra_delay = random.uniform(30, 60)
+                    logger.info(f"Taking extended break: {extra_delay:.1f}s after {i} stores")
+                    time.sleep(extra_delay)
 
             logger.info(f"Completed scraping {len(self.stores_data)} stores")
             logger.info(f"Auto moto stores: {auto_moto_count}, Non-auto moto stores: {non_auto_moto_count}")
@@ -1035,8 +1317,20 @@ class NjuskaloSitemapScraper:
                     if self.database:
                         self.database.mark_url_invalid(store_url)
 
-                # Random delay between store visits
-                time.sleep(random.uniform(3, 7))
+                # Enhanced random delay between store visits for auto moto stores
+                progress_factor = i / len(stores_to_scrape)
+
+                # Scale delays based on progress and store count
+                if progress_factor > 0.8:  # After 80% completion for focused scraping
+                    self.smart_sleep("store_visit", min_seconds=15.0, max_seconds=30.0)
+                else:
+                    self.smart_sleep("store_visit", min_seconds=10.0, max_seconds=20.0)
+
+                # Extended breaks for auto moto scraping (every 8-12 stores)
+                if i % random.randint(8, 12) == 0:
+                    extra_delay = random.uniform(45, 90)
+                    logger.info(f"Taking extended auto moto break: {extra_delay:.1f}s after {i} stores")
+                    time.sleep(extra_delay)
 
             logger.info(f"Completed scraping {len(self.stores_data)} auto moto stores")
 

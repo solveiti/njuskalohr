@@ -34,6 +34,69 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+class AntiDetectionMixin:
+    """Advanced anti-detection methods for web scraping."""
+
+    def enhanced_human_delay(self, min_seconds: float = 3.0, max_seconds: float = 8.0,
+                            operation_type: str = "general") -> None:
+        """Enhanced delay system with operation-specific timings."""
+        delay_configs = {
+            "general": (3.0, 8.0),
+            "page_load": (4.0, 10.0),
+            "data_extraction": (2.0, 5.0),
+            "navigation": (5.0, 12.0),
+            "error_recovery": (15.0, 30.0)
+        }
+
+        if operation_type in delay_configs:
+            min_delay, max_delay = delay_configs[operation_type]
+        else:
+            min_delay, max_delay = min_seconds, max_seconds
+
+        # Use triangular distribution for more realistic delays
+        delay = random.triangular(min_delay, max_delay, (min_delay + max_delay) / 2)
+
+        # 3% chance of extra long delay
+        if random.random() < 0.03:
+            delay += random.uniform(10, 20)
+            logger.info(f"Added stealth delay: {delay:.1f}s")
+
+        logger.debug(f"Sleeping {delay:.1f}s for {operation_type}")
+        time.sleep(delay)
+
+    def advanced_mouse_movement(self) -> None:
+        """Advanced mouse movement patterns."""
+        try:
+            if hasattr(self, 'driver') and self.driver:
+                actions = ActionChains(self.driver)
+                window_size = self.driver.get_window_size()
+
+                # Multiple random movements
+                for _ in range(random.randint(3, 6)):
+                    x = random.randint(50, window_size['width'] - 50)
+                    y = random.randint(50, window_size['height'] - 50)
+
+                    try:
+                        body = self.driver.find_element(By.TAG_NAME, "body")
+                        actions.move_to_element_with_offset(body, x, y).perform()
+                        time.sleep(random.uniform(0.1, 0.7))
+                    except Exception:
+                        break
+
+        except Exception as e:
+            logger.debug(f"Mouse movement failed: {e}")
+
+    def rotate_user_agents(self) -> str:
+        """Get random user agent string."""
+        agents = [
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        ]
+        return random.choice(agents)
+
+
 def find_chrome_executable():
     """Find Chrome or Chromium executable on the system."""
     possible_paths = [
@@ -80,7 +143,7 @@ def install_chromium():
         return None
 
 
-class NjuskaloCarScraperChromium:
+class NjuskaloCarScraperChromium(AntiDetectionMixin):
     """Web scraper for Njuskalo car listings using Chromium/Chrome."""
 
     def __init__(self, headless: bool = True):
@@ -93,7 +156,7 @@ class NjuskaloCarScraperChromium:
         self.setup_driver()
 
     def setup_driver(self) -> None:
-        """Set up Chrome/Chromium WebDriver."""
+        """Set up Chrome/Chromium WebDriver with enhanced anti-detection."""
         # Find Chrome executable
         self.chrome_path = find_chrome_executable()
 
@@ -119,24 +182,40 @@ class NjuskaloCarScraperChromium:
         # Set the Chrome binary location
         chrome_options.binary_location = self.chrome_path
 
-        # Add user agent to mimic real browser
-        chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        # Enhanced anti-detection user agent rotation
+        chrome_options.add_argument(f"--user-agent={self.rotate_user_agents()}")
 
-        # Disable automation flags
+        # Enhanced automation hiding
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
 
-        # Additional options for Linux compatibility
+        # Advanced stealth options
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--no-service-autorun")
+        chrome_options.add_argument("--password-store=basic")
+        chrome_options.add_argument("--use-mock-keychain")
+        chrome_options.add_argument("--disable-component-extensions-with-background-pages")
+        chrome_options.add_argument("--disable-default-apps")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-background-timer-throttling")
+        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+        chrome_options.add_argument("--disable-renderer-backgrounding")
+        chrome_options.add_argument("--disable-features=TranslateUI,VizDisplayCompositor")
+        chrome_options.add_argument("--disable-ipc-flooding-protection")
+
+        # System compatibility options
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         chrome_options.add_argument("--disable-web-security")
-        chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+
+        # Randomize window size
+        width = random.randint(1366, 1920)
+        height = random.randint(768, 1080)
+        chrome_options.add_argument(f"--window-size={width},{height}")
 
         if self.headless:
             chrome_options.add_argument("--headless")
-
-        chrome_options.add_argument("--window-size=1920,1080")
 
         try:
             # Try to use ChromeDriver from webdriver-manager first
@@ -159,45 +238,59 @@ class NjuskaloCarScraperChromium:
 
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
 
-            # Execute script to remove webdriver property
-            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            # Advanced anti-detection scripts
+            stealth_scripts = [
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
+                "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
+                "Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en']})",
+                "window.chrome = {runtime: {}}",
+                "Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})})",
+            ]
 
-            logger.info(f"Chrome/Chromium WebDriver initialized successfully using: {self.chrome_path}")
+            for script in stealth_scripts:
+                try:
+                    self.driver.execute_script(script)
+                except Exception as e:
+                    logger.debug(f"Stealth script failed: {e}")
+
+            # Set realistic timeouts
+            self.driver.implicitly_wait(10)
+            self.driver.set_page_load_timeout(30)
+
+            logger.info(f"Chrome/Chromium WebDriver initialized successfully with enhanced anti-detection using: {self.chrome_path}")
 
         except Exception as e:
             logger.error(f"Failed to initialize WebDriver: {e}")
             raise
 
-    def human_delay(self, min_seconds: float = 1.0, max_seconds: float = 3.0) -> None:
-        """Add random delay to mimic human behavior."""
-        delay = random.uniform(min_seconds, max_seconds)
-        time.sleep(delay)
+    def human_delay(self, min_seconds: float = 3.0, max_seconds: float = 8.0) -> None:
+        """Enhanced random delay to mimic realistic human behavior."""
+        # Use the enhanced delay from AntiDetectionMixin
+        self.enhanced_human_delay(min_seconds, max_seconds)
 
     def human_scroll(self) -> None:
-        """Scroll the page in a human-like manner."""
-        scroll_amount = random.randint(300, 800)
-        self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
-        self.human_delay(0.5, 1.5)
+        """Enhanced human-like scrolling with varied patterns."""
+        # Multiple scroll actions
+        for _ in range(random.randint(2, 4)):
+            scroll_amount = random.randint(200, 600)
+            self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+            time.sleep(random.uniform(0.5, 1.5))
 
-        if random.random() > 0.7:
-            back_scroll = random.randint(50, 200)
+        # Random scroll back
+        if random.random() > 0.6:
+            back_scroll = random.randint(100, 400)
             self.driver.execute_script(f"window.scrollBy(0, -{back_scroll});")
-            self.human_delay(0.3, 1.0)
+            time.sleep(random.uniform(0.3, 1.2))
+
+        # Occasional scroll to top
+        if random.random() > 0.8:
+            self.driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(random.uniform(0.5, 1.5))
 
     def move_mouse_randomly(self) -> None:
-        """Move mouse cursor randomly."""
-        try:
-            actions = ActionChains(self.driver)
-            window_size = self.driver.get_window_size()
-
-            x = random.randint(100, window_size['width'] - 100)
-            y = random.randint(100, window_size['height'] - 100)
-
-            body = self.driver.find_element(By.TAG_NAME, "body")
-            actions.move_to_element_with_offset(body, x, y).perform()
-
-        except Exception as e:
-            logger.debug(f"Mouse movement failed: {e}")
+        """Enhanced mouse movement with multiple patterns."""
+        # Use the advanced mouse movement from AntiDetectionMixin
+        self.advanced_mouse_movement()
 
     def wait_for_page_load(self, timeout: int = 10) -> bool:
         """Wait for page to fully load."""
@@ -323,7 +416,7 @@ class NjuskaloCarScraperChromium:
             return None
 
     def scrape_cars(self) -> List[Dict[str, str]]:
-        """Scrape car listings from njuskalo.hr/auti"""
+        """Scrape car listings from njuskalo.hr/auti with enhanced anti-detection."""
         logger.info("Starting to scrape car listings...")
         cars_data = []
 
@@ -335,7 +428,8 @@ class NjuskaloCarScraperChromium:
                 logger.error("Page failed to load properly")
                 return cars_data
 
-            self.human_delay(2, 4)
+            # Enhanced delays and behavior simulation
+            self.enhanced_human_delay(4.0, 8.0, "page_load")
             self.accept_cookies()
             self.move_mouse_randomly()
             self.human_scroll()
@@ -369,9 +463,15 @@ class NjuskaloCarScraperChromium:
 
             for i, car_element in enumerate(car_elements):
                 try:
-                    if i > 0 and i % 5 == 0:
-                        self.human_delay(1, 2)
-                        self.move_mouse_randomly()
+                    # Enhanced delays between car processing
+                    if i > 0:
+                        if i % 5 == 0:  # Every 5th car, longer delay
+                            self.enhanced_human_delay(2.0, 5.0, "data_extraction")
+                            self.move_mouse_randomly()
+                        elif i % 3 == 0:  # Every 3rd car, medium delay
+                            self.enhanced_human_delay(1.0, 3.0, "data_extraction")
+                        else:  # Regular short delay
+                            time.sleep(random.uniform(0.5, 1.5))
 
                     car_data = self.extract_car_data(car_element)
                     if car_data:

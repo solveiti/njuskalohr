@@ -57,16 +57,21 @@ def list_valid_stores(limit=10):
             print("-" * 80)
 
             for i, store in enumerate(stores[:limit], 1):
-                results = store.get('results', {})
-                name = results.get('name', 'Unknown')
-                ads_count = results.get('ads_count', 'N/A')
-                has_auto_moto = results.get('has_auto_moto', False)
-                auto_icon = "🚗" if has_auto_moto else "❌"
+                try:
+                    results = store.get('results') or {}
+                    name = results.get('name', 'Unknown') if isinstance(results, dict) else 'Unknown'
+                    ads_count = results.get('ads_count', 'N/A') if isinstance(results, dict) else 'N/A'
+                    is_automoto = store.get('is_automoto', False)
+                    auto_icon = "🚗" if is_automoto else "❌"
 
-                print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
-                print(f"    URL: {store['url']}")
-                print(f"    Updated: {store['updated_at']}")
-                print()
+                    print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
+                    print(f"    URL: {store['url']}")
+                    print(f"    Updated: {store['updated_at']}")
+                    print()
+                except Exception as e:
+                    print(f"{i:2d}. ERROR parsing store data: {e}")
+                    print(f"    URL: {store.get('url', 'Unknown')}")
+                    print()
 
     except Exception as e:
         print(f"❌ Error listing stores: {e}")
@@ -146,24 +151,59 @@ def search_stores(query):
             print("-" * 80)
 
             for i, store in enumerate(matching_stores, 1):
-                results = store.get('results', {})
-                name = results.get('name', 'Unknown')
-                ads_count = results.get('ads_count', 'N/A')
-                has_auto_moto = results.get('has_auto_moto', False)
-                auto_icon = "🚗" if has_auto_moto else "❌"
+                try:
+                    results = store.get('results') or {}
+                    name = results.get('name', 'Unknown') if isinstance(results, dict) else 'Unknown'
+                    ads_count = results.get('ads_count', 'N/A') if isinstance(results, dict) else 'N/A'
+                    is_automoto = store.get('is_automoto', False)
+                    auto_icon = "🚗" if is_automoto else "❌"
 
-                print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
-                print(f"    URL: {store['url']}")
-                print()
+                    print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
+                    print(f"    URL: {store['url']}")
+                    print()
+                except Exception as e:
+                    print(f"{i:2d}. ERROR parsing store data: {e}")
+                    print(f"    URL: {store.get('url', 'Unknown')}")
+                    print()
 
     except Exception as e:
         print(f"❌ Error searching stores: {e}")
 
 
+def migrate_database():
+    """Run database migration to add is_automoto column"""
+    try:
+        print("🔄 Running database migration...")
+
+        db = NjuskaloDatabase()
+        db.connect()
+
+        # Run migration
+        db.migrate_add_is_automoto_column()
+
+        # Show results
+        with db.connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM scraped_stores WHERE is_automoto = TRUE")
+            auto_moto_count = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM scraped_stores")
+            total_count = cursor.fetchone()[0]
+
+            print(f"✅ Migration completed successfully!")
+            print(f"Total stores: {total_count}")
+            print(f"Auto moto stores: {auto_moto_count}")
+            print(f"Non-auto moto stores: {total_count - auto_moto_count}")
+
+        db.disconnect()
+
+    except Exception as e:
+        print(f"❌ Migration failed: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Njuskalo Database Management')
     parser.add_argument('command', choices=[
-        'create-tables', 'stats', 'list-valid', 'list-invalid',
+        'create-tables', 'migrate', 'stats', 'list-valid', 'list-invalid',
         'export', 'search'
     ], help='Command to execute')
     parser.add_argument('--limit', type=int, default=10, help='Limit for list commands')
@@ -174,6 +214,8 @@ def main():
 
     if args.command == 'create-tables':
         create_tables()
+    elif args.command == 'migrate':
+        migrate_database()
     elif args.command == 'stats':
         show_stats()
     elif args.command == 'list-valid':

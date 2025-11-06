@@ -47,6 +47,7 @@ class NjuskaloDatabase:
             url VARCHAR(2048) UNIQUE NOT NULL,
             results JSONB,
             is_valid BOOLEAN DEFAULT TRUE,
+            is_automoto BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT unique_url UNIQUE (url)
@@ -54,6 +55,7 @@ class NjuskaloDatabase:
 
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_url ON scraped_stores(url);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_valid ON scraped_stores(is_valid);
+        CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto ON scraped_stores(is_automoto);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_created_at ON scraped_stores(created_at);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_updated_at ON scraped_stores(updated_at);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_results_gin ON scraped_stores USING GIN (results);
@@ -96,25 +98,32 @@ class NjuskaloDatabase:
         Returns:
             bool: True if operation was successful
         """
+        # Extract is_automoto from store_data and remove it from results
+        is_automoto = store_data.pop('has_auto_moto', False)
+
+        # Remove categories from results as well
+        store_data.pop('categories', None)
+
         insert_or_update_sql = """
-        INSERT INTO scraped_stores (url, results, is_valid)
-        VALUES (%s, %s, %s)
+        INSERT INTO scraped_stores (url, results, is_valid, is_automoto)
+        VALUES (%s, %s, %s, %s)
         ON CONFLICT (url)
         DO UPDATE SET
             results = EXCLUDED.results,
             is_valid = EXCLUDED.is_valid,
+            is_automoto = EXCLUDED.is_automoto,
             updated_at = CURRENT_TIMESTAMP
         RETURNING id, created_at, updated_at;
         """
 
         try:
             with self.connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(insert_or_update_sql, (url, Json(store_data), is_valid))
+                cursor.execute(insert_or_update_sql, (url, Json(store_data), is_valid, is_automoto))
                 result = cursor.fetchone()
                 self.connection.commit()
 
                 action = "Updated" if result['created_at'] != result['updated_at'] else "Inserted"
-                self.logger.info(f"{action} store data for URL: {url}")
+                self.logger.info(f"{action} store data for URL: {url} (is_automoto: {is_automoto})")
                 return True
 
         except psycopg2.Error as e:
@@ -133,8 +142,8 @@ class NjuskaloDatabase:
             bool: True if operation was successful
         """
         update_sql = """
-        INSERT INTO scraped_stores (url, is_valid, results)
-        VALUES (%s, %s, %s)
+        INSERT INTO scraped_stores (url, is_valid, is_automoto, results)
+        VALUES (%s, %s, %s, %s)
         ON CONFLICT (url)
         DO UPDATE SET
             is_valid = FALSE,
@@ -143,7 +152,7 @@ class NjuskaloDatabase:
 
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(update_sql, (url, False, Json({"error": "URL not accessible"})))
+                cursor.execute(update_sql, (url, False, False, Json({"error": "URL not accessible"})))
                 self.connection.commit()
                 self.logger.info(f"Marked URL as invalid: {url}")
                 return True

@@ -48,6 +48,7 @@ class NjuskaloDatabase:
             url VARCHAR(2048) UNIQUE NOT NULL,
             results JSON,
             is_valid BOOLEAN DEFAULT TRUE,
+            is_automoto BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT unique_url UNIQUE (url)
@@ -55,6 +56,7 @@ class NjuskaloDatabase:
 
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_url ON scraped_stores(url);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_valid ON scraped_stores(is_valid);
+        CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto ON scraped_stores(is_automoto);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_created_at ON scraped_stores(created_at);
         CREATE INDEX IF NOT EXISTS idx_scraped_stores_updated_at ON scraped_stores(updated_at);
         """
@@ -74,6 +76,52 @@ class NjuskaloDatabase:
             self.connection.rollback()
             raise
 
+    def migrate_add_is_automoto_column(self):
+        """Add is_automoto column to existing database"""
+        try:
+            with self.connection.cursor() as cursor:
+                # Check if column already exists
+                cursor.execute("""
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = 'scraped_stores'
+                    AND COLUMN_NAME = 'is_automoto'
+                """)
+
+                if cursor.fetchone() is None:
+                    # Column doesn't exist, add it
+                    cursor.execute("""
+                        ALTER TABLE scraped_stores
+                        ADD COLUMN is_automoto BOOLEAN DEFAULT FALSE
+                        AFTER is_valid
+                    """)
+
+                    # Create index for the new column
+                    cursor.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto
+                        ON scraped_stores(is_automoto)
+                    """)
+
+                    self.connection.commit()
+                    self.logger.info("Added is_automoto column successfully")
+
+                    # Update existing records based on has_auto_moto in results
+                    cursor.execute("""
+                        UPDATE scraped_stores
+                        SET is_automoto = TRUE
+                        WHERE JSON_EXTRACT(results, '$.has_auto_moto') = true
+                    """)
+                    self.connection.commit()
+                    self.logger.info("Updated existing records with is_automoto values")
+                else:
+                    self.logger.info("is_automoto column already exists")
+
+        except pymysql.Error as e:
+            self.logger.error(f"Error adding is_automoto column: {e}")
+            self.connection.rollback()
+            raise
+
     def save_store_data(self, url: str, store_data: Dict[str, Any], is_valid: bool = True) -> bool:
         """
         Save or update store data in the database
@@ -86,18 +134,25 @@ class NjuskaloDatabase:
         Returns:
             bool: True if operation was successful
         """
+        # Extract is_automoto from store_data and remove it from results
+        is_automoto = store_data.pop('has_auto_moto', False)
+
+        # Remove categories from results as well
+        store_data.pop('categories', None)
+
         insert_or_update_sql = """
-        INSERT INTO scraped_stores (url, results, is_valid)
-        VALUES (%s, %s, %s)
+        INSERT INTO scraped_stores (url, results, is_valid, is_automoto)
+        VALUES (%s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             results = VALUES(results),
             is_valid = VALUES(is_valid),
+            is_automoto = VALUES(is_automoto),
             updated_at = CURRENT_TIMESTAMP
         """
 
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(insert_or_update_sql, (url, json.dumps(store_data), is_valid))
+                cursor.execute(insert_or_update_sql, (url, json.dumps(store_data), is_valid, is_automoto))
                 self.connection.commit()
 
                 # Check if it was an insert or update
@@ -108,7 +163,7 @@ class NjuskaloDatabase:
                 else:
                     action = "No change"
 
-                self.logger.info(f"{action} store data for URL: {url}")
+                self.logger.info(f"{action} store data for URL: {url} (is_automoto: {is_automoto})")
                 return True
 
         except pymysql.Error as e:
@@ -127,8 +182,8 @@ class NjuskaloDatabase:
             bool: True if operation was successful
         """
         insert_or_update_sql = """
-        INSERT INTO scraped_stores (url, is_valid, results)
-        VALUES (%s, %s, %s)
+        INSERT INTO scraped_stores (url, is_valid, is_automoto, results)
+        VALUES (%s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             is_valid = FALSE,
             updated_at = CURRENT_TIMESTAMP
@@ -136,7 +191,7 @@ class NjuskaloDatabase:
 
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(insert_or_update_sql, (url, False, json.dumps({"error": "URL not accessible"})))
+                cursor.execute(insert_or_update_sql, (url, False, False, json.dumps({"error": "URL not accessible"})))
                 self.connection.commit()
                 self.logger.info(f"Marked URL as invalid: {url}")
                 return True
@@ -186,7 +241,7 @@ class NjuskaloDatabase:
             List of dictionaries containing store data
         """
         select_sql = """
-        SELECT url, results, created_at, updated_at
+        SELECT url, results, created_at, updated_at, is_automoto
         FROM scraped_stores
         WHERE is_valid = TRUE
         ORDER BY updated_at DESC
@@ -216,7 +271,7 @@ class NjuskaloDatabase:
             List of dictionaries containing invalid store data
         """
         select_sql = """
-        SELECT url, results, created_at, updated_at
+        SELECT url, results, created_at, updated_at, is_automoto
         FROM scraped_stores
         WHERE is_valid = FALSE
         ORDER BY updated_at DESC
@@ -314,10 +369,10 @@ class NjuskaloDatabase:
             List of dictionaries containing auto moto store data
         """
         select_sql = """
-        SELECT url, results, created_at, updated_at
+        SELECT url, results, created_at, updated_at, is_automoto
         FROM scraped_stores
         WHERE is_valid = TRUE
-        AND JSON_EXTRACT(results, '$.has_auto_moto') = true
+        AND is_automoto = TRUE
         ORDER BY updated_at DESC
         """
 
@@ -345,10 +400,10 @@ class NjuskaloDatabase:
             List of dictionaries containing non-auto moto store data
         """
         select_sql = """
-        SELECT url, results, created_at, updated_at
+        SELECT url, results, created_at, updated_at, is_automoto
         FROM scraped_stores
         WHERE is_valid = TRUE
-        AND (JSON_EXTRACT(results, '$.has_auto_moto') = false OR JSON_EXTRACT(results, '$.has_auto_moto') IS NULL)
+        AND is_automoto = FALSE
         ORDER BY updated_at DESC
         """
 

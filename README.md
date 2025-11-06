@@ -96,6 +96,9 @@ python db_manager.py export --output exported_data.json
 
 # Create/recreate database tables
 python db_manager.py create-tables
+
+# Run database migration (adds is_automoto column)
+python db_manager.py migrate
 ```
 
 ### 5. API Setup (FastAPI + Celery + Redis)
@@ -206,35 +209,35 @@ The PostgreSQL database stores scraped data in the following structure:
 
 ### `scraped_stores` Table
 
-| Column     | Type                     | Description                             |
-| ---------- | ------------------------ | --------------------------------------- |
-| id         | SERIAL PRIMARY KEY       | Auto-incrementing unique identifier     |
-| url        | VARCHAR(2048) UNIQUE     | Store URL (unique constraint)           |
-| results    | JSONB                    | Complete store data in JSON format      |
-| is_valid   | BOOLEAN                  | Whether the URL is accessible and valid |
-| created_at | TIMESTAMP WITH TIME ZONE | When the record was first created       |
-| updated_at | TIMESTAMP WITH TIME ZONE | When the record was last updated        |
+| Column      | Type                     | Description                                 |
+| ----------- | ------------------------ | ------------------------------------------- |
+| id          | SERIAL PRIMARY KEY       | Auto-incrementing unique identifier         |
+| url         | VARCHAR(2048) UNIQUE     | Store URL (unique constraint)               |
+| results     | JSONB                    | Store data in JSON format (cleaned)         |
+| is_valid    | BOOLEAN                  | Whether the URL is accessible and valid     |
+| is_automoto | BOOLEAN                  | Whether store has Auto Moto category (cars) |
+| created_at  | TIMESTAMP WITH TIME ZONE | When the record was first created           |
+| updated_at  | TIMESTAMP WITH TIME ZONE | When the record was last updated            |
 
 ### JSONB Results Structure
 
-The `results` column contains:
+The `results` column contains cleaned store data (without `has_auto_moto` and `categories`):
 
+````json
+{
 ```json
 {
   "url": "https://www.njuskalo.hr/trgovina/example",
   "name": "Store Name",
   "address": "Store Address",
   "ads_count": 123,
-  "has_auto_moto": true,
-  "categories": [
-    {
-      "text": "Auto i motori",
-      "href": "/categoryi/auti-categoryId=2"
-    }
-  ],
+  "new_ads_count": 45,
+  "used_ads_count": 78,
   "error": null
 }
-```
+````
+
+**Note**: `has_auto_moto` and `categories` are now stored in separate database columns and removed from the JSON to reduce redundancy and improve query performance.
 
 ### Database Features
 
