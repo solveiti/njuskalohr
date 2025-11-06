@@ -25,7 +25,6 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
-from webdriver_manager.firefox import GeckoDriverManager
 import logging
 from typing import List, Dict, Optional
 import re
@@ -285,7 +284,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             firefox_options.add_argument(f"--height={height}")
 
             # Setup Firefox service
-            service = Service(GeckoDriverManager().install())
+            service = Service("/usr/local/bin/geckodriver")
             self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
             # Set window size programmatically as well

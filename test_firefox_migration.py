@@ -18,7 +18,6 @@ def test_imports():
         # Test basic Firefox imports
         from selenium.webdriver.firefox.options import Options
         from selenium.webdriver.firefox.service import Service
-        from webdriver_manager.firefox import GeckoDriverManager
         print("✅ Selenium Firefox imports successful")
 
         # Test scraper imports

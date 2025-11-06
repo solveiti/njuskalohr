@@ -21,7 +21,6 @@ from njuskalo_sitemap_scraper import NjuskaloSitemapScraper, AntiDetectionMixin
 from selenium.webdriver.firefox.options import Options
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
-from webdriver_manager.firefox import GeckoDriverManager
 import tempfile
 import random
 
@@ -127,7 +126,7 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             logger.info("🧪 Testing Firefox installation locally...")
             test_options = Options()
             test_options.add_argument("--headless")
-            test_service = Service(GeckoDriverManager().install())
+            test_service = Service("/usr/local/bin/geckodriver")
             test_driver = webdriver.Firefox(service=test_service, options=test_options)
             test_driver.get("data:text/html,<html><body><h1>Firefox Test OK</h1></body></html>")
             test_driver.quit()
@@ -212,7 +211,7 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             firefox_options.add_argument(f"--height={height}")
 
             # Setup Firefox service with timeout configurations
-            service = Service(GeckoDriverManager().install())
+            service = Service("/usr/local/bin/geckodriver")
 
             # Add timeout configurations for server-side issues
             firefox_options.set_preference("network.http.connection-timeout", 30)

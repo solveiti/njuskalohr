@@ -17,7 +17,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
-from webdriver_manager.firefox import GeckoDriverManager
 import requests
 from urllib.parse import urljoin
 import logging
@@ -190,8 +189,8 @@ class NjuskaloCarScraper(AntiDetectionMixin):
         firefox_options.add_argument(f"--height={height}")
 
         try:
-            # Use webdriver-manager to automatically download and manage GeckoDriver
-            service = Service(GeckoDriverManager().install())
+            # Use system-installed GeckoDriver
+            service = Service("/usr/local/bin/geckodriver")
             self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
             # Set window size programmatically as well
