@@ -133,7 +133,6 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
 
             # Enhanced anti-detection arguments
-            chrome_options.add_argument(f"--user-agent={self.rotate_user_agent()}")
             chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
             chrome_options.add_argument("--disable-blink-features=AutomationControlled")
@@ -153,10 +152,20 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             chrome_options.add_argument("--disable-ipc-flooding-protection")
 
             # 🔥 ADD SOCKS PROXY CONFIGURATION HERE 🔥
-            if self.use_tunnels and self.socks_proxy_port:
+            if self.use_tunnels and hasattr(self, 'socks_proxy_port') and self.socks_proxy_port:
                 proxy_url = f"socks5://127.0.0.1:{self.socks_proxy_port}"
                 chrome_options.add_argument(f"--proxy-server={proxy_url}")
                 logger.info(f"🌐 Browser configured to use SOCKS proxy: {proxy_url}")
+            elif self.use_tunnels:
+                logger.warning("⚠️ Tunnels enabled but no SOCKS proxy port available - using direct connection")
+
+            # Set user agent
+            user_agents = [
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
+            ]
+            chrome_options.add_argument(f"--user-agent={random.choice(user_agents)}")
 
             # Randomize window size slightly
             width = random.randint(1366, 1920)
@@ -196,10 +205,17 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             self.driver.set_page_load_timeout(60)
 
             logger.info("✅ Browser setup completed with tunnel integration")
+            return True
 
         except Exception as e:
             logger.error(f"❌ Failed to setup browser: {e}")
-            raise
+            if hasattr(self, 'driver') and self.driver:
+                try:
+                    self.driver.quit()
+                except:
+                    pass
+                self.driver = None
+            return False
 
     def run_full_scrape(self, max_stores=None, tunnel_name=None):
         """
@@ -220,15 +236,28 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
                 else:
                     logger.warning("⚠️ Failed to start tunnel - continuing with direct connection")
 
-            # Run the normal scraping process
+            # Setup browser AFTER tunnel is established
+            logger.info("🔧 Setting up browser with tunnel configuration...")
+            if not self.setup_browser():
+                raise Exception("Browser setup failed")
+
+            # Run the normal scraping process (but skip browser setup in parent)
             logger.info("🏪 Starting enhanced scraping with tunnel support...")
-            return super().run_full_scrape(max_stores=max_stores)
+
+            # Call parent's scraping logic directly without browser setup
+            from njuskalo_sitemap_scraper import NjuskaloSitemapScraper
+            return NjuskaloSitemapScraper.run_full_scrape(self, max_stores=max_stores)
 
         except Exception as e:
             logger.error(f"❌ Scraping failed: {e}")
             raise
         finally:
-            # Always clean up tunnel
+            # Always clean up
+            if hasattr(self, 'driver') and self.driver:
+                try:
+                    self.driver.quit()
+                except:
+                    pass
             if tunnel_started:
                 self.stop_tunnel()
 

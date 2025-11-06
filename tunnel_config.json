@@ -1,7 +1,6 @@
 {
-    "servers": [
-        {
-            "name": "server1",
+    "tunnels": {
+        "server1": {
             "host": "178.18.253.123",
             "port": 22,
             "username": "tunnel_user",
@@ -13,7 +12,7 @@
             "keep_alive": 60,
             "max_retries": 3
         }
-    ],
+    },
     "settings": {
         "rotation_enabled": true,
         "health_check_interval": 30,
