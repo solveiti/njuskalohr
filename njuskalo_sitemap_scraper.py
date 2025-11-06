@@ -20,12 +20,12 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
-from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
 import logging
 from typing import List, Dict, Optional
 import re
@@ -153,14 +153,14 @@ class AntiDetectionMixin:
             logger.debug(f"Scroll pattern failed: {e}")
 
     def rotate_user_agent(self) -> str:
-        """Get a random realistic user agent."""
+        """Get a random realistic Firefox user agent."""
         user_agents = [
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:119.0) Gecko/20100101 Firefox/119.0",
             "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
             "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:119.0) Gecko/20100101 Firefox/119.0"
         ]
         return random.choice(user_agents)
 
@@ -217,10 +217,10 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
     def __init__(self, headless: bool = True, use_database: bool = True):
         """
-        Initialize the scraper with Chrome WebDriver.
+        Initialize the scraper with Firefox WebDriver.
 
         Args:
-            headless: Whether to run Chrome in headless mode
+            headless: Whether to run Firefox in headless mode
             use_database: Whether to use database for storing results
         """
         self.driver = None
@@ -228,7 +228,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
         self.sitemap_index_url = "https://www.njuskalo.hr/sitemap-index.xml"
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0'
         })
         self.headless = headless
         self.use_database = use_database
@@ -236,58 +236,66 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
         self.stores_data = []
 
     def setup_browser(self) -> bool:
-        """Set up Chrome WebDriver with enhanced anti-detection measures."""
+        """Set up Firefox WebDriver with enhanced anti-detection measures."""
         try:
-            chrome_options = Options()
+            firefox_options = Options()
 
-            # Create unique temporary user data directory
-            user_data_dir = tempfile.mkdtemp()
-            chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+            # Create unique temporary profile directory
+            profile_dir = tempfile.mkdtemp()
 
-            # Enhanced anti-detection arguments
-            chrome_options.add_argument(f"--user-agent={self.rotate_user_agent()}")
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            chrome_options.add_experimental_option('useAutomationExtension', False)
-            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            # Enhanced anti-detection preferences
+            firefox_options.set_preference("dom.webdriver.enabled", False)
+            firefox_options.set_preference("useAutomationExtension", False)
+            firefox_options.set_preference("general.platform.override", "Linux x86_64")
+            firefox_options.set_preference("general.appversion.override", "5.0 (X11)")
 
-            # Additional stealth options
-            chrome_options.add_argument("--no-first-run")
-            chrome_options.add_argument("--no-service-autorun")
-            chrome_options.add_argument("--password-store=basic")
-            chrome_options.add_argument("--use-mock-keychain")
-            chrome_options.add_argument("--disable-component-extensions-with-background-pages")
-            chrome_options.add_argument("--disable-default-apps")
-            chrome_options.add_argument("--disable-extensions")
-            chrome_options.add_argument("--disable-background-timer-throttling")
-            chrome_options.add_argument("--disable-backgrounding-occluded-windows")
-            chrome_options.add_argument("--disable-renderer-backgrounding")
-            chrome_options.add_argument("--disable-features=TranslateUI")
-            chrome_options.add_argument("--disable-ipc-flooding-protection")
+            # Set user agent
+            firefox_options.set_preference("general.useragent.override", self.rotate_user_agent())
 
-            # Randomize window size slightly
+            # Privacy and security preferences
+            firefox_options.set_preference("privacy.trackingprotection.enabled", False)
+            firefox_options.set_preference("dom.ipc.plugins.enabled.libflashplayer.so", False)
+            firefox_options.set_preference("media.peerconnection.enabled", False)
+            firefox_options.set_preference("media.navigator.enabled", False)
+            firefox_options.set_preference("webgl.disabled", True)
+            firefox_options.set_preference("javascript.enabled", True)
+
+            # Disable automation indicators
+            firefox_options.set_preference("marionette.enabled", False)
+            firefox_options.set_preference("fission.autostart", False)
+
+            # Performance preferences
+            firefox_options.set_preference("browser.cache.disk.enable", False)
+            firefox_options.set_preference("browser.cache.memory.enable", False)
+            firefox_options.set_preference("browser.cache.offline.enable", False)
+            firefox_options.set_preference("network.http.use-cache", False)
+
+            # Window size and display preferences
+            if self.headless:
+                firefox_options.add_argument("--headless")
+
+            # Additional Firefox arguments
+            firefox_options.add_argument("--no-sandbox")
+            firefox_options.add_argument("--disable-dev-shm-usage")
+
+            # Set window size
             width = random.randint(1366, 1920)
             height = random.randint(768, 1080)
-            chrome_options.add_argument(f"--window-size={width},{height}")
+            firefox_options.add_argument(f"--width={width}")
+            firefox_options.add_argument(f"--height={height}")
 
-            # Standard options
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--disable-web-security")
+            # Setup Firefox service
+            service = Service(GeckoDriverManager().install())
+            self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
-            if self.headless:
-                chrome_options.add_argument("--headless")
+            # Set window size programmatically as well
+            self.driver.set_window_size(width, height)
 
-            # Setup Chrome service
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-
-            # Advanced anti-detection scripts
+            # Firefox-specific anti-detection JavaScript
             stealth_scripts = [
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
                 "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
                 "Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en']})",
-                "window.chrome = {runtime: {}}",
                 "Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})})",
             ]
 
@@ -301,11 +309,11 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             self.driver.implicitly_wait(10)
             self.driver.set_page_load_timeout(30)
 
-            logger.info("Browser setup completed successfully with enhanced anti-detection")
+            logger.info("Firefox browser setup completed successfully with enhanced anti-detection")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to setup browser: {e}")
+            logger.error(f"Failed to setup Firefox browser: {e}")
             return False
 
     def download_sitemap_index(self) -> Optional[str]:

@@ -3,7 +3,7 @@
 Njuskalo Car Scraper
 
 This script scrapes car listings from njuskalo.hr using Selenium WebDriver
-with Chrome browser, mimicking normal user behavior to avoid detection.
+with Firefox browser, mimicking normal user behavior to avoid detection.
 """
 
 import time
@@ -11,13 +11,13 @@ import random
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
-from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
 import requests
 from urllib.parse import urljoin
 import logging
@@ -68,11 +68,11 @@ class AntiDetectionMixin:
         time.sleep(delay)
 
     def enhanced_user_agent_rotation(self) -> str:
-        """Return randomized user agent strings."""
+        """Return randomized Firefox user agent strings."""
         user_agents = [
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:119.0) Gecko/20100101 Firefox/119.0",
             "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
             "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0"
         ]
@@ -135,10 +135,10 @@ class NjuskaloCarScraper(AntiDetectionMixin):
 
     def __init__(self, headless: bool = True):
         """
-        Initialize the scraper with Chrome WebDriver.
+        Initialize the scraper with Firefox WebDriver.
 
         Args:
-            headless: Whether to run Chrome in headless mode
+            headless: Whether to run Firefox in headless mode
         """
         self.driver = None
         self.base_url = "https://www.njuskalo.hr"
@@ -147,54 +147,61 @@ class NjuskaloCarScraper(AntiDetectionMixin):
         self.setup_driver()
 
     def setup_driver(self) -> None:
-        """Set up Chrome WebDriver with enhanced anti-detection options."""
-        chrome_options = Options()
-        # Create unique temporary user data directory
-        user_data_dir = tempfile.mkdtemp()  # Creates a unique temp directory
-        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+        """Set up Firefox WebDriver with enhanced anti-detection options."""
+        firefox_options = Options()
 
-        # Enhanced user agent rotation
-        chrome_options.add_argument(f"--user-agent={self.enhanced_user_agent_rotation()}")
+        # Create unique temporary profile directory
+        profile_dir = tempfile.mkdtemp()
 
-        # Advanced anti-detection flags
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        # Enhanced anti-detection preferences
+        firefox_options.set_preference("dom.webdriver.enabled", False)
+        firefox_options.set_preference("useAutomationExtension", False)
+        firefox_options.set_preference("general.platform.override", "Linux x86_64")
+        firefox_options.set_preference("general.appversion.override", "5.0 (X11)")
 
-        # Additional stealth options
-        chrome_options.add_argument("--no-first-run")
-        chrome_options.add_argument("--no-service-autorun")
-        chrome_options.add_argument("--password-store=basic")
-        chrome_options.add_argument("--use-mock-keychain")
-        chrome_options.add_argument("--disable-component-extensions-with-background-pages")
-        chrome_options.add_argument("--disable-default-apps")
-        chrome_options.add_argument("--disable-extensions")
-        chrome_options.add_argument("--disable-background-timer-throttling")
-        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
-        chrome_options.add_argument("--disable-renderer-backgrounding")
-        chrome_options.add_argument("--disable-features=TranslateUI,VizDisplayCompositor")
-        chrome_options.add_argument("--disable-ipc-flooding-protection")
-        chrome_options.add_argument("--disable-web-security")
+        # Set user agent
+        firefox_options.set_preference("general.useragent.override", self.enhanced_user_agent_rotation())
+
+        # Privacy and security preferences
+        firefox_options.set_preference("privacy.trackingprotection.enabled", False)
+        firefox_options.set_preference("dom.ipc.plugins.enabled.libflashplayer.so", False)
+        firefox_options.set_preference("media.peerconnection.enabled", False)
+        firefox_options.set_preference("media.navigator.enabled", False)
+        firefox_options.set_preference("webgl.disabled", True)
+        firefox_options.set_preference("javascript.enabled", True)
+
+        # Disable automation indicators
+        firefox_options.set_preference("marionette.enabled", False)
+        firefox_options.set_preference("fission.autostart", False)
+
+        # Performance preferences
+        firefox_options.set_preference("browser.cache.disk.enable", False)
+        firefox_options.set_preference("browser.cache.memory.enable", False)
+        firefox_options.set_preference("browser.cache.offline.enable", False)
+        firefox_options.set_preference("network.http.use-cache", False)
 
         if self.headless:
-            chrome_options.add_argument("--headless")
+            firefox_options.add_argument("--headless")
 
         # Randomized window size for better stealth
         width = random.randint(1366, 1920)
         height = random.randint(768, 1080)
-        chrome_options.add_argument(f"--window-size={width},{height}")
+        firefox_options.add_argument(f"--width={width}")
+        firefox_options.add_argument(f"--height={height}")
 
         try:
-            # Use webdriver-manager to automatically download and manage ChromeDriver
-            service = Service(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            # Use webdriver-manager to automatically download and manage GeckoDriver
+            service = Service(GeckoDriverManager().install())
+            self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
-            # Advanced stealth scripts
+            # Set window size programmatically as well
+            self.driver.set_window_size(width, height)
+
+            # Firefox-specific anti-detection scripts
             stealth_scripts = [
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
                 "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
                 "Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en']})",
-                "window.chrome = {runtime: {}}",
                 "Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})})",
                 "Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4})",
             ]
@@ -209,10 +216,10 @@ class NjuskaloCarScraper(AntiDetectionMixin):
             self.driver.implicitly_wait(10)
             self.driver.set_page_load_timeout(30)
 
-            logger.info("Chrome WebDriver initialized successfully with enhanced anti-detection")
+            logger.info("Firefox WebDriver initialized successfully with enhanced anti-detection")
 
         except Exception as e:
-            logger.error(f"Failed to initialize Chrome WebDriver: {e}")
+            logger.error(f"Failed to initialize Firefox WebDriver: {e}")
             raise
 
     def human_delay(self, min_seconds: float = 3.0, max_seconds: float = 8.0) -> None:

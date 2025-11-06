@@ -22,7 +22,7 @@ SITEMAP_DELAY_MAX = 3.0
 # Browser settings
 WINDOW_WIDTH = 1920
 WINDOW_HEIGHT = 1080
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0"
 
 # Output settings
 OUTPUT_FILENAME = "njuskalo_stores.xlsx"
