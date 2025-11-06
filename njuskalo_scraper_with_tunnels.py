@@ -92,7 +92,7 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
 
             # Start the tunnel
             logger.info(f"🚇 Starting SSH tunnel: {tunnel_name}")
-            if self.tunnel_manager.start_tunnel(tunnel_name):
+            if self.tunnel_manager.establish_tunnel(tunnel_name):
                 self.current_tunnel = tunnel_name
 
                 # Get the local SOCKS proxy port
@@ -116,7 +116,7 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
         """Stop current SSH tunnel"""
         if self.current_tunnel and self.tunnel_manager:
             logger.info(f"🛑 Stopping SSH tunnel: {self.current_tunnel}")
-            self.tunnel_manager.stop_tunnel(self.current_tunnel)
+            self.tunnel_manager.close_tunnel(self.current_tunnel)
             self.current_tunnel = None
             self.socks_proxy_port = None
 
