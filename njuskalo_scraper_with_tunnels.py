@@ -121,12 +121,33 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             self.current_tunnel = None
             self.socks_proxy_port = None
 
+    def test_firefox_local(self):
+        """Test if Firefox works locally without tunnels"""
+        try:
+            logger.info("🧪 Testing Firefox installation locally...")
+            test_options = Options()
+            test_options.add_argument("--headless")
+            test_service = Service(GeckoDriverManager().install())
+            test_driver = webdriver.Firefox(service=test_service, options=test_options)
+            test_driver.get("data:text/html,<html><body><h1>Firefox Test OK</h1></body></html>")
+            test_driver.quit()
+            logger.info("✅ Firefox installation test: PASSED")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Firefox installation test: FAILED - {e}")
+            return False
+
     def setup_browser(self) -> None:
         """
         Enhanced browser setup with SSH tunnel proxy support using Firefox.
         This overrides the parent method to add SOCKS proxy configuration.
         """
         try:
+            # First test if Firefox works locally to isolate server-side issues
+            if not self.test_firefox_local():
+                logger.error("🚨 Firefox installation issue detected - aborting browser setup")
+                return False
+
             firefox_options = Options()
 
             # Create unique temporary profile directory
@@ -190,9 +211,22 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             firefox_options.add_argument(f"--width={width}")
             firefox_options.add_argument(f"--height={height}")
 
-            # Setup Firefox service
+            # Setup Firefox service with timeout configurations
             service = Service(GeckoDriverManager().install())
+
+            # Add timeout configurations for server-side issues
+            firefox_options.set_preference("network.http.connection-timeout", 30)
+            firefox_options.set_preference("network.http.response.timeout", 30)
+            firefox_options.set_preference("dom.max_script_run_time", 30)
+            firefox_options.set_preference("dom.max_chrome_script_run_time", 30)
+
+            # Configure WebDriver with shorter timeout to detect server issues faster
+            logger.info("🔧 Starting Firefox WebDriver (checking for server-side issues)...")
             self.driver = webdriver.Firefox(service=service, options=firefox_options)
+
+            # Set shorter page load timeout to catch server issues
+            self.driver.set_page_load_timeout(30)  # 30 seconds instead of default 300
+            self.driver.implicitly_wait(10)  # 10 seconds for element waits
 
             # Set window size programmatically as well
             self.driver.set_window_size(width, height)
@@ -220,7 +254,41 @@ class TunnelEnabledNjuskaloScraper(NjuskaloSitemapScraper):
             return True
 
         except Exception as e:
+            error_msg = str(e).lower()
             logger.error(f"❌ Failed to setup Firefox browser: {e}")
+
+            # Analyze error to distinguish between local vs server-side issues
+            if "httpconnectionpool" in error_msg and "read timed out" in error_msg:
+                if "localhost" in error_msg:
+                    logger.error("🌐 SERVER-SIDE ISSUE DETECTED: Connection timeout to localhost")
+                    logger.error("   This suggests a proxy/tunnel configuration problem, not Firefox")
+                    logger.error("🔧 SOLUTIONS:")
+                    logger.error("   1. Check if SSH tunnel is running: ps aux | grep ssh")
+                    logger.error("   2. Verify SOCKS proxy port: netstat -tulpn | grep :1080")
+                    logger.error("   3. Test tunnel connection: curl --socks5 127.0.0.1:1080 http://httpbin.org/ip")
+                    logger.error("   4. Restart tunnel: ./setup_tunnels.sh")
+                else:
+                    logger.error("🌐 NETWORK ISSUE DETECTED: External server connection problem")
+                    logger.error("🔧 SOLUTIONS:")
+                    logger.error("   1. Check internet connection")
+                    logger.error("   2. Try different proxy server")
+                    logger.error("   3. Run without tunnels: --no-tunnels")
+            elif "geckodriver" in error_msg or "firefox" in error_msg:
+                logger.error("🦊 LOCAL FIREFOX ISSUE DETECTED")
+                logger.error("🔧 SOLUTIONS:")
+                logger.error("   1. Install Firefox: sudo pacman -S firefox")
+                logger.error("   2. Update GeckoDriver: pip install --upgrade geckodriver-autoinstaller")
+            elif "permission" in error_msg or "display" in error_msg:
+                logger.error("🖥️ DISPLAY/PERMISSION ISSUE DETECTED")
+                logger.error("🔧 SOLUTIONS:")
+                logger.error("   1. Install Xvfb: sudo pacman -S xorg-server-xvfb")
+                logger.error("   2. Run with Xvfb: xvfb-run python script.py")
+            else:
+                logger.error("🔍 UNKNOWN ISSUE - Full error details above")
+                logger.error("🔧 GENERAL SOLUTIONS:")
+                logger.error("   1. Try without tunnels: python script.py --no-tunnels")
+                logger.error("   2. Check system requirements")
+
             if hasattr(self, 'driver') and self.driver:
                 try:
                     self.driver.quit()
