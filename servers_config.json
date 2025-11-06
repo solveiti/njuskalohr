@@ -1,0 +1,25 @@
+{
+  "servers": [
+    {
+      "host": "178.18.253.123",
+      "ssh_port": 22,
+      "ssh_user": "njuskalo",
+      "tunnel_user": "tunnel_user",
+      "proxy_port": 8090,
+      "name": "server1"
+    }
+  ],
+  "default_settings": {
+    "tunnel_user": "tunnel_user",
+    "proxy_port": 8090,
+    "ssh_port": 22,
+    "max_concurrent_setups": 3,
+    "health_check_interval": 300
+  },
+  "proxy_settings": {
+    "rotation_interval": 1800,
+    "auto_rotate": true,
+    "random_order": true,
+    "health_check_before_use": true
+  }
+}

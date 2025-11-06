@@ -1,0 +1,21 @@
+{
+  "tunnels": {
+    "server1": {
+      "host": "178.18.253.123",
+      "port": 22,
+      "username": "tunnel_user",
+      "private_key_path": "/home/srdjan/njuskalohr/tunnel_key",
+      "local_port": 8081,
+      "remote_host": "127.0.0.1",
+      "remote_port": 8090,
+      "compression": true,
+      "keep_alive": 60,
+      "max_retries": 3
+    }
+  },
+  "rotation": {
+    "auto_rotate": true,
+    "rotation_interval": 1800,
+    "random_order": true
+  }
+}

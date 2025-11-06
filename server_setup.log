@@ -1,0 +1,46 @@
+2025-11-06 10:06:26,602 - INFO - Generating SSH key pair: tunnel_key
+2025-11-06 10:06:27,773 - INFO - SSH key pair generated successfully
+2025-11-06 10:06:27,774 - INFO - Setting up server: your-server-1.example.com
+2025-11-06 10:06:27,774 - INFO - Setting up server: your-server-2.example.com
+2025-11-06 10:06:27,775 - INFO - Setting up server: 203.0.113.100
+2025-11-06 10:06:27,935 - ERROR - ❌ Server your-server-2.example.com setup failed
+2025-11-06 10:06:27,935 - ERROR - Output: Warning: Identity file /path/to/admin/key not accessible: No such file or directory.
+Pseudo-terminal will not be allocated because stdin is not a terminal.
+ssh: Could not resolve hostname your-server-2.example.com: Name or service not known
+
+2025-11-06 10:06:28,236 - ERROR - ❌ Server your-server-1.example.com setup failed
+2025-11-06 10:06:28,237 - ERROR - Output: Pseudo-terminal will not be allocated because stdin is not a terminal.
+ssh: Could not resolve hostname your-server-1.example.com: Name or service not known
+
+2025-11-06 10:07:27,956 - ERROR - ❌ Server 203.0.113.100 setup failed
+2025-11-06 10:07:27,956 - ERROR - Output: Pseudo-terminal will not be allocated because stdin is not a terminal.
+
+2025-11-06 10:24:27,758 - INFO - SSH key /home/srdjan/njuskalohr/tunnel_key already exists
+2025-11-06 10:24:27,759 - INFO - Setting up server: 178.18.253.123
+2025-11-06 10:24:28,447 - ERROR - ❌ Server 178.18.253.123 setup failed
+2025-11-06 10:24:28,447 - ERROR - Output: Pseudo-terminal will not be allocated because stdin is not a terminal.
+Warning: Permanently added '178.18.253.123' (ED25519) to the list of known hosts.
+Received disconnect from 178.18.253.123 port 22:2: Too many authentication failures
+Disconnected from 178.18.253.123 port 22
+
+2025-11-06 10:24:28,448 - INFO - Tunnel configuration saved: /home/srdjan/njuskalohr/ssh_tunnels.json
+2025-11-06 10:24:28,448 - INFO - Management scripts created in /home/srdjan/njuskalohr
+2025-11-06 10:25:06,078 - INFO - SSH key /home/srdjan/njuskalohr/tunnel_key already exists
+2025-11-06 10:25:06,079 - INFO - Setting up server: 178.18.253.123
+2025-11-06 10:25:06,843 - ERROR - ❌ Server 178.18.253.123 setup failed
+2025-11-06 10:25:06,843 - ERROR - Output: Pseudo-terminal will not be allocated because stdin is not a terminal.
+Warning: Permanently added '178.18.253.123' (ED25519) to the list of known hosts.
+Received disconnect from 178.18.253.123 port 22:2: Too many authentication failures
+Disconnected from 178.18.253.123 port 22
+
+2025-11-06 10:25:06,844 - INFO - Tunnel configuration saved: /home/srdjan/njuskalohr/ssh_tunnels.json
+2025-11-06 10:25:06,844 - INFO - Management scripts created in /home/srdjan/njuskalohr
+2025-11-06 12:17:04,989 - INFO - SSH key /home/srdjan/njuskalohr/tunnel_key already exists
+2025-11-06 12:17:04,990 - INFO - Setting up server: 127.0.0.1
+2025-11-06 12:17:04,990 - INFO - [DRY RUN] Would setup 127.0.0.1
+2025-11-06 12:17:05,091 - INFO - Generating SSH key pair: test_tunnel_key
+2025-11-06 12:17:07,009 - INFO - SSH key pair generated successfully
+2025-11-06 12:17:07,010 - INFO - SSH keys generated successfully
+2025-11-06 12:17:53,889 - INFO - Health check: 178.18.253.123
+2025-11-06 12:17:58,174 - INFO - ✅ 178.18.253.123: SSH=True, Proxy=True
+2025-11-06 12:17:58,175 - INFO - Health check results saved: /home/srdjan/njuskalohr/health_check.json
