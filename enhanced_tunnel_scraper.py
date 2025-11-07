@@ -142,26 +142,33 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 self.socks_proxy_port = None
 
     def test_firefox_local(self):
-        """Test if Firefox works locally without tunnels"""
+        """Test if Firefox works locally without tunnels using server-compatible config"""
         try:
-            logger.info("🧪 Testing Firefox installation locally...")
+            logger.info("🧪 Testing Firefox installation locally with server config...")
+
+            # Use server-compatible options
             test_options = Options()
-            test_options.add_argument("--headless")
+            test_options.headless = True
+            test_options.binary_location = "/usr/bin/firefox"
+            test_options.set_preference("browser.tabs.remote.autostart", False)
+            test_options.set_preference("layers.acceleration.disabled", True)
+            test_options.set_preference("gfx.webrender.force-disabled", True)
+            test_options.set_preference("dom.ipc.plugins.enabled", False)
+            test_options.set_preference("media.hardware-video-decoding.enabled", False)
+            test_options.set_preference("media.hardware-video-decoding.force-enabled", False)
+            test_options.set_preference("browser.startup.homepage", "about:blank")
+            test_options.set_preference("security.sandbox.content.level", 0)
+            test_options.set_preference("network.proxy.type", 0)
 
-            # Find GeckoDriver
-            geckodriver_path = self._find_geckodriver()
-            if not geckodriver_path:
-                logger.error("❌ GeckoDriver not found")
-                return False
-
-            test_service = Service(geckodriver_path)
+            # Use system geckodriver
+            test_service = Service("/usr/local/bin/geckodriver")
             test_driver = webdriver.Firefox(service=test_service, options=test_options)
-            test_driver.get("data:text/html,<html><body><h1>Firefox Test OK</h1></body></html>")
+            test_driver.get("data:text/html,<html><body><h1>Firefox Server Test OK</h1></body></html>")
             test_driver.quit()
-            logger.info("✅ Firefox installation test: PASSED")
+            logger.info("✅ Firefox server-compatible test: PASSED")
             return True
         except Exception as e:
-            logger.error(f"❌ Firefox installation test: FAILED - {e}")
+            logger.error(f"❌ Firefox server-compatible test: FAILED - {e}")
             return False
 
     def _find_geckodriver(self):
@@ -206,8 +213,19 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
 
             firefox_options = Options()
 
-            # Create unique temporary profile directory
-            profile_dir = tempfile.mkdtemp()
+            # Server-compatible configuration (exact setup that works)
+            firefox_options.headless = True
+            firefox_options.binary_location = "/usr/bin/firefox"  # Set the Firefox binary explicitly
+
+            # Server-specific preferences for stability
+            firefox_options.set_preference("browser.tabs.remote.autostart", False)
+            firefox_options.set_preference("layers.acceleration.disabled", True)
+            firefox_options.set_preference("gfx.webrender.force-disabled", True)
+            firefox_options.set_preference("dom.ipc.plugins.enabled", False)
+            firefox_options.set_preference("media.hardware-video-decoding.enabled", False)
+            firefox_options.set_preference("media.hardware-video-decoding.force-enabled", False)
+            firefox_options.set_preference("browser.startup.homepage", "about:blank")
+            firefox_options.set_preference("security.sandbox.content.level", 0)
 
             # Enhanced anti-detection preferences
             firefox_options.set_preference("dom.webdriver.enabled", False)
@@ -250,12 +268,16 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 firefox_options.set_preference("network.proxy.socks_version", 5)
                 firefox_options.set_preference("network.proxy.socks_remote_dns", True)
                 logger.info(f"🌐 Firefox configured to use SOCKS proxy: 127.0.0.1:{self.socks_proxy_port}")
-            elif self.use_tunnels:
+            elif not self.use_tunnels:
+                # Ensure no proxy when tunnels disabled (server-compatible setting)
+                firefox_options.set_preference("network.proxy.type", 0)
+            else:
                 logger.warning("⚠️ Tunnels enabled but no SOCKS proxy port available - using direct connection")
+                firefox_options.set_preference("network.proxy.type", 0)
 
-            # Window size and display preferences
+            # Server compatibility - ensure headless mode is properly set
             if self.headless:
-                firefox_options.add_argument("--headless")
+                firefox_options.headless = True
 
             # Additional Firefox arguments
             firefox_options.add_argument("--no-sandbox")

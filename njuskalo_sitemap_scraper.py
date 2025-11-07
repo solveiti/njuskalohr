@@ -235,12 +235,24 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
         self.stores_data = []
 
     def setup_browser(self) -> bool:
-        """Set up Firefox WebDriver with enhanced anti-detection measures."""
+        """Set up Firefox WebDriver with server-compatible configuration."""
         try:
             firefox_options = Options()
 
-            # Create unique temporary profile directory
-            profile_dir = tempfile.mkdtemp()
+            # Server-compatible configuration (exact setup that works)
+            firefox_options.headless = True
+            firefox_options.binary_location = "/usr/bin/firefox"  # Set the Firefox binary explicitly
+
+            # Server-specific preferences for stability
+            firefox_options.set_preference("browser.tabs.remote.autostart", False)
+            firefox_options.set_preference("layers.acceleration.disabled", True)
+            firefox_options.set_preference("gfx.webrender.force-disabled", True)
+            firefox_options.set_preference("dom.ipc.plugins.enabled", False)
+            firefox_options.set_preference("media.hardware-video-decoding.enabled", False)
+            firefox_options.set_preference("media.hardware-video-decoding.force-enabled", False)
+            firefox_options.set_preference("browser.startup.homepage", "about:blank")
+            firefox_options.set_preference("security.sandbox.content.level", 0)
+            firefox_options.set_preference("network.proxy.type", 0)
 
             # Enhanced anti-detection preferences
             firefox_options.set_preference("dom.webdriver.enabled", False)
@@ -269,21 +281,15 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             firefox_options.set_preference("browser.cache.offline.enable", False)
             firefox_options.set_preference("network.http.use-cache", False)
 
-            # Window size and display preferences
+            # Server compatibility - override headless setting to ensure it's properly set
             if self.headless:
-                firefox_options.add_argument("--headless")
+                firefox_options.headless = True
 
-            # Additional Firefox arguments
-            firefox_options.add_argument("--no-sandbox")
-            firefox_options.add_argument("--disable-dev-shm-usage")
-
-            # Set window size
+            # Set window size for consistency
             width = random.randint(1366, 1920)
             height = random.randint(768, 1080)
-            firefox_options.add_argument(f"--width={width}")
-            firefox_options.add_argument(f"--height={height}")
 
-            # Setup Firefox service
+            # Setup Firefox service with explicit geckodriver path
             service = Service("/usr/local/bin/geckodriver")
             self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
