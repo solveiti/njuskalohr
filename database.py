@@ -49,6 +49,9 @@ class NjuskaloDatabase:
             results JSON,
             is_valid BOOLEAN DEFAULT TRUE,
             is_automoto BOOLEAN DEFAULT FALSE,
+            new_vehicle_count INT DEFAULT 0,
+            used_vehicle_count INT DEFAULT 0,
+            total_vehicle_count INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT unique_url UNIQUE (url)
@@ -77,10 +80,10 @@ class NjuskaloDatabase:
             raise
 
     def migrate_add_is_automoto_column(self):
-        """Add is_automoto column to existing database"""
+        """Add is_automoto and vehicle count columns to existing database"""
         try:
             with self.connection.cursor() as cursor:
-                # Check if column already exists
+                # Check if is_automoto column already exists
                 cursor.execute("""
                     SELECT COLUMN_NAME
                     FROM INFORMATION_SCHEMA.COLUMNS
@@ -117,8 +120,41 @@ class NjuskaloDatabase:
                 else:
                     self.logger.info("is_automoto column already exists")
 
+                # Check and add vehicle count columns
+                vehicle_columns = [
+                    ('new_vehicle_count', 'INT DEFAULT 0'),
+                    ('used_vehicle_count', 'INT DEFAULT 0'),
+                    ('total_vehicle_count', 'INT DEFAULT 0')
+                ]
+
+                for column_name, column_def in vehicle_columns:
+                    cursor.execute("""
+                        SELECT COLUMN_NAME
+                        FROM INFORMATION_SCHEMA.COLUMNS
+                        WHERE TABLE_SCHEMA = DATABASE()
+                        AND TABLE_NAME = 'scraped_stores'
+                        AND COLUMN_NAME = %s
+                    """, (column_name,))
+
+                    if cursor.fetchone() is None:
+                        cursor.execute(f"""
+                            ALTER TABLE scraped_stores
+                            ADD COLUMN {column_name} {column_def}
+                            AFTER is_automoto
+                        """)
+                        self.logger.info(f"Added {column_name} column successfully")
+
+                # Create indexes for vehicle count columns
+                cursor.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_scraped_stores_total_vehicles
+                    ON scraped_stores(total_vehicle_count)
+                """)
+
+                self.connection.commit()
+                self.logger.info("Vehicle count columns migration completed")
+
         except pymysql.Error as e:
-            self.logger.error(f"Error adding is_automoto column: {e}")
+            self.logger.error(f"Error adding columns: {e}")
             self.connection.rollback()
             raise
 
@@ -137,22 +173,38 @@ class NjuskaloDatabase:
         # Extract is_automoto from store_data and remove it from results
         is_automoto = store_data.pop('has_auto_moto', False)
 
+        # Extract vehicle counts
+        new_vehicle_count = store_data.pop('new_vehicle_count', 0)
+        used_vehicle_count = store_data.pop('used_vehicle_count', 0)
+        total_vehicle_count = store_data.pop('total_vehicle_count', 0)
+
         # Remove categories from results as well
         store_data.pop('categories', None)
 
         insert_or_update_sql = """
-        INSERT INTO scraped_stores (url, results, is_valid, is_automoto)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO scraped_stores (url, results, is_valid, is_automoto, new_vehicle_count, used_vehicle_count, total_vehicle_count)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             results = VALUES(results),
             is_valid = VALUES(is_valid),
             is_automoto = VALUES(is_automoto),
+            new_vehicle_count = VALUES(new_vehicle_count),
+            used_vehicle_count = VALUES(used_vehicle_count),
+            total_vehicle_count = VALUES(total_vehicle_count),
             updated_at = CURRENT_TIMESTAMP
         """
 
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(insert_or_update_sql, (url, json.dumps(store_data), is_valid, is_automoto))
+                cursor.execute(insert_or_update_sql, (
+                    url,
+                    json.dumps(store_data),
+                    is_valid,
+                    is_automoto,
+                    new_vehicle_count,
+                    used_vehicle_count,
+                    total_vehicle_count
+                ))
                 self.connection.commit()
 
                 # Check if it was an insert or update
@@ -163,7 +215,7 @@ class NjuskaloDatabase:
                 else:
                     action = "No change"
 
-                self.logger.info(f"{action} store data for URL: {url} (is_automoto: {is_automoto})")
+                self.logger.info(f"{action} store data for URL: {url} (is_automoto: {is_automoto}, vehicles: {total_vehicle_count})")
                 return True
 
         except pymysql.Error as e:
