@@ -49,6 +49,36 @@ except ImportError:
     print("⚠️  Warning: ssh_tunnel_manager.py not found - tunnel tests will be skipped")
     SSHTunnelManager = None
 
+def find_geckodriver():
+    """Find GeckoDriver from multiple possible locations"""
+    import glob
+    import shutil
+
+    possible_paths = [
+        "/usr/local/bin/geckodriver",
+        "/usr/bin/geckodriver",
+    ]
+
+    # Check exact paths first
+    for path in possible_paths:
+        if os.path.exists(path) and os.access(path, os.X_OK):
+            return path
+
+    # Check webdriver-manager cache
+    wdm_pattern = "~/.wdm/drivers/geckodriver/linux64/*/geckodriver"
+    matches = glob.glob(wdm_pattern)
+    if matches:
+        for match in matches:
+            if os.access(match, os.X_OK):
+                return match
+
+    # Try to find in PATH
+    path_geckodriver = shutil.which("geckodriver")
+    if path_geckodriver:
+        return path_geckodriver
+
+    return None
+
 # Configure logging
 def setup_logging(verbose: bool = False):
     """Setup logging configuration"""
@@ -70,6 +100,7 @@ class FirefoxTunnelTester:
         self.tunnel_manager = None
         self.tunnel_name = None
         self.socks_port = None
+        self.geckodriver_path = None
 
     def print_header(self, title: str):
         """Print formatted test section header"""
@@ -130,10 +161,16 @@ class FirefoxTunnelTester:
         try:
             self.logger.info("🚗 Testing GeckoDriver installation...")
 
-            # Check system GeckoDriver installation
-            driver_path = "/usr/local/bin/geckodriver"
-            if not os.path.exists(driver_path):
-                self.logger.error(f"❌ GeckoDriver not found at: {driver_path}")
+            # Find GeckoDriver from multiple locations
+            driver_path = find_geckodriver()
+            if not driver_path:
+                self.logger.error("❌ GeckoDriver not found in any expected location")
+                self.logger.error("💡 Searched locations:")
+                self.logger.error("   - /usr/local/bin/geckodriver")
+                self.logger.error("   - /usr/bin/geckodriver")
+                self.logger.error("   - ~/.wdm/drivers/geckodriver/linux64/*/geckodriver")
+                self.logger.error("   - PATH environment variable")
+                self.logger.error("")
                 self.logger.error("💡 Install with:")
                 self.logger.error("   wget https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-v0.34.0-linux64.tar.gz")
                 self.logger.error("   tar -xzf geckodriver-v*.tar.gz")
@@ -143,6 +180,8 @@ class FirefoxTunnelTester:
                 return False
 
             self.logger.info(f"✅ GeckoDriver found at: {driver_path}")
+            # Store for use in other tests
+            self.geckodriver_path = driver_path
 
             # Test GeckoDriver version
             result = subprocess.run([driver_path, '--version'],
@@ -180,8 +219,10 @@ class FirefoxTunnelTester:
             options.set_preference("dom.webdriver.enabled", False)
             options.set_preference("useAutomationExtension", False)
 
-            # Create service with system GeckoDriver
-            service = Service("/usr/local/bin/geckodriver")
+            # Create service with found GeckoDriver
+            if not self.geckodriver_path:
+                self.geckodriver_path = find_geckodriver()
+            service = Service(self.geckodriver_path)
 
             # Initialize Firefox
             self.logger.info("🔧 Creating Firefox WebDriver instance...")
@@ -266,6 +307,10 @@ class FirefoxTunnelTester:
             self.logger.info(f"🔧 Loading tunnel configuration from: {config_path}")
             self.tunnel_manager = SSHTunnelManager(config_path)
 
+            # Clean up any existing tunnels first
+            self.logger.info("🧹 Cleaning up any existing tunnels...")
+            self.tunnel_manager.close_all_tunnels()
+
             # Get available tunnels
             tunnels = self.tunnel_manager.list_tunnels()
             if not tunnels:
@@ -274,26 +319,41 @@ class FirefoxTunnelTester:
                 return False
 
             # Use first available tunnel
-            self.tunnel_name = tunnels[0]
+            self.tunnel_name = list(tunnels.keys())[0]
             self.logger.info(f"🚇 Testing tunnel: {self.tunnel_name}")
+            self.logger.debug(f"Available tunnels: {list(tunnels.keys())}")
 
             # Start tunnel
             self.logger.info("🔧 Starting SSH tunnel...")
-            success = self.tunnel_manager.start_tunnel(self.tunnel_name)
+            success = self.tunnel_manager.establish_tunnel(self.tunnel_name)
+            self.logger.debug(f"Tunnel start result: {success} (type: {type(success)})")
 
             if success:
-                self.socks_port = self.tunnel_manager.get_tunnel_port(self.tunnel_name)
+                # Get SOCKS proxy settings
+                proxy_settings = self.tunnel_manager.get_proxy_settings()
+                self.socks_port = proxy_settings.get('local_port') if proxy_settings else None
                 self.logger.info(f"✅ Tunnel started successfully on port: {self.socks_port}")
+                self.logger.debug(f"Proxy settings: {proxy_settings}")
+
+                if not self.socks_port:
+                    self.logger.error("❌ Tunnel started but no SOCKS port available")
+                    self.test_results['tunnel_setup'] = False
+                    return False
 
                 # Test SOCKS proxy connectivity
                 return self.test_socks_proxy()
             else:
-                self.logger.error("❌ Failed to start SSH tunnel")
+                self.logger.error(f"❌ Failed to start SSH tunnel - returned: {success}")
+                self.logger.error("💡 Check SSH connection details in tunnel_config.json")
+                self.logger.error("💡 Verify SSH key permissions: chmod 600 /home/srdjan/njuskalohr/tunnel_key")
                 self.test_results['tunnel_setup'] = False
                 return False
 
         except Exception as e:
+            import traceback
             self.logger.error(f"❌ Tunnel setup failed: {e}")
+            self.logger.error(f"Exception type: {type(e)}")
+            self.logger.debug(f"Full traceback: {traceback.format_exc()}")
             self.test_results['tunnel_setup'] = False
             return False
 
@@ -388,8 +448,10 @@ class FirefoxTunnelTester:
             options.set_preference("network.http.connection-timeout", 30)
             options.set_preference("network.http.response.timeout", 30)
 
-            # Create service and driver with system GeckoDriver
-            service = Service("/usr/local/bin/geckodriver")
+            # Create service and driver with found GeckoDriver
+            if not self.geckodriver_path:
+                self.geckodriver_path = find_geckodriver()
+            service = Service(self.geckodriver_path)
             self.logger.info("🔧 Creating Firefox WebDriver with SOCKS proxy...")
             driver = webdriver.Firefox(service=service, options=options)
             driver.set_page_load_timeout(30)
@@ -458,7 +520,9 @@ class FirefoxTunnelTester:
             options.set_preference("general.useragent.override",
                                  "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0")
 
-            service = Service("/usr/local/bin/geckodriver")
+            if not self.geckodriver_path:
+                self.geckodriver_path = find_geckodriver()
+            service = Service(self.geckodriver_path)
             driver = webdriver.Firefox(service=service, options=options)
             driver.set_page_load_timeout(30)
 
@@ -495,11 +559,12 @@ class FirefoxTunnelTester:
 
     def cleanup(self):
         """Cleanup resources"""
-        if self.tunnel_manager and self.tunnel_name:
+        if self.tunnel_manager:
             try:
-                self.logger.info("🧹 Cleaning up tunnel...")
-                self.tunnel_manager.close_tunnel(self.tunnel_name)
-            except:
+                self.logger.info("🧹 Cleaning up all tunnels...")
+                self.tunnel_manager.close_all_tunnels()
+            except Exception as e:
+                self.logger.debug(f"Error during cleanup: {e}")
                 pass
 
     def print_summary(self):
