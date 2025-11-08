@@ -17,6 +17,11 @@ def test_login():
 
     base_url = "http://localhost:8080"
 
+    # Get configurable endpoints
+    from dotenv import load_dotenv
+    load_dotenv()
+    login_endpoint = os.getenv("API_LOGIN_ENDPOINT", "/login")
+
     # Test environment variables first
     from dotenv import load_dotenv
     load_dotenv()
@@ -47,7 +52,7 @@ def test_login():
 
         # Step 2: Access login page
         print("\n2. Testing login page...")
-        login_page = session.get(f"{base_url}/login")
+        login_page = session.get(f"{base_url}{login_endpoint}")
         print(f"   Login page: {login_page.status_code}")
 
         if login_page.status_code != 200:
@@ -68,7 +73,7 @@ def test_login():
             "password": "njuskalo2025"
         }
 
-        login_response = session.post(f"{base_url}/login", data=login_data, allow_redirects=False)
+        login_response = session.post(f"{base_url}{login_endpoint}", data=login_data, allow_redirects=False)
         print(f"   Login POST: {login_response.status_code}")
 
         if login_response.status_code == 302:

@@ -62,7 +62,7 @@ async def auth_exception_handler(request: Request, exc: AuthenticationRequired):
     # For browser requests (HTML), redirect to login
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header:
-        return RedirectResponse(url="/login", status_code=302)
+        return RedirectResponse(url=LOGIN_ENDPOINT, status_code=302)
     # For API requests (JSON), return 401
     else:
         return JSONResponse(
@@ -74,6 +74,10 @@ async def auth_exception_handler(request: Request, exc: AuthenticationRequired):
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "admin")
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key-change-this")
+
+# Configurable endpoint paths
+LOGIN_ENDPOINT = os.getenv("API_LOGIN_ENDPOINT", "/login")
+LOGOUT_ENDPOINT = os.getenv("API_LOGOUT_ENDPOINT", "/logout")
 
 # Session storage (in production, use Redis or database)
 active_sessions = {}
@@ -158,13 +162,15 @@ class LoginRequest(BaseModel):
     password: str
 
 
-# Login endpoints
-@app.get("/login", response_class=HTMLResponse)
+# Login endpoint functions
 async def login_form(request: Request):
     """Display login form"""
-    return templates.TemplateResponse("login.html", {"request": request})
+    context = {
+        "request": request,
+        "login_endpoint": LOGIN_ENDPOINT
+    }
+    return templates.TemplateResponse("login.html", context)
 
-@app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     """Process login form"""
     if verify_credentials(username, password):
@@ -190,16 +196,23 @@ async def login(request: Request, username: str = Form(...), password: str = For
             "login.html",
             {
                 "request": request,
+                "login_endpoint": LOGIN_ENDPOINT,
                 "error": "Invalid username or password"
             }
-        )@app.post("/logout")
+        )
+
 async def logout(response: Response, session_token: Optional[str] = Cookie(None)):
     """Logout user by invalidating session"""
     if session_token and session_token in active_sessions:
         del active_sessions[session_token]
 
     response.delete_cookie("session_token")
-    return RedirectResponse(url="/login", status_code=302)
+    return RedirectResponse(url=LOGIN_ENDPOINT, status_code=302)
+
+# Add configurable login endpoints dynamically
+app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HTMLResponse)
+app.add_api_route(LOGIN_ENDPOINT, login, methods=["POST"])
+app.add_api_route(LOGOUT_ENDPOINT, logout, methods=["POST"])
 
 # Root endpoint (protected)
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
@@ -220,6 +233,8 @@ async def read_root(request: Request):
     api_config = {
         "base_url": os.getenv("API_BASE_URL", "http://localhost:8000"),
         "endpoints": {
+            "login": os.getenv("API_LOGIN_ENDPOINT", "/login"),
+            "logout": os.getenv("API_LOGOUT_ENDPOINT", "/logout"),
             "scrape_start": os.getenv("API_SCRAPE_START_ENDPOINT", "/scrape/start"),
             "scrape_tunnel": os.getenv("API_SCRAPE_TUNNEL_ENDPOINT", "/scrape/tunnel"),
             "scrape_test": os.getenv("API_SCRAPE_TEST_ENDPOINT", "/scrape/test"),

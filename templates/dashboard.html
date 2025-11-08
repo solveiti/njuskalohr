@@ -13,6 +13,8 @@
         window.API_CONFIG = {
             baseUrl: "{{ api_config.base_url }}",
             endpoints: {
+                login: "{{ api_config.endpoints.login }}",
+                logout: "{{ api_config.endpoints.logout }}",
                 scrapeStart: "{{ api_config.endpoints.scrape_start }}",
                 scrapeTunnel: "{{ api_config.endpoints.scrape_tunnel }}",
                 scrapeTest: "{{ api_config.endpoints.scrape_test }}",
@@ -47,7 +49,7 @@
                             <div class="text-sm text-gray-500">Logged in as</div>
                             <div class="font-semibold text-gray-800">Administrator</div>
                         </div>
-                        <form method="POST" action="/logout" class="inline">
+                        <form method="POST" action="{{ api_config.endpoints.logout }}" class="inline">
                             <button
                                 type="submit"
                                 class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200 flex items-center space-x-2"
