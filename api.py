@@ -4,14 +4,18 @@ FastAPI application for Njuskalo scraper with Celery integration
 import os
 import sys
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import json
+import hashlib
+import secrets
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request, Form, Cookie, Response
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv
@@ -46,6 +50,78 @@ app = FastAPI(
 # Create templates directory
 templates = Jinja2Templates(directory="templates")
 
+# Custom exception for authentication
+class AuthenticationRequired(HTTPException):
+    def __init__(self):
+        super().__init__(status_code=401, detail="Authentication required")
+
+# Exception handler for authentication redirects
+@app.exception_handler(AuthenticationRequired)
+async def auth_exception_handler(request: Request, exc: AuthenticationRequired):
+    """Redirect unauthenticated users to login page"""
+    # For browser requests (HTML), redirect to login
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header:
+        return RedirectResponse(url="/login", status_code=302)
+    # For API requests (JSON), return 401
+    else:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Authentication required"}
+        )
+
+# Authentication configuration
+AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
+AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "admin")
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-secret-key-change-this")
+
+# Session storage (in production, use Redis or database)
+active_sessions = {}
+
+def create_session_token() -> str:
+    """Create a secure session token"""
+    return secrets.token_urlsafe(32)
+
+def verify_credentials(username: str, password: str) -> bool:
+    """Verify username and password against environment variables"""
+    return username == AUTH_USERNAME and password == AUTH_PASSWORD
+
+def create_session(response: Response) -> str:
+    """Create a new session and set cookie"""
+    session_token = create_session_token()
+    active_sessions[session_token] = {
+        "created_at": datetime.now(),
+        "expires_at": datetime.now() + timedelta(hours=24)
+    }
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        max_age=86400,  # 24 hours
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax"
+    )
+    return session_token
+
+def verify_session(session_token: Optional[str] = Cookie(None)) -> bool:
+    """Verify if session token is valid and not expired"""
+    if not session_token or session_token not in active_sessions:
+        return False
+
+    session = active_sessions[session_token]
+    if datetime.now() > session["expires_at"]:
+        # Remove expired session
+        del active_sessions[session_token]
+        return False
+
+    return True
+
+def require_auth(session_token: Optional[str] = Cookie(None)):
+    """Dependency to require authentication"""
+    if not verify_session(session_token):
+        raise AuthenticationRequired()
+    return True
+
 # Pydantic models
 class ScrapeRequest(BaseModel):
     max_stores: Optional[int] = None
@@ -77,9 +153,56 @@ class ApiDataRequest(BaseModel):
     scraping_date: Optional[str] = None  # YYYY-MM-DD format, None for today
     min_vehicles: int = 5
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-# Root endpoint
-@app.get("/", response_class=HTMLResponse)
+
+# Login endpoints
+@app.get("/login", response_class=HTMLResponse)
+async def login_form(request: Request):
+    """Display login form"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    """Process login form"""
+    if verify_credentials(username, password):
+        # Create redirect response and set cookie on it
+        redirect_response = RedirectResponse(url="/", status_code=302)
+        session_token = create_session_token()
+        active_sessions[session_token] = {
+            "created_at": datetime.now(),
+            "expires_at": datetime.now() + timedelta(hours=24)
+        }
+        redirect_response.set_cookie(
+            key="session_token",
+            value=session_token,
+            max_age=86400,  # 24 hours
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite="lax"
+        )
+        return redirect_response
+    else:
+        # Return to login with error
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": "Invalid username or password"
+            }
+        )@app.post("/logout")
+async def logout(response: Response, session_token: Optional[str] = Cookie(None)):
+    """Logout user by invalidating session"""
+    if session_token and session_token in active_sessions:
+        del active_sessions[session_token]
+
+    response.delete_cookie("session_token")
+    return RedirectResponse(url="/login", status_code=302)
+
+# Root endpoint (protected)
+@app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
 async def read_root(request: Request):
     """Main dashboard page"""
     try:
@@ -155,7 +278,7 @@ async def health_check():
 
 
 # Start scraping task
-@app.post("/scrape/start", response_model=TaskResponse)
+@app.post("/scrape/start", response_model=TaskResponse, dependencies=[Depends(require_auth)])
 async def start_scraping(request: ScrapeRequest):
     """Start a new scraping task"""
     try:
@@ -173,7 +296,7 @@ async def start_scraping(request: ScrapeRequest):
         raise HTTPException(status_code=500, detail=f"Failed to start scraping task: {str(e)}")
 
 
-@app.post("/scrape/auto-moto", response_model=TaskResponse)
+@app.post("/scrape/auto-moto", response_model=TaskResponse, dependencies=[Depends(require_auth)])
 async def start_auto_moto_scraping(request: ScrapeRequest):
     """Start auto moto only scraping task (most efficient for car data)"""
     try:
@@ -190,7 +313,7 @@ async def start_auto_moto_scraping(request: ScrapeRequest):
         raise HTTPException(status_code=500, detail=f"Failed to start auto moto scraping task: {str(e)}")
 
 
-@app.post("/scrape/tunnel", response_model=TaskResponse)
+@app.post("/scrape/tunnel", response_model=TaskResponse, dependencies=[Depends(require_auth)])
 async def start_tunnel_scraping(request: ScrapeRequest):
     """Start enhanced tunnel-enabled scraping task (most secure and feature-rich)"""
     try:
@@ -208,7 +331,7 @@ async def start_tunnel_scraping(request: ScrapeRequest):
         raise HTTPException(status_code=500, detail=f"Failed to start tunnel scraping task: {str(e)}")
 
 
-@app.post("/api/send-data", response_model=TaskResponse)
+@app.post("/api/send-data", response_model=TaskResponse, dependencies=[Depends(require_auth)])
 async def send_dealership_data_to_api(request: ApiDataRequest):
     """Send dealership data to Dober Avto API"""
     try:
@@ -228,7 +351,7 @@ async def send_dealership_data_to_api(request: ApiDataRequest):
 
 
 # Get task status
-@app.get("/scrape/status/{task_id}")
+@app.get("/scrape/status/{task_id}", dependencies=[Depends(require_auth)])
 async def get_task_status(task_id: str):
     """Get the status of a scraping task"""
     try:
@@ -285,7 +408,7 @@ async def cancel_task(task_id: str):
 
 
 # Test scraper
-@app.post("/scrape/test", response_model=TaskResponse)
+@app.post("/scrape/test", response_model=TaskResponse, dependencies=[Depends(require_auth)])
 async def test_scraper():
     """Run a test scraping task"""
     try:
@@ -403,7 +526,7 @@ async def get_worker_status():
 
 
 # List recent tasks
-@app.get("/tasks/recent")
+@app.get("/tasks/recent", dependencies=[Depends(require_auth)])
 async def get_recent_tasks(limit: int = 10):
     """Get recent tasks"""
     try:
@@ -449,7 +572,7 @@ async def get_recent_tasks(limit: int = 10):
 
 
 # Cleanup old files
-@app.post("/cleanup/excel-files")
+@app.post("/cleanup/excel-files", dependencies=[Depends(require_auth)])
 async def cleanup_excel_files(days_old: int = 7):
     """Clean up old Excel files"""
     try:
