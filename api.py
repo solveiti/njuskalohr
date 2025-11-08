@@ -29,7 +29,8 @@ from tasks.scraper_tasks import (
     test_scraper_task,
     get_database_stats_task,
     cleanup_old_excel_files_task,
-    run_enhanced_tunnel_scrape_task
+    run_enhanced_tunnel_scrape_task,
+    send_dealership_data_to_api_task
 )
 from database import NjuskaloDatabase
 
@@ -72,6 +73,10 @@ class ScheduleRequest(BaseModel):
     max_stores: Optional[int] = None
     use_database: bool = True
 
+class ApiDataRequest(BaseModel):
+    scraping_date: Optional[str] = None  # YYYY-MM-DD format, None for today
+    min_vehicles: int = 5
+
 
 # Root endpoint
 @app.get("/", response_class=HTMLResponse)
@@ -88,12 +93,28 @@ async def read_root(request: Request):
     active_tasks = celery_app.control.inspect().active()
     scheduled_tasks = celery_app.control.inspect().scheduled()
 
+    # API endpoints configuration from environment
+    api_config = {
+        "base_url": os.getenv("API_BASE_URL", "http://localhost:8000"),
+        "endpoints": {
+            "scrape_start": os.getenv("API_SCRAPE_START_ENDPOINT", "/scrape/start"),
+            "scrape_tunnel": os.getenv("API_SCRAPE_TUNNEL_ENDPOINT", "/scrape/tunnel"),
+            "scrape_test": os.getenv("API_SCRAPE_TEST_ENDPOINT", "/scrape/test"),
+            "scrape_status": os.getenv("API_SCRAPE_STATUS_ENDPOINT", "/scrape/status"),
+            "scrape_cancel": os.getenv("API_SCRAPE_CANCEL_ENDPOINT", "/scrape/cancel"),
+            "cleanup": os.getenv("API_CLEANUP_ENDPOINT", "/cleanup/excel-files"),
+            "tasks_recent": os.getenv("API_TASKS_RECENT_ENDPOINT", "/tasks/recent"),
+            "api_send_data": os.getenv("API_DATA_SEND_ENDPOINT", "/api/send-data")
+        }
+    }
+
     context = {
         "request": request,
         "db_stats": db_stats,
         "active_tasks": active_tasks or {},
         "scheduled_tasks": scheduled_tasks or {},
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "api_config": api_config
     }
 
     return templates.TemplateResponse("dashboard.html", context)
@@ -185,6 +206,25 @@ async def start_tunnel_scraping(request: ScrapeRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start tunnel scraping task: {str(e)}")
+
+
+@app.post("/api/send-data", response_model=TaskResponse)
+async def send_dealership_data_to_api(request: ApiDataRequest):
+    """Send dealership data to Dober Avto API"""
+    try:
+        task = send_dealership_data_to_api_task.delay(
+            scraping_date=request.scraping_date,
+            min_vehicles=request.min_vehicles
+        )
+
+        date_msg = request.scraping_date if request.scraping_date else "today"
+        return TaskResponse(
+            task_id=task.id,
+            status="PENDING",
+            message=f"API data sender task started with ID: {task.id}. Sending dealership data for {date_msg} (min vehicles: {request.min_vehicles})."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start API data sender task: {str(e)}")
 
 
 # Get task status

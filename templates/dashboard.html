@@ -7,6 +7,23 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- API Configuration -->
+    <script>
+        window.API_CONFIG = {
+            baseUrl: "{{ api_config.base_url }}",
+            endpoints: {
+                scrapeStart: "{{ api_config.endpoints.scrape_start }}",
+                scrapeTunnel: "{{ api_config.endpoints.scrape_tunnel }}",
+                scrapeTest: "{{ api_config.endpoints.scrape_test }}",
+                scrapeStatus: "{{ api_config.endpoints.scrape_status }}",
+                scrapeCancel: "{{ api_config.endpoints.scrape_cancel }}",
+                cleanup: "{{ api_config.endpoints.cleanup }}",
+                tasksRecent: "{{ api_config.endpoints.tasks_recent }}",
+                apiSendData: "{{ api_config.endpoints.api_send_data }}"
+            }
+        };
+    </script>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8" x-data="dashboard()">
@@ -129,6 +146,42 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Advanced Controls -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <!-- Tunnel Scraping -->
+                <div class="border rounded-lg p-4">
+                    <h3 class="font-semibold mb-2">Enhanced Tunnel Scraping</h3>
+                    <p class="text-sm text-gray-600 mb-3">Secure scraping with SSH tunnels and enhanced features</p>
+                    <button @click="startTunnelScraping()"
+                            :disabled="isLoading"
+                            class="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 disabled:opacity-50">
+                        <i class="fas fa-shield-alt mr-2"></i>Start Tunnel Scraping
+                    </button>
+                </div>
+
+                <!-- API Data Sender -->
+                <div class="border rounded-lg p-4">
+                    <h3 class="font-semibold mb-2">Send Data to API</h3>
+                    <div class="space-y-2 mb-3">
+                        <label class="block">
+                            <span class="text-sm text-gray-600">Scraping Date (YYYY-MM-DD):</span>
+                            <input type="date" x-model="apiDataOptions.scraping_date"
+                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        </label>
+                        <label class="block">
+                            <span class="text-sm text-gray-600">Min Vehicles:</span>
+                            <input type="number" x-model="apiDataOptions.min_vehicles" min="1"
+                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        </label>
+                    </div>
+                    <button @click="sendApiData()"
+                            :disabled="isLoading"
+                            class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 disabled:opacity-50">
+                        <i class="fas fa-paper-plane mr-2"></i>Send to API
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Recent Tasks -->
@@ -200,6 +253,10 @@
                     max_stores: null,
                     use_database: true
                 },
+                apiDataOptions: {
+                    scraping_date: null,
+                    min_vehicles: 5
+                },
 
                 init() {
                     this.loadRecentTasks();
@@ -213,7 +270,7 @@
                 async startScraping() {
                     this.isLoading = true;
                     try {
-                        const response = await fetch('/scrape/start', {
+                        const response = await fetch(window.API_CONFIG.endpoints.scrapeStart, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -238,7 +295,7 @@
                 async testScraper() {
                     this.isLoading = true;
                     try {
-                        const response = await fetch('/scrape/test', {
+                        const response = await fetch(window.API_CONFIG.endpoints.scrapeTest, {
                             method: 'POST'
                         });
                         const data = await response.json();
@@ -259,7 +316,7 @@
                 async cleanupFiles() {
                     this.isLoading = true;
                     try {
-                        const response = await fetch('/cleanup/excel-files', {
+                        const response = await fetch(window.API_CONFIG.endpoints.cleanup, {
                             method: 'POST'
                         });
                         const data = await response.json();
@@ -279,7 +336,7 @@
 
                 async loadRecentTasks() {
                     try {
-                        const response = await fetch('/tasks/recent');
+                        const response = await fetch(window.API_CONFIG.endpoints.tasksRecent);
                         const data = await response.json();
 
                         if (response.ok) {
@@ -293,7 +350,7 @@
 
                 async checkTaskStatus(taskId) {
                     try {
-                        const response = await fetch(`/scrape/status/${taskId}`);
+                        const response = await fetch(`${window.API_CONFIG.endpoints.scrapeStatus}/${taskId}`);
                         const data = await response.json();
 
                         if (response.ok) {
@@ -308,7 +365,7 @@
 
                 async cancelTask(taskId) {
                     try {
-                        const response = await fetch(`/scrape/cancel/${taskId}`, {
+                        const response = await fetch(`${window.API_CONFIG.endpoints.scrapeCancel}/${taskId}`, {
                             method: 'DELETE'
                         });
                         const data = await response.json();
@@ -321,6 +378,56 @@
                         }
                     } catch (error) {
                         this.showMessage(`Error: ${error.message}`, 'error');
+                    }
+                },
+
+                async startTunnelScraping() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch(window.API_CONFIG.endpoints.scrapeTunnel, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(this.scrapeOptions)
+                        });
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            this.showMessage(`Tunnel scraping started: ${data.task_id}`, 'success');
+                            this.loadRecentTasks();
+                        } else {
+                            this.showMessage(`Failed to start tunnel scraping: ${data.detail}`, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage(`Error: ${error.message}`, 'error');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                async sendApiData() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch(window.API_CONFIG.endpoints.apiSendData, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(this.apiDataOptions)
+                        });
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            this.showMessage(`API data sender started: ${data.task_id}`, 'success');
+                            this.loadRecentTasks();
+                        } else {
+                            this.showMessage(`Failed to start API data sender: ${data.detail}`, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage(`Error: ${error.message}`, 'error');
+                    } finally {
+                        this.isLoading = false;
                     }
                 },
 

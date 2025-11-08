@@ -41,6 +41,11 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Run every Monday at 2:00 AM
         "args": (None, True),  # max_stores=None, use_database=True
     },
+    "send-api-data-weekly": {
+        "task": "tasks.scraper_tasks.send_dealership_data_to_api_task",
+        "schedule": crontab(hour=10, minute=0, day_of_week=4),  # Run every Thursday at 10:00 AM
+        "args": (None, 5),  # scraping_date=None (today), min_vehicles=5
+    },
 }
 
 if __name__ == "__main__":

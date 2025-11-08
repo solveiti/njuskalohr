@@ -17,6 +17,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from njuskalo_sitemap_scraper import NjuskaloSitemapScraper
 from database import NjuskaloDatabase
 
+# Configure logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Import tunnel-enabled scraper
 try:
     from enhanced_tunnel_scraper import TunnelEnabledEnhancedScraper
@@ -24,9 +28,13 @@ except ImportError:
     logger.warning("TunnelEnabledEnhancedScraper not available - tunnel tasks will be disabled")
     TunnelEnabledEnhancedScraper = None
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Import API data sender
+try:
+    from njuskalo_api_data_sender import DoberApiClient, DealershipProcessor
+except ImportError:
+    logger.warning("API data sender not available - API tasks will be disabled")
+    DoberApiClient = None
+    DealershipProcessor = None
 
 
 class CallbackTask(Task):
@@ -598,3 +606,136 @@ def run_enhanced_tunnel_scrape_task(self, max_stores: Optional[int] = None, use_
 
         # Re-raise the exception so Celery marks the task as failed
         raise Exception(f"Enhanced tunnel scraping task failed: {error_msg}")
+
+
+@celery_app.task(base=CallbackTask, bind=True)
+def send_dealership_data_to_api_task(self, scraping_date: Optional[str] = None, min_vehicles: int = 5) -> Dict[str, Any]:
+    """
+    Celery task to send dealership data to Dober Avto API
+
+    Args:
+        scraping_date: Date of scraping in YYYY-MM-DD format (None for today)
+        min_vehicles: Minimum number of vehicles required to include dealership
+
+    Returns:
+        Dict with task results and statistics
+    """
+    if not DoberApiClient or not DealershipProcessor:
+        error_msg = "API data sender not available"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    task_id = self.request.id
+    start_time = datetime.now()
+
+    # Use today's date if not specified
+    if not scraping_date:
+        scraping_date = start_time.strftime('%Y-%m-%d')
+
+    logger.info(f"Starting API data sender task {task_id} for date {scraping_date} with min_vehicles={min_vehicles}")
+
+    try:
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Initializing API client", "progress": 0, "start_time": start_time.isoformat()}
+        )
+
+        # Initialize API client
+        api_client = DoberApiClient()
+        processor = DealershipProcessor(api_client)
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Loading dealership data from database", "progress": 20, "start_time": start_time.isoformat()}
+        )
+
+        # Get dealerships from database
+        dealerships = processor.get_dealerships_from_database(scraping_date, min_vehicles)
+
+        if not dealerships:
+            logger.warning(f"No dealerships found for date {scraping_date} with min_vehicles >= {min_vehicles}")
+            result = {
+                "task_id": task_id,
+                "status": "SUCCESS",
+                "scraping_date": scraping_date,
+                "min_vehicles": min_vehicles,
+                "dealerships_processed": 0,
+                "dealerships_sent": 0,
+                "execution_time_seconds": (datetime.now() - start_time).total_seconds(),
+                "start_time": start_time.isoformat(),
+                "end_time": datetime.now().isoformat(),
+                "message": "No dealerships found matching criteria"
+            }
+            return result
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={
+                "status": f"Processing {len(dealerships)} dealerships",
+                "progress": 40,
+                "start_time": start_time.isoformat(),
+                "dealerships_found": len(dealerships)
+            }
+        )
+
+        logger.info(f"Found {len(dealerships)} dealerships to process")
+
+        # Process and send dealerships
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Sending data to Dober Avto API", "progress": 60, "start_time": start_time.isoformat()}
+        )
+
+        # Run the main processing
+        processor.process_dealerships(scraping_date, min_vehicles)
+
+        # Calculate execution time
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        # Prepare success result
+        result = {
+            "task_id": task_id,
+            "status": "SUCCESS",
+            "scraping_date": scraping_date,
+            "min_vehicles": min_vehicles,
+            "dealerships_found": len(dealerships),
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "message": f"Successfully processed dealership data for {scraping_date}"
+        }
+
+        logger.info(f"API data sender task {task_id} completed successfully")
+        logger.info(f"Found: {len(dealerships)} dealerships, Execution time: {execution_time:.2f} seconds")
+
+        return result
+
+    except Exception as e:
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        error_msg = str(e)
+        error_traceback = traceback.format_exc()
+
+        logger.error(f"API data sender task {task_id} failed after {execution_time:.2f}s: {error_msg}")
+        logger.error(f"Error traceback:\n{error_traceback}")
+
+        # Return error result
+        result = {
+            "task_id": task_id,
+            "status": "FAILED",
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "scraping_date": scraping_date,
+            "min_vehicles": min_vehicles,
+            "error": error_msg,
+            "traceback": error_traceback
+        }
+
+        # Re-raise the exception so Celery marks the task as failed
+        raise Exception(f"API data sender task failed: {error_msg}")
