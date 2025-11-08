@@ -1,8 +1,0 @@
-{
-  "178.18.253.123": {
-    "ssh_access": true,
-    "proxy_access": true,
-    "status": "healthy",
-    "last_check": "2025-11-06T12:17:58.174755"
-  }
-}
