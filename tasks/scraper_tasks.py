@@ -17,6 +17,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from njuskalo_sitemap_scraper import NjuskaloSitemapScraper
 from database import NjuskaloDatabase
 
+# Import tunnel-enabled scraper
+try:
+    from enhanced_tunnel_scraper import TunnelEnabledEnhancedScraper
+except ImportError:
+    logger.warning("TunnelEnabledEnhancedScraper not available - tunnel tasks will be disabled")
+    TunnelEnabledEnhancedScraper = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -458,3 +465,136 @@ def cleanup_old_excel_files_task(days_old: int = 7) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Cleanup task failed: {e}")
         raise Exception(f"Cleanup task failed: {str(e)}")
+
+
+@celery_app.task(base=CallbackTask, bind=True)
+def run_enhanced_tunnel_scrape_task(self, max_stores: Optional[int] = None, use_database: bool = True) -> Dict[str, Any]:
+    """
+    Celery task to run the enhanced tunnel-enabled scraping workflow
+
+    Args:
+        max_stores: Maximum number of stores to scrape (None for all)
+        use_database: Whether to save results to database
+
+    Returns:
+        Dict with task results and statistics
+    """
+    if not TunnelEnabledEnhancedScraper:
+        error_msg = "TunnelEnabledEnhancedScraper not available"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    task_id = self.request.id
+    start_time = datetime.now()
+
+    logger.info(f"Starting enhanced tunnel scraping task {task_id} with max_stores={max_stores}, use_database={use_database}")
+
+    try:
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Initializing tunnel-enabled scraper", "progress": 0, "start_time": start_time.isoformat()}
+        )
+
+        # Create tunnel-enabled scraper instance
+        scraper = TunnelEnabledEnhancedScraper(
+            headless=True,
+            use_database=use_database,
+            tunnel_config_path="tunnel_config.json",
+            use_tunnels=True
+        )
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Setting up SSH tunnels", "progress": 10, "start_time": start_time.isoformat()}
+        )
+
+        logger.info(f"Running enhanced tunnel scraping with max_stores={max_stores}")
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Running scraping process", "progress": 20, "start_time": start_time.isoformat()}
+        )
+
+        # Run the enhanced scraping with tunnels
+        results = scraper.run_enhanced_scrape_with_tunnels(max_stores=max_stores)
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Saving results", "progress": 90, "start_time": start_time.isoformat()}
+        )
+
+        # Save to Excel file
+        import os
+        datadump_dir = "datadump"
+        os.makedirs(datadump_dir, exist_ok=True)
+
+        timestamp = int(start_time.timestamp())
+        excel_filename = f"njuskalo_tunnel_scrape_{timestamp}.xlsx"
+        excel_saved = scraper.save_to_excel(excel_filename) if hasattr(scraper, 'save_to_excel') else None
+
+        # Get database stats if using database
+        db_stats = None
+        if use_database:
+            try:
+                with NjuskaloDatabase() as db:
+                    db_stats = db.get_database_stats()
+            except Exception as e:
+                logger.warning(f"Failed to get database stats: {e}")
+
+        # Calculate execution time
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        # Prepare result
+        result = {
+            "task_id": task_id,
+            "status": "SUCCESS",
+            "total_stores_scraped": results.get("stores_scraped", 0),
+            "auto_moto_stores": results.get("auto_moto_stores", 0),
+            "new_urls_found": results.get("new_urls_found", 0),
+            "xml_available": results.get("xml_available", False),
+            "tunnel_used": results.get("tunnel_used", True),
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "excel_file": excel_filename if excel_saved else None,
+            "database_stats": db_stats,
+            "message": f"Enhanced tunnel scraping completed successfully! Processed {results.get('stores_scraped', 0)} stores."
+        }
+
+        logger.info(f"Enhanced tunnel scraping task {task_id} completed successfully")
+        logger.info(f"Stores scraped: {results.get('stores_scraped', 0)}")
+        logger.info(f"Auto moto stores: {results.get('auto_moto_stores', 0)}")
+        logger.info(f"Execution time: {execution_time:.2f} seconds")
+
+        return result
+
+    except Exception as e:
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        error_msg = str(e)
+        error_traceback = traceback.format_exc()
+
+        logger.error(f"Enhanced tunnel scraping task {task_id} failed after {execution_time:.2f}s: {error_msg}")
+        logger.error(f"Error traceback:\n{error_traceback}")
+
+        # Return error result
+        result = {
+            "task_id": task_id,
+            "status": "FAILED",
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "max_stores": max_stores,
+            "use_database": use_database,
+            "error": error_msg,
+            "traceback": error_traceback
+        }
+
+        # Re-raise the exception so Celery marks the task as failed
+        raise Exception(f"Enhanced tunnel scraping task failed: {error_msg}")

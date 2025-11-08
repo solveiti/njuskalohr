@@ -23,7 +23,14 @@ load_dotenv()
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from celery_config import celery_app
-from tasks.scraper_tasks import run_full_scrape_task, run_auto_moto_only_scrape_task, test_scraper_task, get_database_stats_task, cleanup_old_excel_files_task
+from tasks.scraper_tasks import (
+    run_full_scrape_task,
+    run_auto_moto_only_scrape_task,
+    test_scraper_task,
+    get_database_stats_task,
+    cleanup_old_excel_files_task,
+    run_enhanced_tunnel_scrape_task
+)
 from database import NjuskaloDatabase
 
 # Create FastAPI app
@@ -160,6 +167,24 @@ async def start_auto_moto_scraping(request: ScrapeRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start auto moto scraping task: {str(e)}")
+
+
+@app.post("/scrape/tunnel", response_model=TaskResponse)
+async def start_tunnel_scraping(request: ScrapeRequest):
+    """Start enhanced tunnel-enabled scraping task (most secure and feature-rich)"""
+    try:
+        task = run_enhanced_tunnel_scrape_task.delay(
+            max_stores=request.max_stores,
+            use_database=request.use_database
+        )
+
+        return TaskResponse(
+            task_id=task.id,
+            status="PENDING",
+            message=f"Enhanced tunnel scraping task started with ID: {task.id}. Using SSH tunnels for anonymity and enhanced features."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start tunnel scraping task: {str(e)}")
 
 
 # Get task status

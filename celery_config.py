@@ -3,6 +3,7 @@ Celery configuration for Njuskalo scraper
 """
 import os
 from celery import Celery
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -35,15 +36,15 @@ celery_app.conf.update(
 
 # Beat schedule for periodic tasks
 celery_app.conf.beat_schedule = {
-    "scrape-stores-daily": {
-        "task": "tasks.scraper_tasks.run_full_scrape_task",
-        "schedule": 86400.0,  # Run daily (24 hours)
+    "scrape-stores-weekly-tunnel": {
+        "task": "tasks.scraper_tasks.run_enhanced_tunnel_scrape_task",
+        "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Run every Monday at 2:00 AM
         "args": (None, True),  # max_stores=None, use_database=True
     },
-    "scrape-stores-hourly-test": {
-        "task": "tasks.scraper_tasks.run_full_scrape_task",
-        "schedule": 3600.0,  # Run hourly for testing
-        "args": (10, True),  # max_stores=10, use_database=True
+    "scrape-stores-weekly-test": {
+        "task": "tasks.scraper_tasks.run_enhanced_tunnel_scrape_task",
+        "schedule": crontab(hour=14, minute=30, day_of_week=6),  # Run every Saturday at 2:30 PM for testing
+        "args": (20, True),  # max_stores=20, use_database=True
     },
 }
 
