@@ -41,11 +41,6 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Run every Monday at 2:00 AM
         "args": (None, True),  # max_stores=None, use_database=True
     },
-    "scrape-stores-weekly-test": {
-        "task": "tasks.scraper_tasks.run_enhanced_tunnel_scrape_task",
-        "schedule": crontab(hour=14, minute=30, day_of_week=6),  # Run every Saturday at 2:30 PM for testing
-        "args": (20, True),  # max_stores=20, use_database=True
-    },
 }
 
 if __name__ == "__main__":
