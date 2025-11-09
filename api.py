@@ -215,10 +215,11 @@ app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HT
 app.add_api_route(LOGIN_ENDPOINT, login, methods=["POST"])
 app.add_api_route(LOGOUT_ENDPOINT, logout, methods=["POST"])
 
+"""
 # Root endpoint (protected)
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
 async def read_root(request: Request):
-    """Main dashboard page"""
+
     try:
         # Get database stats
         with NjuskaloDatabase() as db:
@@ -258,8 +259,7 @@ async def read_root(request: Request):
 
     return templates.TemplateResponse("dashboard.html", context)
 
-# Add this route after the existing root route (around line 300, after the read_root function)
-
+"""
 @app.get("/njuskalo/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
 async def njuskalo_dashboard(request: Request):
     """Dashboard accessible via /njuskalo/ path"""
