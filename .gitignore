@@ -26,9 +26,13 @@ share/python-wheels/
 
 # Celery
 celerybeat-schedule
+celerybeat-schedule.db
+celerybeat-schedule.dat
+celerybeat-schedule.dir
 celerybeat.pid
 celery_worker.pid
 celery_beat.pid
+celerymon.pid
 
 # FastAPI / Uvicorn
 *.pid

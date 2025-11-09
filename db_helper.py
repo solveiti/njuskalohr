@@ -202,13 +202,15 @@ class SimpleDatabase:
             return []
 
     def get_published_ads_by_user(self, user_uuid: str) -> List[Dict]:
-        """Get published ads for a specific user"""
+        """Get published ads for a specific user that have publishNjuskalo enabled"""
         try:
             sql = """
             SELECT id, HEX(uuid) as uuid, HEX(user) as user, title, created, updated,
-                   status, content, adCode, doberAvtoCode, publishDoberAvto, publishAvtoNet
+                   status, content, adCode, doberAvtoCode, publishDoberAvto, publishAvtoNet, publishNjuskalo
             FROM aditem
-            WHERE user = UNHEX(REPLACE(%s, '-', '')) AND status = 'published'
+            WHERE user = UNHEX(REPLACE(%s, '-', ''))
+              AND status = 'published'
+              AND publishNjuskalo = 1
             ORDER BY created DESC
             """
 

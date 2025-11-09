@@ -263,7 +263,7 @@ try:
 
     @app.get("/publish/{uuid}")
     async def get_published_content(uuid: str):
-        """Get user by UUID and their published ads, log the access"""
+        """Get user by UUID and their published ads with publishNjuskalo enabled, log the access"""
         import logging
         from pathlib import Path
 
@@ -293,28 +293,29 @@ try:
                     publish_logger.warning(f"User not found for UUID: {uuid}")
                     raise HTTPException(status_code=404, detail="User not found")
 
-                # Get published ads for this user
+                # Get published ads for this user (only those with publishNjuskalo = true)
                 published_ads = db.get_published_ads_by_user(uuid)
 
                 # Log the access
                 publish_logger.info(
                     f"User access - UUID: {uuid}, Username: {user.get('username')}, "
-                    f"Email: {user.get('email')}, Published Ads: {len(published_ads)}"
+                    f"Email: {user.get('email')}, Published Njuskalo Ads: {len(published_ads)}"
                 )
 
                 # Log detailed ad information
                 for ad in published_ads:
                     publish_logger.info(
-                        f"Published Ad - UUID: {ad.get('uuid')}, Title: {ad.get('title')}, "
+                        f"Njuskalo Ad - UUID: {ad.get('uuid')}, Title: {ad.get('title')}, "
                         f"Status: {ad.get('status')}, Created: {ad.get('created')}, "
-                        f"AdCode: {ad.get('adCode')}"
+                        f"AdCode: {ad.get('adCode')}, PublishNjuskalo: {ad.get('publishNjuskalo')}"
                     )
 
                 return {
                     "user": user,
                     "published_ads": published_ads,
-                    "ads_count": len(published_ads),
-                    "timestamp": datetime.now().isoformat()
+                    "njuskalo_ads_count": len(published_ads),
+                    "timestamp": datetime.now().isoformat(),
+                    "filter_applied": "publishNjuskalo = true"
                 }
 
         except HTTPException:

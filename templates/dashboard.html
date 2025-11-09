@@ -286,13 +286,18 @@
             </div>
 
             <div x-show="publishResults.published_ads">
-                <h3 class="text-lg font-semibold text-gray-700 mb-3">
-                    Published Ads (<span x-text="publishResults.total_ads || publishResults.published_ads?.length || 0"></span>)
-                </h3>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-semibold text-gray-700">
+                        Njuskalo Published Ads (<span x-text="publishResults.njuskalo_ads_count || publishResults.published_ads?.length || 0"></span>)
+                    </h3>
+                    <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        Filter: publishNjuskalo = true
+                    </div>
+                </div>
 
                 <div x-show="publishResults.published_ads && publishResults.published_ads.length === 0"
                      class="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
-                    No published ads found for this user
+                    No Njuskalo published ads found for this user (publishNjuskalo = false or no ads)
                 </div>
 
                 <div class="space-y-3" x-show="publishResults.published_ads && publishResults.published_ads.length > 0">

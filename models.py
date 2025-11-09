@@ -213,6 +213,7 @@ class AdItem(BaseModel):
     doberAvtoCode: Optional[str] = None
     publishDoberAvto: Optional[bool] = None
     publishAvtoNet: Optional[bool] = None
+    publishNjuskalo: Optional[bool] = None
 
     class Config:
         from_attributes = True
