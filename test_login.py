@@ -80,9 +80,9 @@ def test_login():
             print(f"   ✅ Login redirect to: {login_response.headers.get('location')}")
             print(f"   Cookies received: {list(session.cookies.keys())}")
 
-            # Step 5: Test authenticated access
-            print("\n5. Testing authenticated access...")
-            dashboard_response = session.get(f"{base_url}/", allow_redirects=False)
+            # Step 5: Test authenticated access to dashboard
+            print("\n5. Testing authenticated dashboard access...")
+            dashboard_response = session.get(f"{base_url}/njuskalo/dashboard", allow_redirects=False)
             print(f"   Dashboard access: {dashboard_response.status_code}")
 
             if dashboard_response.status_code == 200:

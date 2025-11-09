@@ -176,7 +176,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     """Process login form"""
     if verify_credentials(username, password):
         # Create redirect response and set cookie on it
-        redirect_response = RedirectResponse(url="/njuskalo/", status_code=302)
+        redirect_response = RedirectResponse(url="/njuskalo/dashboard", status_code=302)
         session_token = create_session_token()
         active_sessions[session_token] = {
             "created_at": datetime.now(),
@@ -215,100 +215,65 @@ app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HT
 app.add_api_route(LOGIN_ENDPOINT, login, methods=["POST"])
 app.add_api_route(LOGOUT_ENDPOINT, logout, methods=["POST"])
 
-"""
 # Root endpoint (protected)
-@app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
+@app.get("/")
 async def read_root(request: Request):
+    """Root endpoint - redirect to login"""
+    return RedirectResponse(url="/njuskalo/login", status_code=302)
 
-    try:
-        # Get database stats
-        with NjuskaloDatabase() as db:
-            db_stats = db.get_database_stats()
-    except Exception:
-        db_stats = {"total_stores": 0, "valid_stores": 0, "invalid_stores": 0}
-
-    # Get active tasks
-    active_tasks = celery_app.control.inspect().active()
-    scheduled_tasks = celery_app.control.inspect().scheduled()
-
-    # API endpoints configuration from environment
-    api_config = {
-        "base_url": os.getenv("API_BASE_URL", "http://localhost:8000"),
-        "endpoints": {
-            "login": os.getenv("API_LOGIN_ENDPOINT", "/login"),
-            "logout": os.getenv("API_LOGOUT_ENDPOINT", "/logout"),
-            "scrape_start": os.getenv("API_SCRAPE_START_ENDPOINT", "/scrape/start"),
-            "scrape_tunnel": os.getenv("API_SCRAPE_TUNNEL_ENDPOINT", "/scrape/tunnel"),
-            "scrape_test": os.getenv("API_SCRAPE_TEST_ENDPOINT", "/scrape/test"),
-            "scrape_status": os.getenv("API_SCRAPE_STATUS_ENDPOINT", "/scrape/status"),
-            "scrape_cancel": os.getenv("API_SCRAPE_CANCEL_ENDPOINT", "/scrape/cancel"),
-            "cleanup": os.getenv("API_CLEANUP_ENDPOINT", "/cleanup/excel-files"),
-            "tasks_recent": os.getenv("API_TASKS_RECENT_ENDPOINT", "/tasks/recent"),
-            "api_send_data": os.getenv("API_DATA_SEND_ENDPOINT", "/api/send-data")
-        }
-    }
-
-    context = {
-        "request": request,
-        "db_stats": db_stats,
-        "active_tasks": active_tasks or {},
-        "scheduled_tasks": scheduled_tasks or {},
-        "timestamp": datetime.now().isoformat(),
-        "api_config": api_config
-    }
-
-    return templates.TemplateResponse("dashboard.html", context)
-
-"""
-@app.get("/njuskalo/", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
-async def njuskalo_dashboard(request: Request):
-    """Dashboard accessible via /njuskalo/ path"""
-    # Reuse the same logic as the root route
-    try:
-        # Get database stats
-        with NjuskaloDatabase() as db:
-            db_stats = db.get_database_stats()
-    except Exception:
-        db_stats = {"total_stores": 0, "valid_stores": 0, "invalid_stores": 0}
-
-    # Get active tasks
-    active_tasks = celery_app.control.inspect().active()
-    scheduled_tasks = celery_app.control.inspect().scheduled()
-
-    # API endpoints configuration from environment
-    api_config = {
-        "base_url": os.getenv("API_BASE_URL", "http://localhost:8000"),
-        "endpoints": {
-            "login": os.getenv("API_LOGIN_ENDPOINT", "/login"),
-            "logout": os.getenv("API_LOGOUT_ENDPOINT", "/logout"),
-            "scrape_start": os.getenv("API_SCRAPE_START_ENDPOINT", "/scrape/start"),
-            "scrape_tunnel": os.getenv("API_SCRAPE_TUNNEL_ENDPOINT", "/scrape/tunnel"),
-            "scrape_test": os.getenv("API_SCRAPE_TEST_ENDPOINT", "/scrape/test"),
-            "scrape_status": os.getenv("API_SCRAPE_STATUS_ENDPOINT", "/scrape/status"),
-            "scrape_cancel": os.getenv("API_SCRAPE_CANCEL_ENDPOINT", "/scrape/cancel"),
-            "cleanup": os.getenv("API_CLEANUP_ENDPOINT", "/cleanup/excel-files"),
-            "tasks_recent": os.getenv("API_TASKS_RECENT_ENDPOINT", "/tasks/recent"),
-            "api_send_data": os.getenv("API_DATA_SEND_ENDPOINT", "/api/send-data")
-        }
-    }
-
-    context = {
-        "request": request,
-        "db_stats": db_stats,
-        "active_tasks": active_tasks or {},
-        "scheduled_tasks": scheduled_tasks or {},
-        "timestamp": datetime.now().isoformat(),
-        "api_config": api_config
-    }
-
-    return templates.TemplateResponse("dashboard.html", context)
+@app.get("/njuskalo/")
+async def njuskalo_dashboard_redirect(request: Request):
+    """Legacy /njuskalo/ route - redirects to dashboard"""
+    return RedirectResponse(url="/njuskalo/dashboard", status_code=302)
 
 
 # Also add a route for /njuskalo (without trailing slash) to redirect to /njuskalo/
 @app.get("/njuskalo")
 async def njuskalo_redirect():
-    """Redirect /njuskalo to /njuskalo/ (root dashboard)"""
-    return RedirectResponse(url="/njuskalo/", status_code=301)
+    """Redirect /njuskalo to dashboard"""
+    return RedirectResponse(url="/njuskalo/dashboard", status_code=301)
+
+@app.get("/njuskalo/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
+async def dashboard(request: Request):
+    """Main dashboard - accessible after login"""
+    try:
+        # Get database stats
+        with NjuskaloDatabase() as db:
+            db_stats = db.get_database_stats()
+    except Exception:
+        db_stats = {"total_stores": 0, "valid_stores": 0, "invalid_stores": 0}
+
+    # Get active tasks
+    active_tasks = celery_app.control.inspect().active()
+    scheduled_tasks = celery_app.control.inspect().scheduled()
+
+    # API endpoints configuration from environment
+    api_config = {
+        "base_url": os.getenv("API_BASE_URL", "http://localhost:8000"),
+        "endpoints": {
+            "login": os.getenv("API_LOGIN_ENDPOINT", "/login"),
+            "logout": os.getenv("API_LOGOUT_ENDPOINT", "/logout"),
+            "scrape_start": os.getenv("API_SCRAPE_START_ENDPOINT", "/scrape/start"),
+            "scrape_tunnel": os.getenv("API_SCRAPE_TUNNEL_ENDPOINT", "/scrape/tunnel"),
+            "scrape_test": os.getenv("API_SCRAPE_TEST_ENDPOINT", "/scrape/test"),
+            "scrape_status": os.getenv("API_SCRAPE_STATUS_ENDPOINT", "/scrape/status"),
+            "scrape_cancel": os.getenv("API_SCRAPE_CANCEL_ENDPOINT", "/scrape/cancel"),
+            "cleanup": os.getenv("API_CLEANUP_ENDPOINT", "/cleanup/excel-files"),
+            "tasks_recent": os.getenv("API_TASKS_RECENT_ENDPOINT", "/tasks/recent"),
+            "api_send_data": os.getenv("API_DATA_SEND_ENDPOINT", "/api/send-data")
+        }
+    }
+
+    context = {
+        "request": request,
+        "db_stats": db_stats,
+        "active_tasks": active_tasks or {},
+        "scheduled_tasks": scheduled_tasks or {},
+        "timestamp": datetime.now().isoformat(),
+        "api_config": api_config
+    }
+
+    return templates.TemplateResponse("dashboard.html", context)
 
 # Health check
 @app.get("/health")
