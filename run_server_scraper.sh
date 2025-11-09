@@ -9,6 +9,11 @@ Usage:
     ./run_server_scraper.sh [--max-stores N] [--no-tunnels] [--verbose]
 """
 
+# Load environment variables from .env file
+if [ -f .env ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
