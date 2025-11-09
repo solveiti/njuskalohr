@@ -43,9 +43,9 @@ app = FastAPI(
     title="Njuskalo Scraper API",
     description="API for managing Njuskalo store scraping with Celery and RabbitMQ",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    root_path="/njuskalo"
+    docs_url="/njuskalo/docs",
+    redoc_url="/njuskalo/redoc"
+    # No root_path - routes include full /njuskalo paths
 )
 
 # Create templates directory
