@@ -44,8 +44,8 @@ app = FastAPI(
     description="API for managing Njuskalo store scraping with Celery and RabbitMQ",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
-    root_path="/njuskalo"  # Configure for Apache reverse proxy
+    redoc_url="/redoc"
+    # Removed root_path for simpler Apache proxy setup
 )
 
 # Create templates directory
