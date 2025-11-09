@@ -168,7 +168,7 @@ async def login_form(request: Request):
     """Display login form"""
     context = {
         "request": request,
-        "login_endpoint": LOGIN_ENDPOINT
+        "login_endpoint": "/njuskalo/login"  # Full browser URL for Apache proxy
     }
     return templates.TemplateResponse("login.html", context)
 
@@ -197,7 +197,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
             "login.html",
             {
                 "request": request,
-                "login_endpoint": LOGIN_ENDPOINT,
+                "login_endpoint": "/njuskalo/login",  # Full browser URL for Apache proxy
                 "error": "Invalid username or password"
             }
         )
