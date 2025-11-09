@@ -176,7 +176,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     """Process login form"""
     if verify_credentials(username, password):
         # Create redirect response and set cookie on it
-        redirect_response = RedirectResponse(url="/njuskalo/dashboard", status_code=302)
+        redirect_response = RedirectResponse(url="/dashboard", status_code=302)
         session_token = create_session_token()
         active_sessions[session_token] = {
             "created_at": datetime.now(),
@@ -208,7 +208,7 @@ async def logout(response: Response, session_token: Optional[str] = Cookie(None)
         del active_sessions[session_token]
 
     response.delete_cookie("session_token")
-    return RedirectResponse(url="/njuskalo/login", status_code=302)
+    return RedirectResponse(url="/login", status_code=302)
 
 # Add configurable login endpoints dynamically
 app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HTMLResponse)
@@ -223,17 +223,10 @@ async def read_root(request: Request):
 
 @app.get("/njuskalo/")
 async def njuskalo_dashboard_redirect(request: Request):
-    """Legacy /njuskalo/ route - redirects to dashboard"""
     return RedirectResponse(url="/njuskalo/dashboard", status_code=302)
 
 
-# Also add a route for /njuskalo (without trailing slash) to redirect to /njuskalo/
-@app.get("/njuskalo")
-async def njuskalo_redirect():
-    """Redirect /njuskalo to dashboard"""
-    return RedirectResponse(url="/njuskalo/dashboard", status_code=301)
-
-@app.get("/njuskalo/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
+@app.get("/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
 async def dashboard(request: Request):
     """Main dashboard - accessible after login"""
     try:
