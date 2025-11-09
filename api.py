@@ -176,7 +176,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     """Process login form"""
     if verify_credentials(username, password):
         # Create redirect response and set cookie on it
-        redirect_response = RedirectResponse(url="/", status_code=302)
+        redirect_response = RedirectResponse(url="/njuskalo/", status_code=302)
         session_token = create_session_token()
         active_sessions[session_token] = {
             "created_at": datetime.now(),
