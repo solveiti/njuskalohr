@@ -63,7 +63,7 @@ async def auth_exception_handler(request: Request, exc: AuthenticationRequired):
     # For browser requests (HTML), redirect to login
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header:
-        return RedirectResponse(url=LOGIN_ENDPOINT, status_code=302)
+        return RedirectResponse(url="/njuskalo/login", status_code=302)
     # For API requests (JSON), return 401
     else:
         return JSONResponse(
