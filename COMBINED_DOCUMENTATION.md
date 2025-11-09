@@ -488,6 +488,27 @@ API_LOGOUT_ENDPOINT=/x7k9p2/exit
 - `POST /cleanup/excel-files` - Cleanup old Excel files
 - `GET /tasks/recent` - View recent Celery task history
 
+**Database Operations:**
+
+- `GET /api/users` - List all users with basic information
+- `GET /api/ads` - List all ad items with basic information
+- `GET /api/pages` - List all pages with basic information
+- `GET /api/files` - List all files with basic information
+- `GET /api/menus` - List all menu items with basic information
+
+**Publishing Operations:**
+
+- `GET /publish/{uuid}` - Retrieve published ads for user by UUID
+  - **Parameters:**
+    - `uuid` (path): User UUID identifier
+  - **Functionality:**
+    - Retrieves user information by UUID
+    - Fetches published ads belonging to that user
+    - Logs the operation to dedicated log file
+  - **Logging:** All requests logged to `/var/log/publish_endpoint.log`
+  - **Security:** Authentication required
+  - **Response:** JSON with user and ads data or 404 if not found
+
 **Dashboard:**
 
 - `GET /` - Main authenticated dashboard interface
@@ -503,6 +524,181 @@ API_LOGOUT_ENDPOINT=/x7k9p2/exit
 **Health Check:**
 
 - `GET /health` - Application health status
+
+---
+
+## Publish Endpoint Implementation
+
+### Overview
+
+The `/publish/{uuid}` endpoint provides access to published advertisements for a specific user identified by UUID. This endpoint includes comprehensive logging and error handling.
+
+### Endpoint Details
+
+**URL Pattern:** `GET /publish/{uuid}`
+
+**Authentication:** Required (Session-based)
+
+**Parameters:**
+
+- `uuid` (path parameter): User UUID identifier
+
+### Implementation
+
+```python
+@app.get("/publish/{uuid}")
+async def get_published_ads(uuid: str, request: Request):
+    """
+    Retrieve published ads for a user by UUID.
+
+    Args:
+        uuid: User UUID identifier
+        request: FastAPI request object for authentication
+
+    Returns:
+        JSON response with user and ads data
+    """
+```
+
+### Functionality
+
+1. **User Retrieval**: Fetches user information using provided UUID
+2. **Ads Retrieval**: Gets all published ads belonging to the user
+3. **Data Formatting**: Processes and formats the response data
+4. **Logging**: Records all operations to dedicated log file
+5. **Error Handling**: Returns appropriate HTTP status codes
+
+### Response Format
+
+**Success Response (200):**
+
+```json
+{
+  "user": {
+    "uuid": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "status": "ACTIVE"
+  },
+  "published_ads": [
+    {
+      "id": 1,
+      "title": "Sample Ad Title",
+      "description": "Ad description...",
+      "price": 29999,
+      "status": "PUBLISHED",
+      "created_at": "2025-01-09T10:30:00Z"
+    }
+  ],
+  "total_ads": 1
+}
+```
+
+**Error Response (404):**
+
+```json
+{
+  "detail": "User not found"
+}
+```
+
+### Logging Configuration
+
+**Log File:** `/var/log/publish_endpoint.log`
+
+**Log Format:**
+
+- Timestamp: ISO 8601 format
+- Log Level: INFO/ERROR
+- User UUID: For tracking requests
+- Operation: Action performed
+- Result: Success/failure status
+
+**Example Log Entries:**
+
+```
+2025-01-09T12:34:56.789Z - INFO - UUID: 123e4567-e89b-12d3-a456-426614174000 - User retrieved successfully
+2025-01-09T12:34:56.790Z - INFO - UUID: 123e4567-e89b-12d3-a456-426614174000 - Found 5 published ads
+2025-01-09T12:34:56.791Z - INFO - UUID: 123e4567-e89b-12d3-a456-426614174000 - Request completed successfully
+```
+
+### Error Handling
+
+- **Invalid UUID Format**: Returns 400 Bad Request
+- **User Not Found**: Returns 404 Not Found
+- **No Published Ads**: Returns user data with empty ads array
+- **Database Errors**: Returns 500 Internal Server Error
+- **Authentication Failure**: Returns 401 Unauthorized
+
+### Security Considerations
+
+1. **Authentication Required**: All requests must be authenticated
+2. **UUID Validation**: Input validation for UUID format
+3. **Data Sanitization**: All output data is properly sanitized
+4. **Access Logging**: All access attempts are logged
+5. **Error Information**: Minimal error details in responses
+
+### Usage Examples
+
+**cURL Request:**
+
+```bash
+curl -X GET "http://localhost:8080/publish/123e4567-e89b-12d3-a456-426614174000" \
+     -H "Cookie: session=your_session_cookie"
+```
+
+**Python Request:**
+
+```python
+import requests
+
+session = requests.Session()
+# ... perform login to get session ...
+
+response = session.get(
+    "http://localhost:8080/publish/123e4567-e89b-12d3-a456-426614174000"
+)
+data = response.json()
+```
+
+**JavaScript (Frontend):**
+
+```javascript
+fetch("/publish/123e4567-e89b-12d3-a456-426614174000", {
+  method: "GET",
+  credentials: "include", // Include session cookie
+})
+  .then((response) => response.json())
+  .then((data) => console.log(data));
+```
+
+### Database Schema Requirements
+
+**Users Table:**
+
+- `uuid` column: VARCHAR(36) or CHAR(36)
+- Indexed for optimal performance
+- UUID format: Standard UUID v4
+
+**Ads Table:**
+
+- `user_uuid` column: Foreign key to users.uuid
+- `status` column: ENUM including 'PUBLISHED' value
+- Proper indexing on user_uuid and status
+
+### Performance Considerations
+
+1. **Database Indexing**: Ensure indexes on uuid and status columns
+2. **Connection Pooling**: Use connection pooling for database access
+3. **Response Caching**: Consider caching for frequently accessed data
+4. **Log Rotation**: Configure log rotation for publish endpoint logs
+
+### Monitoring and Maintenance
+
+1. **Log Monitoring**: Monitor `/var/log/publish_endpoint.log` for errors
+2. **Performance Metrics**: Track response times and error rates
+3. **Database Performance**: Monitor query performance
+4. **Disk Space**: Monitor log file growth and implement rotation
 
 ---
 
@@ -575,6 +771,45 @@ API_LOGOUT_ENDPOINT=/x7k9p2/exit
 3. Verify API endpoint is accessible
 4. Check for dealership data in database first
 
+### Publish Endpoint Issues
+
+**Problem**: `/publish/{uuid}` returning 404 for valid UUID?
+
+**Solutions:**
+
+1. Verify user exists in database with exact UUID format
+2. Check UUID format is valid (36 characters with hyphens)
+3. Ensure database connection is working
+4. Check user table has proper uuid column
+
+**Problem**: Publish endpoint logging not working?
+
+**Solutions:**
+
+1. Check `/var/log/` directory exists and is writable
+2. Verify application has write permissions to log directory
+3. Check disk space availability
+4. Review log configuration in code
+5. Test with: `sudo touch /var/log/publish_endpoint.log && sudo chmod 666 /var/log/publish_endpoint.log`
+
+**Problem**: Published ads not showing up?
+
+**Solutions:**
+
+1. Verify ads table has `status` column with 'PUBLISHED' value
+2. Check `user_uuid` foreign key relationship
+3. Ensure ads belong to the correct user UUID
+4. Verify database indexes on uuid and status columns
+
+**Problem**: Authentication errors on publish endpoint?
+
+**Solutions:**
+
+1. Ensure user is logged in with valid session
+2. Check session cookie is being sent with request
+3. Verify authentication middleware is working
+4. Test other authenticated endpoints first
+
 ---
 
 ## System Architecture
@@ -599,7 +834,9 @@ API_LOGOUT_ENDPOINT=/x7k9p2/exit
 
 ```
 njuskalohr/
-├── api.py                          # FastAPI application with auth
+├── api.py                          # FastAPI application with auth + database endpoints
+├── models.py                      # Pydantic models for database schema
+├── db_helper.py                   # Simple database connection and queries
 ├── celery_config.py               # Celery Beat scheduling
 ├── tasks/
 │   └── scraper_tasks.py          # Celery task definitions
@@ -610,6 +847,7 @@ njuskalohr/
 │   └── login.html               # Login form
 ├── requirements.txt              # Python dependencies
 ├── .env                         # Environment configuration
+├── COMBINED_DOCUMENTATION.md      # Complete system documentation
 └── run_scraper.py              # Direct scraper execution
 ```
 

@@ -215,6 +215,117 @@ app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HT
 app.add_api_route(LOGIN_ENDPOINT, login, methods=["POST"])
 app.add_api_route(LOGOUT_ENDPOINT, logout, methods=["POST"])
 
+# Database access endpoints using the simple models
+try:
+    from db_helper import SimpleDatabase
+    from models import User, AdItem, Page, Menu
+
+    @app.get("/api/users")
+    async def get_users():
+        """Get all users from database"""
+        try:
+            with SimpleDatabase() as db:
+                users = db.get_users(limit=50)
+                return {"users": users, "count": len(users)}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    @app.get("/api/ads")
+    async def get_ads():
+        """Get all ad items from database"""
+        try:
+            with SimpleDatabase() as db:
+                ads = db.get_ad_items(limit=50)
+                return {"ads": ads, "count": len(ads)}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    @app.get("/api/pages")
+    async def get_pages():
+        """Get all pages from database"""
+        try:
+            with SimpleDatabase() as db:
+                pages = db.get_pages(limit=50)
+                return {"pages": pages, "count": len(pages)}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    @app.get("/api/tables/stats")
+    async def get_table_stats():
+        """Get count of records in all tables"""
+        try:
+            with SimpleDatabase() as db:
+                stats = db.get_table_counts()
+                return {"table_counts": stats, "timestamp": datetime.now().isoformat()}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    @app.get("/publish/{uuid}")
+    async def get_published_content(uuid: str):
+        """Get user by UUID and their published ads, log the access"""
+        import logging
+        from pathlib import Path
+
+        # Setup specific log file for publish endpoint
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+
+        # Create logger for publish endpoint
+        publish_logger = logging.getLogger("publish_endpoint")
+        publish_logger.setLevel(logging.INFO)
+
+        # Create file handler if not already exists
+        if not publish_logger.handlers:
+            log_file = log_dir / "publish_access.log"
+            file_handler = logging.FileHandler(log_file)
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            file_handler.setFormatter(formatter)
+            publish_logger.addHandler(file_handler)
+
+        try:
+            with SimpleDatabase() as db:
+                # Get user by UUID
+                user = db.get_user_by_uuid(uuid)
+                if not user:
+                    publish_logger.warning(f"User not found for UUID: {uuid}")
+                    raise HTTPException(status_code=404, detail="User not found")
+
+                # Get published ads for this user
+                published_ads = db.get_published_ads_by_user(uuid)
+
+                # Log the access
+                publish_logger.info(
+                    f"User access - UUID: {uuid}, Username: {user.get('username')}, "
+                    f"Email: {user.get('email')}, Published Ads: {len(published_ads)}"
+                )
+
+                # Log detailed ad information
+                for ad in published_ads:
+                    publish_logger.info(
+                        f"Published Ad - UUID: {ad.get('uuid')}, Title: {ad.get('title')}, "
+                        f"Status: {ad.get('status')}, Created: {ad.get('created')}, "
+                        f"AdCode: {ad.get('adCode')}"
+                    )
+
+                return {
+                    "user": user,
+                    "published_ads": published_ads,
+                    "ads_count": len(published_ads),
+                    "timestamp": datetime.now().isoformat()
+                }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            publish_logger.error(f"Database error for UUID {uuid}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+except ImportError as e:
+    print(f"Warning: Database models not available: {e}")
+    # Database access is optional, continue without it
+
 # Root endpoint - Apache strips /njuskalo, so this handles /njuskalo/ requests
 @app.get("/")
 async def njuskalo_root(request: Request):
