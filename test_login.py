@@ -80,9 +80,9 @@ def test_login():
             print(f"   ✅ Login redirect to: {login_response.headers.get('location')}")
             print(f"   Cookies received: {list(session.cookies.keys())}")
 
-            # Step 5: Test authenticated access to dashboard
+            # Step 5: Test authenticated dashboard access (direct FastAPI route)
             print("\n5. Testing authenticated dashboard access...")
-            dashboard_response = session.get(f"{base_url}/njuskalo/dashboard", allow_redirects=False)
+            dashboard_response = session.get(f"{base_url}/dashboard", allow_redirects=False)
             print(f"   Dashboard access: {dashboard_response.status_code}")
 
             if dashboard_response.status_code == 200:
