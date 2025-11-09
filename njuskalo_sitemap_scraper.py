@@ -17,6 +17,7 @@ import pandas as pd
 import requests
 import gzip
 import xml.etree.ElementTree as ET
+import os
 from urllib.parse import urljoin, urlparse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -223,8 +224,8 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             use_database: Whether to use database for storing results
         """
         self.driver = None
-        self.base_url = "https://www.njuskalo.hr"
-        self.sitemap_index_url = "https://www.njuskalo.hr/sitemap-index.xml"
+        self.base_url = os.getenv("NJUSKALO_BASE_URL", "https://www.njuskalo.hr")
+        self.sitemap_index_url = os.getenv("NJUSKALO_SITEMAP_INDEX_URL", "https://www.njuskalo.hr/sitemap-index.xml")
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0'

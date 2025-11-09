@@ -43,8 +43,8 @@ app = FastAPI(
     title="Njuskalo Scraper API",
     description="API for managing Njuskalo store scraping with Celery and RabbitMQ",
     version="1.0.0",
-    docs_url="/njuskalo/docs",
-    redoc_url="/njuskalo/redoc"
+    docs_url=os.getenv("APACHE_DOCS_URL", "/njuskalo/docs"),
+    redoc_url=os.getenv("APACHE_REDOC_URL", "/njuskalo/redoc")
     # Apache strips /njuskalo prefix before forwarding to FastAPI
 )
 
@@ -63,7 +63,8 @@ async def auth_exception_handler(request: Request, exc: AuthenticationRequired):
     # For browser requests (HTML), redirect to login
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header:
-        return RedirectResponse(url="/njuskalo/login", status_code=302)
+        login_endpoint = os.getenv("API_LOGIN_ENDPOINT", "/login")
+        return RedirectResponse(url=login_endpoint, status_code=302)
     # For API requests (JSON), return 401
     else:
         return JSONResponse(
@@ -168,7 +169,7 @@ async def login_form(request: Request):
     """Display login form"""
     context = {
         "request": request,
-        "login_endpoint": "/njuskalo/login"  # Full browser URL for Apache proxy
+        "login_endpoint": os.getenv("APACHE_LOGIN_URL", "/njuskalo/login")  # Full browser URL for Apache proxy
     }
     return templates.TemplateResponse("login.html", context)
 
@@ -176,7 +177,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     """Process login form"""
     if verify_credentials(username, password):
         # Create redirect response and set cookie on it
-        redirect_response = RedirectResponse(url="/njuskalo/dashboard", status_code=302)
+        redirect_response = RedirectResponse(url=os.getenv("APACHE_DASHBOARD_URL", "/njuskalo/dashboard"), status_code=302)
         session_token = create_session_token()
         active_sessions[session_token] = {
             "created_at": datetime.now(),
@@ -197,7 +198,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
             "login.html",
             {
                 "request": request,
-                "login_endpoint": "/njuskalo/login",  # Full browser URL for Apache proxy
+                "login_endpoint": os.getenv("APACHE_LOGIN_URL", "/njuskalo/login"),  # Full browser URL for Apache proxy
                 "error": "Invalid username or password"
             }
         )
@@ -208,7 +209,7 @@ async def logout(response: Response, session_token: Optional[str] = Cookie(None)
         del active_sessions[session_token]
 
     response.delete_cookie("session_token")
-    return RedirectResponse(url="/njuskalo/login", status_code=302)
+    return RedirectResponse(url=os.getenv("APACHE_LOGIN_URL", "/njuskalo/login"), status_code=302)
 
 # Add configurable login endpoints dynamically
 app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HTMLResponse)
@@ -330,7 +331,7 @@ except ImportError as e:
 @app.get("/")
 async def njuskalo_root(request: Request):
     """Root route - redirect to dashboard (after Apache strips /njuskalo)"""
-    return RedirectResponse(url="/njuskalo/dashboard", status_code=302)
+    return RedirectResponse(url=os.getenv("APACHE_DASHBOARD_URL", "/njuskalo/dashboard"), status_code=302)
 
 
 @app.get("/dashboard", response_class=HTMLResponse, dependencies=[Depends(require_auth)])
@@ -360,7 +361,8 @@ async def dashboard(request: Request):
             "scrape_cancel": os.getenv("API_SCRAPE_CANCEL_ENDPOINT", "/scrape/cancel"),
             "cleanup": os.getenv("API_CLEANUP_ENDPOINT", "/cleanup/excel-files"),
             "tasks_recent": os.getenv("API_TASKS_RECENT_ENDPOINT", "/tasks/recent"),
-            "api_send_data": os.getenv("API_DATA_SEND_ENDPOINT", "/api/send-data")
+            "api_send_data": os.getenv("API_DATA_SEND_ENDPOINT", "/api/send-data"),
+            "publish": os.getenv("API_PUBLISH_ENDPOINT", "/publish")
         }
     }
 

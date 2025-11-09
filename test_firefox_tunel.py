@@ -18,6 +18,10 @@ Usage:
 import sys
 import os
 import time
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 import logging
 import argparse
 import subprocess
@@ -283,9 +287,9 @@ class FirefoxTunnelTester:
 
         try:
             test_urls = [
-                "http://httpbin.org/ip",
-                "https://www.google.com",
-                "https://www.njuskalo.hr"
+                os.getenv("TEST_IP_CHECK_URL", "http://httpbin.org/ip"),
+                os.getenv("TEST_GOOGLE_URL", "https://www.google.com"),
+                os.getenv("NJUSKALO_BASE_URL", "https://www.njuskalo.hr")
             ]
 
             for url in test_urls:
@@ -348,7 +352,7 @@ class FirefoxTunnelTester:
 
             # Test 2: Real website access
             self.logger.info("🧪 Test 2: Accessing Njuskalo.hr...")
-            driver.get("https://www.njuskalo.hr")
+            driver.get(os.getenv("NJUSKALO_BASE_URL", "https://www.njuskalo.hr"))
 
             # Wait for page to load
             WebDriverWait(driver, 15).until(
@@ -489,7 +493,7 @@ class FirefoxTunnelTester:
                         'https': f'socks5://127.0.0.1:{self.socks_port}'
                     }
 
-                    response = session.get('http://httpbin.org/ip', timeout=10)
+                    response = session.get(os.getenv("TEST_IP_CHECK_URL", "http://httpbin.org/ip"), timeout=10)
                     if response.status_code == 200:
                         proxy_ip = response.json().get('origin')
                         self.logger.info(f"✅ SOCKS proxy working - IP: {proxy_ip}")
@@ -561,7 +565,7 @@ class FirefoxTunnelTester:
 
             # Test proxy functionality
             self.logger.info("🌐 Testing web access through proxy...")
-            driver.get("http://httpbin.org/ip")
+            driver.get(os.getenv("TEST_IP_CHECK_URL", "http://httpbin.org/ip"))
 
             # Wait for page to load and check if we can find the IP
             WebDriverWait(driver, 20).until(
@@ -631,7 +635,7 @@ class FirefoxTunnelTester:
 
             # Access Njuskalo.hr
             self.logger.info("🌐 Loading Njuskalo.hr homepage...")
-            driver.get("https://www.njuskalo.hr")
+            driver.get(os.getenv("NJUSKALO_BASE_URL", "https://www.njuskalo.hr"))
 
             # Wait for page to load
             WebDriverWait(driver, 20).until(

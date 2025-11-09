@@ -15,11 +15,11 @@ def test_login():
     print("🔐 Testing FastAPI Login System")
     print("=" * 50)
 
-    base_url = "http://localhost:8080"
-
     # Get configurable endpoints
     from dotenv import load_dotenv
     load_dotenv()
+
+    base_url = os.getenv("API_BASE_URL", "http://localhost:8080")
     login_endpoint = os.getenv("API_LOGIN_ENDPOINT", "/login")
 
     # Test environment variables first
@@ -105,10 +105,15 @@ def test_login():
         return False
 
 if __name__ == "__main__":
+    # Get base URL for final message
+    from dotenv import load_dotenv
+    load_dotenv()
+    base_url = os.getenv("API_BASE_URL", "http://localhost:8080")
+
     success = test_login()
     if success:
         print("\n🎉 Login system is working correctly!")
-        print("You can now access: http://localhost:8080")
+        print(f"You can now access: {base_url}")
         print("Credentials: admin / njuskalo2025")
     else:
         print("\n💥 Login system has issues that need to be fixed.")

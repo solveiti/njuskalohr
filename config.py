@@ -2,13 +2,14 @@
 """
 Configuration settings for Njuskalo sitemap-based store scraper.
 """
+import os
 
 # Scraping settings
 HEADLESS_MODE = True
-BASE_URL = "https://www.njuskalo.hr"
-SITEMAP_INDEX_URL = "https://www.njuskalo.hr/sitemap-index.xml"
-STORES_SITEMAP_URL = "https://www.njuskalo.hr/sitemap-index-stores.xml"
-STORES_XML_GZ_URL = "https://www.njuskalo.hr/sitemap-stores-01.xml.gz"
+BASE_URL = os.getenv("NJUSKALO_BASE_URL", "https://www.njuskalo.hr")
+SITEMAP_INDEX_URL = os.getenv("NJUSKALO_SITEMAP_INDEX_URL", "https://www.njuskalo.hr/sitemap-index.xml")
+STORES_SITEMAP_URL = os.getenv("NJUSKALO_STORES_SITEMAP_URL", "https://www.njuskalo.hr/sitemap-index-stores.xml")
+STORES_XML_GZ_URL = os.getenv("NJUSKALO_STORES_XML_GZ_URL", "https://www.njuskalo.hr/sitemap-stores-01.xml.gz")
 
 # Target category for filtering
 AUTO_MOTO_CATEGORY_ID = 2

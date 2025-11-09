@@ -22,7 +22,8 @@
                 scrapeCancel: "{{ api_config.endpoints.scrape_cancel }}",
                 cleanup: "{{ api_config.endpoints.cleanup }}",
                 tasksRecent: "{{ api_config.endpoints.tasks_recent }}",
-                apiSendData: "{{ api_config.endpoints.api_send_data }}"
+                apiSendData: "{{ api_config.endpoints.api_send_data }}",
+                publish: "{{ api_config.endpoints.publish }}"
             }
         };
     </script>
@@ -121,29 +122,7 @@
                 <i class="fas fa-cogs mr-2"></i>Control Panel
             </h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Start Scraping -->
-                <div class="border rounded-lg p-4">
-                    <h3 class="font-semibold mb-2">Start Scraping</h3>
-                    <div class="space-y-2 mb-3">
-                        <label class="block">
-                            <span class="text-sm text-gray-600">Max Stores:</span>
-                            <input type="number" x-model="scrapeOptions.max_stores"
-                                   placeholder="Leave empty for all"
-                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" x-model="scrapeOptions.use_database" class="mr-2">
-                            <span class="text-sm">Save to Database</span>
-                        </label>
-                    </div>
-                    <button @click="startScraping()"
-                            :disabled="isLoading"
-                            class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50">
-                        <i class="fas fa-play mr-2"></i>Start Scraping
-                    </button>
-                </div>
-
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Test Scraper -->
                 <div class="border rounded-lg p-4">
                     <h3 class="font-semibold mb-2">Test Scraper</h3>
@@ -168,15 +147,44 @@
             </div>
 
             <!-- Advanced Controls -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <!-- Tunnel Scraping -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <!-- Enhanced Tunnel Scraping -->
                 <div class="border rounded-lg p-4">
                     <h3 class="font-semibold mb-2">Enhanced Tunnel Scraping</h3>
-                    <p class="text-sm text-gray-600 mb-3">Secure scraping with SSH tunnels and enhanced features</p>
+                    <div class="space-y-2 mb-3">
+                        <label class="block">
+                            <span class="text-sm text-gray-600">Max Stores:</span>
+                            <input type="number" x-model="tunnelScrapeOptions.max_stores"
+                                   placeholder="Leave empty for all"
+                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-purple-500">
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="tunnelScrapeOptions.use_database" class="mr-2">
+                            <span class="text-sm">Save to Database</span>
+                        </label>
+                    </div>
                     <button @click="startTunnelScraping()"
                             :disabled="isLoading"
                             class="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 disabled:opacity-50">
                         <i class="fas fa-shield-alt mr-2"></i>Start Tunnel Scraping
+                    </button>
+                </div>
+
+                <!-- Publish Lookup -->
+                <div class="border rounded-lg p-4">
+                    <h3 class="font-semibold mb-2">Published Content Lookup</h3>
+                    <div class="space-y-2 mb-3">
+                        <label class="block">
+                            <span class="text-sm text-gray-600">User UUID:</span>
+                            <input type="text" x-model="publishOptions.uuid"
+                                   placeholder="Enter user UUID"
+                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-emerald-500">
+                        </label>
+                    </div>
+                    <button @click="lookupPublishedContent()"
+                            :disabled="isLoading || !publishOptions.uuid"
+                            class="w-full bg-emerald-600 text-white py-2 px-4 rounded hover:bg-emerald-700 disabled:opacity-50">
+                        <i class="fas fa-search mr-2"></i>Lookup Published Content
                     </button>
                 </div>
 
@@ -247,6 +255,77 @@
             </div>
         </div>
 
+        <!-- Publish Content Results -->
+        <div x-show="publishResults" class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-clipboard-list mr-2"></i>Published Content Results
+            </h2>
+
+            <div x-show="publishResults.user" class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">User Information</h3>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="font-medium text-gray-600">UUID:</span>
+                            <span x-text="publishResults.user.uuid" class="ml-2"></span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Name:</span>
+                            <span x-text="publishResults.user.name" class="ml-2"></span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Email:</span>
+                            <span x-text="publishResults.user.email" class="ml-2"></span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-600">Status:</span>
+                            <span x-text="publishResults.user.status" class="ml-2 px-2 py-1 text-xs rounded-full bg-green-100 text-green-800"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="publishResults.published_ads">
+                <h3 class="text-lg font-semibold text-gray-700 mb-3">
+                    Published Ads (<span x-text="publishResults.total_ads || publishResults.published_ads?.length || 0"></span>)
+                </h3>
+
+                <div x-show="publishResults.published_ads && publishResults.published_ads.length === 0"
+                     class="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
+                    No published ads found for this user
+                </div>
+
+                <div class="space-y-3" x-show="publishResults.published_ads && publishResults.published_ads.length > 0">
+                    <template x-for="ad in publishResults.published_ads" :key="ad.id">
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <div class="flex justify-between items-start mb-2">
+                                <h4 class="font-semibold text-gray-800" x-text="ad.title"></h4>
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800" x-text="ad.status"></span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-2" x-text="ad.description"></p>
+                            <div class="flex justify-between items-center text-sm text-gray-500">
+                                <span>
+                                    <i class="fas fa-tag mr-1"></i>
+                                    Price: <span x-text="ad.price ? (ad.price + ' EUR') : 'N/A'"></span>
+                                </span>
+                                <span>
+                                    <i class="fas fa-calendar mr-1"></i>
+                                    <span x-text="ad.created_at ? new Date(ad.created_at).toLocaleString() : 'N/A'"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="mt-4 flex justify-end">
+                <button @click="publishResults = null"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-times mr-2"></i>Close
+                </button>
+            </div>
+        </div>
+
         <!-- Messages -->
         <div x-show="message"
              class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg max-w-sm"
@@ -269,7 +348,7 @@
                 messageType: 'success',
                 tasks: [],
                 activeTaskCount: 0,
-                scrapeOptions: {
+                tunnelScrapeOptions: {
                     max_stores: null,
                     use_database: true
                 },
@@ -277,6 +356,10 @@
                     scraping_date: null,
                     min_vehicles: 5
                 },
+                publishOptions: {
+                    uuid: ''
+                },
+                publishResults: null,
 
                 init() {
                     this.loadRecentTasks();
@@ -287,30 +370,7 @@
                     }, 30000);
                 },
 
-                async startScraping() {
-                    this.isLoading = true;
-                    try {
-                        const response = await fetch(window.API_CONFIG.endpoints.scrapeStart, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(this.scrapeOptions)
-                        });
-                        const data = await response.json();
 
-                        if (response.ok) {
-                            this.showMessage(`Scraping started: ${data.task_id}`, 'success');
-                            this.loadRecentTasks();
-                        } else {
-                            this.showMessage(`Failed to start scraping: ${data.detail}`, 'error');
-                        }
-                    } catch (error) {
-                        this.showMessage(`Error: ${error.message}`, 'error');
-                    } finally {
-                        this.isLoading = false;
-                    }
-                },
 
                 async testScraper() {
                     this.isLoading = true;
@@ -409,7 +469,7 @@
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify(this.scrapeOptions)
+                            body: JSON.stringify(this.tunnelScrapeOptions)
                         });
                         const data = await response.json();
 
@@ -418,6 +478,38 @@
                             this.loadRecentTasks();
                         } else {
                             this.showMessage(`Failed to start tunnel scraping: ${data.detail}`, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage(`Error: ${error.message}`, 'error');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                async lookupPublishedContent() {
+                    if (!this.publishOptions.uuid) {
+                        this.showMessage('Please enter a valid UUID', 'error');
+                        return;
+                    }
+
+                    this.isLoading = true;
+                    this.publishResults = null;
+
+                    try {
+                        const response = await fetch(`${window.API_CONFIG.endpoints.publish}/${this.publishOptions.uuid}`, {
+                            method: 'GET',
+                            credentials: 'include'
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.publishResults = data;
+                            this.showMessage('Published content loaded successfully', 'success');
+                        } else if (response.status === 404) {
+                            this.showMessage('User not found or no published content available', 'error');
+                        } else {
+                            const errorData = await response.json();
+                            this.showMessage(`Failed to load published content: ${errorData.detail}`, 'error');
                         }
                     } catch (error) {
                         this.showMessage(`Error: ${error.message}`, 'error');
