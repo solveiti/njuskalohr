@@ -208,7 +208,7 @@ async def logout(response: Response, session_token: Optional[str] = Cookie(None)
         del active_sessions[session_token]
 
     response.delete_cookie("session_token")
-    return RedirectResponse(url=LOGIN_ENDPOINT, status_code=302)
+    return RedirectResponse(url="/njuskalo/login", status_code=302)
 
 # Add configurable login endpoints dynamically
 app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HTMLResponse)
