@@ -45,7 +45,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/njuskalo/docs",
     redoc_url="/njuskalo/redoc"
-    # No root_path - routes include full /njuskalo paths
+    # Apache strips /njuskalo prefix before forwarding to FastAPI
 )
 
 # Create templates directory
@@ -176,7 +176,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     """Process login form"""
     if verify_credentials(username, password):
         # Create redirect response and set cookie on it
-        redirect_response = RedirectResponse(url="/dashboard", status_code=302)
+        redirect_response = RedirectResponse(url="/njuskalo/dashboard", status_code=302)
         session_token = create_session_token()
         active_sessions[session_token] = {
             "created_at": datetime.now(),
@@ -208,21 +208,17 @@ async def logout(response: Response, session_token: Optional[str] = Cookie(None)
         del active_sessions[session_token]
 
     response.delete_cookie("session_token")
-    return RedirectResponse(url="/login", status_code=302)
+    return RedirectResponse(url="/njuskalo/login", status_code=302)
 
 # Add configurable login endpoints dynamically
 app.add_api_route(LOGIN_ENDPOINT, login_form, methods=["GET"], response_class=HTMLResponse)
 app.add_api_route(LOGIN_ENDPOINT, login, methods=["POST"])
 app.add_api_route(LOGOUT_ENDPOINT, logout, methods=["POST"])
 
-# Root endpoint (protected)
+# Root endpoint - Apache strips /njuskalo, so this handles /njuskalo/ requests
 @app.get("/")
-async def read_root(request: Request):
-    """Root endpoint - redirect to login"""
-    return RedirectResponse(url="/njuskalo/login", status_code=302)
-
-@app.get("/njuskalo/")
-async def njuskalo_dashboard_redirect(request: Request):
+async def njuskalo_root(request: Request):
+    """Root route - redirect to dashboard (after Apache strips /njuskalo)"""
     return RedirectResponse(url="/njuskalo/dashboard", status_code=302)
 
 
