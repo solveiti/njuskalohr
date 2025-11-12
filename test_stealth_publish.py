@@ -27,8 +27,9 @@ def test_stealth_publish():
     stealth_publish = NjuskaloStealthPublish(
         headless=False,  # Visible mode for testing
         use_tunnel=False,  # No tunnel for initial test
-        username="MilkicHalo",
-        password="rvp2mqu@xye1JRC0fjt"
+        username="srdjanmsd",
+        password="rvp2mqu@xye1JRC0fjt",
+        persistent=False  # Disable persistence for clean testing
     )
 
     try:
@@ -97,8 +98,9 @@ def test_headless_publish():
     stealth_publish = NjuskaloStealthPublish(
         headless=True,
         use_tunnel=False,
-        username="MilkicHalo",
-        password="rvp2mqu@xye1JRC0fjt"
+        username="srdjanmsd",
+        password="rvp2mqu@xye1JRC0fjt",
+        persistent=False  # Clean test environment
     )
 
     success = stealth_publish.run_stealth_publish()

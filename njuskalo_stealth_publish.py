@@ -704,6 +704,80 @@ class NjuskaloStealthPublish:
             self.logger.warning(f"⚠️ Error handling advertisement popup: {e}")
             return True  # Continue anyway, popup handling is not critical
 
+    def _check_if_already_logged_in(self) -> bool:
+        """Check if user is already logged in by looking for logged-in indicators"""
+        try:
+            self.logger.info("🔍 Checking if already logged in...")
+
+            # Look for logged-in indicators using CSS selectors
+            css_selectors = [
+                "a[href*='logout']",
+                "a[href*='odjavi']",
+                "a[href*='moj-njuskalo']",
+                ".user-menu",
+                ".profile-menu",
+                "[class*='user-info']",
+                "[class*='profile']"
+            ]
+
+            for selector in css_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            self.logger.info(f"✅ Found logged-in indicator: {selector} - '{element.text}'")
+                            return True
+                except Exception:
+                    continue
+
+            # Look for text-based indicators using XPath
+            xpath_selectors = [
+                "//a[contains(text(), 'Odjavi se')]",
+                "//button[contains(text(), 'Odjavi se')]",
+                "//a[contains(text(), 'Moj Njuškalo')]",
+                "//a[contains(@href, 'logout')]",
+                "//a[contains(@href, 'odjavi')]"
+            ]
+
+            for xpath in xpath_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, xpath)
+                    for element in elements:
+                        if element.is_displayed():
+                            self.logger.info(f"✅ Found logged-in indicator: {xpath} - '{element.text}'")
+                            return True
+                except Exception:
+                    continue
+
+            # Check page source for logged-in text (more comprehensive)
+            page_source = self.driver.page_source.lower()
+            logged_in_texts = [
+                "moj njuškalo",
+                "odjavi se",
+                "objavi oglas",
+                "moja objava",
+                "moj profil",
+                "postavke računa"
+            ]
+
+            for text in logged_in_texts:
+                if text in page_source:
+                    self.logger.info(f"✅ Found logged-in text in page: '{text}'")
+                    return True
+
+            # Check page title
+            title = self.driver.title.lower()
+            if "moj njuškalo" in title:
+                self.logger.info(f"✅ Found logged-in page title: {title}")
+                return True
+
+            self.logger.info("ℹ️ No logged-in indicators found")
+            return False
+
+        except Exception as e:
+            self.logger.warning(f"⚠️ Error checking login status: {e}")
+            return False
+
     def navigate_to_login(self) -> bool:
         """Navigate to Njuskalo login page with stealth"""
         try:
@@ -715,6 +789,8 @@ class NjuskaloStealthPublish:
             # Wait for page load with human-like delay
             time.sleep(random.uniform(2, 4))
 
+            self.logger.info(f"📍 Current URL after navigation: {self.driver.current_url}")
+
             # Restore session data if using persistent profile
             if self.persistent:
                 self.restore_session_data()
@@ -722,10 +798,63 @@ class NjuskaloStealthPublish:
             # Handle advertisement popup if present
             self.handle_advertisement_popup()
 
-            # Check if we're on login page
-            if "prijava" in self.driver.current_url.lower():
+            # Check if we're on login page or already logged in (redirected to homepage)
+            current_url = self.driver.current_url.lower()
+            if "prijava" in current_url:
                 self.logger.info("✅ Successfully reached login page")
                 return True
+            elif current_url.startswith(self.base_url.lower()):
+                self.logger.info("✅ Redirected to Njuskalo domain - checking login status...")
+                # Check if we're actually logged in
+                if self._check_if_already_logged_in():
+                    self.logger.info("🎉 Already logged in! Skipping login process")
+                    return True
+                else:
+                    self.logger.info("🔄 Not logged in, trying alternative login approaches")
+
+                    # Try different login URL patterns
+                    login_urls = [
+                        f"{self.base_url}/prijava",
+                        f"{self.base_url}/login",
+                        f"{self.base_url}/korisnici/prijava"
+                    ]
+
+                    for url in login_urls:
+                        self.logger.info(f"🔄 Trying login URL: {url}")
+                        self.driver.get(url)
+                        time.sleep(random.uniform(1, 2))
+
+                        if "prijava" in self.driver.current_url.lower() or "login" in self.driver.current_url.lower():
+                            self.logger.info(f"✅ Successfully reached login page: {self.driver.current_url}")
+                            return True
+
+                    # If still not on login page, check if we can find login link on current page
+                    self.logger.info("🔍 Looking for login link on current page...")
+                    login_link_selectors = [
+                        "a[href*='prijava']",
+                        "a[href*='login']",
+                        "//a[contains(text(), 'Prijavi se')]",
+                        "//a[contains(text(), 'Login')]"
+                    ]
+
+                    for selector in login_link_selectors:
+                        try:
+                            if selector.startswith("//"):
+                                element = self.driver.find_element(By.XPATH, selector)
+                            else:
+                                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+
+                            if element.is_displayed():
+                                self.logger.info(f"🔗 Found login link: {selector}")
+                                element.click()
+                                time.sleep(random.uniform(1, 2))
+                                if "prijava" in self.driver.current_url.lower():
+                                    return True
+                        except:
+                            continue
+
+                    self.logger.warning(f"⚠️ Unable to reach login page from: {self.driver.current_url}")
+                    return False
             else:
                 self.logger.warning(f"⚠️ Unexpected URL: {self.driver.current_url}")
                 return False
@@ -738,6 +867,11 @@ class NjuskaloStealthPublish:
         """Perform login with advanced stealth techniques"""
         try:
             self.logger.info("🔐 Starting stealth publish process...")
+
+            # Check if already logged in first
+            if self._check_if_already_logged_in():
+                self.logger.info("🎉 Already logged in! Skipping login form")
+                return True
 
             # Wait for login form to load
             try:
