@@ -15,21 +15,29 @@ sys.path.append(str(Path(__file__).parent))
 from njuskalo_stealth_publish import NjuskaloStealthPublish
 
 
-def test_stealth_publish():
-    """Test the stealth publish functionality"""
+def test_stealth_publish(user_uuid=None):
+    """Test the stealth publish functionality
+
+    Args:
+        user_uuid (str, optional): UUID for persistent Firefox session
+    """
 
     print("🧪 Testing Njuskalo Stealth Publish")
     print("=" * 50)
 
     # Test 1: Visible mode for development
-    print("\n1️⃣ Testing in visible mode (for debugging)...")
+    if user_uuid:
+        print(f"\n1️⃣ Testing in visible mode with UUID session: {user_uuid}")
+    else:
+        print("\n1️⃣ Testing in visible mode (for debugging)...")
 
     stealth_publish = NjuskaloStealthPublish(
         headless=False,  # Visible mode for testing
         use_tunnel=False,  # No tunnel for initial test
         username="srdjanmsd",
         password="rvp2mqu@xye1JRC0fjt",
-        persistent=False  # Disable persistence for clean testing
+        persistent=False,  # Disable persistence for clean testing
+        user_uuid=user_uuid  # Pass UUID if provided
     )
 
     try:
@@ -90,17 +98,25 @@ def test_stealth_publish():
     print("\n✅ Test completed!")
 
 
-def test_headless_publish():
-    """Test headless publish"""
+def test_headless_publish(user_uuid=None):
+    """Test headless publish
 
-    print("\n2️⃣ Testing in headless mode...")
+    Args:
+        user_uuid (str, optional): UUID for persistent Firefox session
+    """
+
+    if user_uuid:
+        print(f"\n2️⃣ Testing in headless mode with UUID session: {user_uuid}")
+    else:
+        print("\n2️⃣ Testing in headless mode...")
 
     stealth_publish = NjuskaloStealthPublish(
         headless=True,
         use_tunnel=False,
         username="srdjanmsd",
         password="rvp2mqu@xye1JRC0fjt",
-        persistent=False  # Clean test environment
+        persistent=False,  # Clean test environment
+        user_uuid=user_uuid  # Pass UUID if provided
     )
 
     success = stealth_publish.run_stealth_publish()
@@ -117,13 +133,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test Njuskalo Stealth Publish")
     parser.add_argument("--mode", choices=["visible", "headless", "both"],
                        default="visible", help="Test mode")
+    parser.add_argument("--uuid", type=str, help="UUID for persistent Firefox session")
 
     args = parser.parse_args()
 
     if args.mode in ["visible", "both"]:
-        test_stealth_publish()
+        test_stealth_publish(user_uuid=args.uuid)
 
     if args.mode in ["headless", "both"]:
-        test_headless_publish()
+        test_headless_publish(user_uuid=args.uuid)
 
     print("\n🏁 All tests completed!")

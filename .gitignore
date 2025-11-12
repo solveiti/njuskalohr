@@ -88,3 +88,11 @@ datadump/*.xlsx
 *.temp
 test_*.xlsx
 debug_*
+
+# Firefox sessions directory (ignore contents but keep directory)
+firefoxsessions/*
+!firefoxsessions/.gitkeep
+
+# Screenshots directory (ignore contents but keep directory)
+screenshots/*
+!screenshots/.gitkeep
