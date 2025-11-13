@@ -93,6 +93,12 @@ debug_*
 firefoxsessions/*
 !firefoxsessions/.gitkeep
 
+# Browser profiles directory (persistent Firefox profiles)
+browser_profiles/
+
+# Tests directory
+tests/
+
 # Screenshots directory (ignore contents but keep directory)
 screenshots/*
 !screenshots/.gitkeep

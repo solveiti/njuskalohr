@@ -35,7 +35,7 @@ import logging
 import argparse
 import tempfile
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Union
 from urllib.parse import urljoin
 
 # Selenium imports
@@ -43,10 +43,11 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import (
     TimeoutException, NoSuchElementException,
     WebDriverException, ElementClickInterceptedException
@@ -1678,8 +1679,16 @@ class NjuskaloStealthPublish:
                 # Wait for the next page to load
                 time.sleep(random.uniform(2, 4))
 
-                # Take screenshot after successful navigation
-                self.take_screenshot("ad_submission_success")
+                # Step 5: Click "Odaberi" button for advertising package
+                if not self._click_advertising_package_button():
+                    return False
+
+                # Step 6: Fill the ad form with data from database
+                if not self._fill_ad_form():
+                    return False
+
+                # Take screenshot after successful completion
+                self.take_screenshot("ad_submission_complete")
 
                 return True
 
@@ -1691,6 +1700,685 @@ class NjuskaloStealthPublish:
             self.logger.error(f"❌ Ad submission process failed: {e}")
             # Take screenshot on error for debugging
             self.take_screenshot("ad_submission_error")
+            return False
+
+    def _get_ad_data_from_database(self) -> dict:
+        """Get ad data from database with status validation"""
+        try:
+            import pymysql
+            import json
+            import os
+
+            # Check if we have UUID for database lookup
+            if not self.user_uuid:
+                if self._is_test_environment():
+                    # In test mode, prompt for UUID
+                    print("\n" + "="*60)
+                    print("🔍 AD DATA RETRIEVAL - TEST MODE")
+                    print("="*60)
+                    print("Enter the UUID of the ad you want to publish:")
+                    print("="*60)
+
+                    try:
+                        uuid_input = input("UUID: ").strip()
+                        if not uuid_input:
+                            self.logger.error("❌ No UUID provided")
+                            return None
+                        self.user_uuid = uuid_input
+                    except KeyboardInterrupt:
+                        self.logger.info("👋 Ad data retrieval interrupted by user")
+                        return None
+                else:
+                    self.logger.error("❌ No UUID provided for database lookup in production mode")
+                    return None
+
+            self.logger.info(f"🔍 Retrieving ad data for UUID: {self.user_uuid}")
+
+            # Database connection configuration (using existing DATABASE_* variables)
+            db_config = {
+                'host': os.getenv('DATABASE_HOST', 'localhost'),
+                'port': int(os.getenv('DATABASE_PORT', 3306)),
+                'user': os.getenv('DATABASE_USER', 'root'),
+                'password': os.getenv('DATABASE_PASSWORD', ''),
+                'database': os.getenv('DATABASE_NAME', 'njuskalohr'),
+                'charset': 'utf8mb4'
+            }
+
+            self.logger.debug(f"🔗 Connecting to database: {db_config['host']}")
+
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    # Get ad by UUID from adItem table
+                    import uuid as uuid_lib
+
+                    try:
+                        # Convert UUID string to binary format
+                        uuid_obj = uuid_lib.UUID(self.user_uuid)
+                        uuid_binary = uuid_obj.bytes
+                    except ValueError:
+                        self.logger.error(f"❌ Invalid UUID format: {self.user_uuid}")
+                        return None
+
+                    # Query adItem table for ad data with status validation
+                    sql = """
+                        SELECT uuid, content, status, publishNjuskalo
+                        FROM adItem
+                        WHERE uuid = %s
+                        LIMIT 1
+                    """
+                    cursor.execute(sql, (uuid_binary,))
+                    result = cursor.fetchone()
+
+                    if not result:
+                        # Also try with UUID as string (in case it's stored differently)
+                        sql = """
+                            SELECT uuid, content, status, publishNjuskalo
+                            FROM adItem
+                            WHERE HEX(uuid) = %s
+                            LIMIT 1
+                        """
+                        cursor.execute(sql, (self.user_uuid.replace('-', '').upper(),))
+                        result = cursor.fetchone()
+
+                    if not result:
+                        self.logger.error(f"❌ No ad found with UUID: {self.user_uuid}")
+                        return None
+
+                    uuid_col, content_col, status_col, publish_njuskalo_col = result
+
+                    # Status validation - check if ad is published and publishNjuskalo is true
+                    if status_col != "PUBLISHED":
+                        self.logger.error(f"❌ Ad status is '{status_col}', expected 'PUBLISHED'")
+                        self.logger.error("❌ Cannot proceed with ad submission - ad must have status='PUBLISHED'")
+                        return None
+
+                    if not publish_njuskalo_col:
+                        self.logger.error(f"❌ publishNjuskalo is '{publish_njuskalo_col}', expected True")
+                        self.logger.error("❌ Cannot proceed with ad submission - publishNjuskalo must be True")
+                        return None
+
+                    self.logger.info(f"✅ Ad status validation passed - status='PUBLISHED', publishNjuskalo=True")
+
+                    # Parse JSON content
+                    try:
+                        if isinstance(content_col, str):
+                            ad_content = json.loads(content_col)
+                        else:
+                            ad_content = content_col
+
+                        if not ad_content:
+                            self.logger.error("❌ Ad content is empty")
+                            return None
+
+                        self.logger.info(f"✅ Retrieved ad content: {len(str(ad_content))} characters")
+                        self.logger.debug(f"Ad content preview: {str(ad_content)[:200]}...")
+
+                        return {
+                            'uuid': self.user_uuid,
+                            'content': ad_content,
+                            'status': status_col,
+                            'publishNjuskalo': publish_njuskalo_col
+                        }
+
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"❌ Failed to parse JSON content: {e}")
+                        return None
+
+            finally:
+                connection.close()
+                self.logger.debug("🔗 Database connection closed")
+
+        except pymysql.Error as e:
+            self.logger.error(f"❌ MySQL error: {e}")
+            return None
+        except ImportError:
+            self.logger.error("❌ PyMySQL not installed. Install with: pip install pymysql")
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error getting ad data from database: {e}")
+            return None
+
+    def _click_advertising_package_button(self) -> bool:
+        """Click the 'Odaberi' advertising package button"""
+        try:
+            self.logger.info("🔍 Looking for 'Odaberi' advertising package button...")
+
+            # Wait for the advertising package selection page to load
+            time.sleep(random.uniform(2, 3))
+
+            # Look for the specific submit button for advertising package
+            odaberi_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"][id="submit-button-01"]'))
+            )
+
+            # Human-like mouse movement before clicking
+            self._human_like_mouse_movement(odaberi_button)
+            time.sleep(random.uniform(0.5, 1.2))
+
+            odaberi_button.click()
+            self.logger.info("✅ Clicked 'Odaberi' advertising package button")
+
+            # Wait for the form page to load
+            time.sleep(random.uniform(2, 4))
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Failed to click 'Odaberi' button: {e}")
+            self.take_screenshot("odaberi_button_error")
+            return False
+
+    def _fill_ad_form(self) -> bool:
+        """Fill the ad form with data from database"""
+        try:
+            self.logger.info("📝 Starting ad form filling process...")
+
+            # Step 1: Get ad data from database with status validation
+            ad_data = self._get_ad_data_from_database()
+            if not ad_data:
+                self.logger.error("❌ Failed to retrieve valid ad data - cannot proceed with form filling")
+                return False
+
+            # Extract content for form filling
+            ad_content = ad_data['content']
+            self.logger.info(f"✅ Ad data validated - proceeding with form filling for UUID: {ad_data['uuid']}")
+
+            # Wait for form to be fully loaded
+            time.sleep(random.uniform(2, 3))
+
+            # Take screenshot of the loaded form for debugging
+            self.take_screenshot("ad_form_loaded")
+
+            # Step 2: Fill basic ad information
+            if not self._fill_basic_ad_info(ad_content):
+                self.logger.error("❌ Failed to fill basic ad information")
+                return False
+
+            # Step 3: Fill vehicle details
+            if not self._fill_vehicle_details(ad_content):
+                self.logger.error("❌ Failed to fill vehicle details")
+                return False
+
+            # Step 4: Fill contact information
+            if not self._fill_contact_info(ad_content):
+                self.logger.error("❌ Failed to fill contact information")
+                return False
+
+            # Step 5: Fill additional options (features)
+            if not self._fill_vehicle_features(ad_content):
+                self.logger.warning("⚠️ Some vehicle features may not have been filled")
+                # Don't fail the entire process for feature filling issues
+
+            # Step 6: Upload images (if available)
+            if not self._upload_images(ad_content):
+                self.logger.warning("⚠️ Image upload failed or no images available")
+                # Don't fail the entire process for image upload issues
+
+            # Step 7: Final validation and submission preparation
+            if not self._prepare_form_submission(ad_content):
+                self.logger.error("❌ Form preparation for submission failed")
+                return False
+
+            # Take screenshot after successful form completion
+            self.take_screenshot("ad_form_completed")
+
+            self.logger.info("🎉 Ad form filling completed successfully!")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Ad form filling failed: {e}")
+            self.take_screenshot("ad_form_error")
+            return False
+
+    def _fill_basic_ad_info(self, ad_content: dict) -> bool:
+        """Fill basic ad information (price, description, etc.)"""
+        try:
+            self.logger.info("💰 Filling basic ad information...")
+
+            # Fill price
+            if 'price' in ad_content and ad_content['price']:
+                price_field = self._find_form_field([
+                    'input[name*="price"]',
+                    'input[id*="price"]',
+                    'input[placeholder*="cijena"]',
+                    'input[placeholder*="Cijena"]',
+                    'input[type="number"]'
+                ])
+
+                if price_field:
+                    self._human_like_typing(price_field, str(ad_content['price']))
+                    self.logger.info(f"✅ Price filled: {ad_content['price']}")
+                else:
+                    self.logger.warning("⚠️ Price field not found")
+
+            # Fill description
+            if 'description' in ad_content and ad_content['description']:
+                desc_field = self._find_form_field([
+                    'textarea[name*="description"]',
+                    'textarea[id*="description"]',
+                    'textarea[name*="opis"]',
+                    'textarea[placeholder*="opis"]'
+                ])
+
+                if desc_field:
+                    # Clean description text
+                    description = ad_content['description'].strip()
+                    self._human_like_typing(desc_field, description, 0.02, 0.08)  # Faster typing for long text
+                    self.logger.info(f"✅ Description filled: {len(description)} characters")
+                else:
+                    self.logger.warning("⚠️ Description field not found")
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Error filling basic ad info: {e}")
+            return False
+
+    def _fill_vehicle_details(self, ad_content: dict) -> bool:
+        """Fill vehicle-specific details (make, model, year, etc.)"""
+        try:
+            self.logger.info("🚗 Filling vehicle details...")
+
+            # Vehicle manufacturer/make
+            if 'vehicleManufacturerName' in ad_content:
+                make_field = self._find_form_field([
+                    'select[name*="make"]',
+                    'select[name*="manufacturer"]',
+                    'input[name*="make"]',
+                    'input[name*="manufacturer"]'
+                ])
+
+                if make_field:
+                    if make_field.tag_name == 'select':
+                        self._select_dropdown_option(make_field, ad_content['vehicleManufacturerName'])
+                    else:
+                        self._human_like_typing(make_field, ad_content['vehicleManufacturerName'])
+                    self.logger.info(f"✅ Vehicle make filled: {ad_content['vehicleManufacturerName']}")
+
+            # Vehicle model
+            if 'vehicleBaseModelName' in ad_content:
+                model_field = self._find_form_field([
+                    'select[name*="model"]',
+                    'input[name*="model"]'
+                ])
+
+                if model_field:
+                    if model_field.tag_name == 'select':
+                        # Wait for model dropdown to load after make selection
+                        time.sleep(random.uniform(1, 2))
+                        self._select_dropdown_option(model_field, ad_content['vehicleBaseModelName'])
+                    else:
+                        self._human_like_typing(model_field, ad_content['vehicleBaseModelName'])
+                    self.logger.info(f"✅ Vehicle model filled: {ad_content['vehicleBaseModelName']}")
+
+            # Year of manufacture
+            if 'vehicleTrimYear' in ad_content:
+                year_field = self._find_form_field([
+                    'select[name*="year"]',
+                    'select[name*="godina"]',
+                    'input[name*="year"]',
+                    'input[name*="godina"]'
+                ])
+
+                if year_field:
+                    if year_field.tag_name == 'select':
+                        self._select_dropdown_option(year_field, str(ad_content['vehicleTrimYear']))
+                    else:
+                        self._human_like_typing(year_field, str(ad_content['vehicleTrimYear']))
+                    self.logger.info(f"✅ Vehicle year filled: {ad_content['vehicleTrimYear']}")
+
+            # Engine displacement
+            if 'vehicleEngineDisplacement' in ad_content:
+                displacement_field = self._find_form_field([
+                    'input[name*="displacement"]',
+                    'input[name*="engine"]',
+                    'input[name*="ccm"]'
+                ])
+
+                if displacement_field:
+                    self._human_like_typing(displacement_field, str(ad_content['vehicleEngineDisplacement']))
+                    self.logger.info(f"✅ Engine displacement filled: {ad_content['vehicleEngineDisplacement']}")
+
+            # Engine power
+            if 'vehicleEnginePower' in ad_content:
+                power_field = self._find_form_field([
+                    'input[name*="power"]',
+                    'input[name*="kw"]',
+                    'input[name*="snaga"]'
+                ])
+
+                if power_field:
+                    self._human_like_typing(power_field, str(ad_content['vehicleEnginePower']))
+                    self.logger.info(f"✅ Engine power filled: {ad_content['vehicleEnginePower']} kW")
+
+            # Mileage/Odometer
+            if 'vehicleCurrentOdometer' in ad_content:
+                mileage_field = self._find_form_field([
+                    'input[name*="mileage"]',
+                    'input[name*="odometer"]',
+                    'input[name*="km"]',
+                    'input[name*="kilometraza"]'
+                ])
+
+                if mileage_field:
+                    self._human_like_typing(mileage_field, str(ad_content['vehicleCurrentOdometer']))
+                    self.logger.info(f"✅ Mileage filled: {ad_content['vehicleCurrentOdometer']} km")
+
+            # Fuel type
+            if 'vehicleFuelType' in ad_content:
+                fuel_field = self._find_form_field([
+                    'select[name*="fuel"]',
+                    'select[name*="gorivo"]'
+                ])
+
+                if fuel_field:
+                    fuel_mapping = {
+                        'DIESEL': ['Diesel', 'DIESEL', 'diesel'],
+                        'PETROL': ['Benzin', 'PETROL', 'petrol', 'Gasoline'],
+                        'HYBRID': ['Hibrid', 'HYBRID', 'hybrid'],
+                        'ELECTRIC': ['Električni', 'ELECTRIC', 'electric']
+                    }
+                    fuel_options = fuel_mapping.get(ad_content['vehicleFuelType'], [ad_content['vehicleFuelType']])
+                    self._select_dropdown_option(fuel_field, fuel_options)
+                    self.logger.info(f"✅ Fuel type filled: {ad_content['vehicleFuelType']}")
+
+            # Transmission type
+            if 'vehicleTransmissionType' in ad_content:
+                transmission_field = self._find_form_field([
+                    'select[name*="transmission"]',
+                    'select[name*="mjenjac"]'
+                ])
+
+                if transmission_field:
+                    transmission_mapping = {
+                        'Automatic': ['Automatski', 'Automatic', 'automatski'],
+                        'Manual': ['Ručni', 'Manual', 'ručni', 'Manualni']
+                    }
+                    trans_options = transmission_mapping.get(ad_content['vehicleTransmissionType'], [ad_content['vehicleTransmissionType']])
+                    self._select_dropdown_option(transmission_field, trans_options)
+                    self.logger.info(f"✅ Transmission filled: {ad_content['vehicleTransmissionType']}")
+
+            # VIN number
+            if 'vin' in ad_content and ad_content['vin']:
+                vin_field = self._find_form_field([
+                    'input[name*="vin"]',
+                    'input[name*="VIN"]',
+                    'input[placeholder*="vin"]'
+                ])
+
+                if vin_field:
+                    self._human_like_typing(vin_field, ad_content['vin'])
+                    self.logger.info(f"✅ VIN filled: {ad_content['vin']}")
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Error filling vehicle details: {e}")
+            return False
+
+    def _fill_contact_info(self, ad_content: dict) -> bool:
+        """Fill contact information"""
+        try:
+            self.logger.info("📞 Filling contact information...")
+
+            if 'contact' not in ad_content:
+                self.logger.warning("⚠️ No contact information found in ad data")
+                return True
+
+            contact = ad_content['contact']
+
+            # Contact name
+            if 'name' in contact and contact['name']:
+                name_field = self._find_form_field([
+                    'input[name*="contact_name"]',
+                    'input[name*="name"]',
+                    'input[name*="ime"]',
+                    'input[placeholder*="ime"]'
+                ])
+
+                if name_field:
+                    self._human_like_typing(name_field, contact['name'])
+                    self.logger.info(f"✅ Contact name filled: {contact['name']}")
+
+            # Phone number
+            if 'phone' in contact and contact['phone']:
+                # Get first non-empty phone number
+                phone_number = None
+                if isinstance(contact['phone'], list):
+                    for phone in contact['phone']:
+                        if phone and phone.strip():
+                            phone_number = phone.strip()
+                            break
+                else:
+                    phone_number = contact['phone']
+
+                if phone_number:
+                    phone_field = self._find_form_field([
+                        'input[name*="phone"]',
+                        'input[name*="telefon"]',
+                        'input[type="tel"]'
+                    ])
+
+                    if phone_field:
+                        self._human_like_typing(phone_field, phone_number)
+                        self.logger.info(f"✅ Phone number filled: {phone_number}")
+
+            # Email address
+            if 'email' in contact and contact['email']:
+                # Get first non-empty email
+                email_address = None
+                if isinstance(contact['email'], list):
+                    for email in contact['email']:
+                        if email and email.strip():
+                            email_address = email.strip()
+                            break
+                else:
+                    email_address = contact['email']
+
+                if email_address:
+                    email_field = self._find_form_field([
+                        'input[name*="email"]',
+                        'input[type="email"]'
+                    ])
+
+                    if email_field:
+                        self._human_like_typing(email_field, email_address)
+                        self.logger.info(f"✅ Email filled: {email_address}")
+
+            # Location
+            if 'location' in contact and contact['location']:
+                location_field = self._find_form_field([
+                    'input[name*="location"]',
+                    'input[name*="lokacija"]',
+                    'input[name*="mjesto"]',
+                    'select[name*="location"]'
+                ])
+
+                if location_field:
+                    if location_field.tag_name == 'select':
+                        self._select_dropdown_option(location_field, contact['location'])
+                    else:
+                        self._human_like_typing(location_field, contact['location'])
+                    self.logger.info(f"✅ Location filled: {contact['location']}")
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Error filling contact info: {e}")
+            return False
+
+    def _fill_vehicle_features(self, ad_content: dict) -> bool:
+        """Fill vehicle features/equipment checkboxes"""
+        try:
+            self.logger.info("🔧 Filling vehicle features...")
+
+            if 'features' not in ad_content or not ad_content['features']:
+                self.logger.info("ℹ️ No features found in ad data")
+                return True
+
+            features_filled = 0
+            features_total = len(ad_content['features'])
+
+            for feature in ad_content['features']:
+                if self._select_feature_checkbox(feature):
+                    features_filled += 1
+
+                # Small delay between feature selections
+                time.sleep(random.uniform(0.1, 0.3))
+
+            self.logger.info(f"✅ Features filled: {features_filled}/{features_total}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Error filling vehicle features: {e}")
+            return False
+
+    def _upload_images(self, ad_content: dict) -> bool:
+        """Upload vehicle images (placeholder - implement based on available images)"""
+        try:
+            self.logger.info("📷 Processing image upload...")
+
+            # Look for image upload field
+            upload_field = self._find_form_field([
+                'input[type="file"]',
+                'input[name*="image"]',
+                'input[name*="photo"]',
+                'input[name*="slika"]'
+            ])
+
+            if upload_field:
+                self.logger.info("📷 Image upload field found, but no images provided in ad data")
+                # TODO: Implement actual image upload logic when images are available in ad_content
+            else:
+                self.logger.info("📷 No image upload field found")
+
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"⚠️ Image upload warning: {e}")
+            return False
+
+    def _prepare_form_submission(self, ad_content: dict) -> bool:
+        """Prepare form for submission (final validation, terms acceptance, etc.)"""
+        try:
+            self.logger.info("📋 Preparing form for submission...")
+
+            # Look for terms and conditions checkbox
+            terms_checkbox = self._find_form_field([
+                'input[type="checkbox"][name*="terms"]',
+                'input[type="checkbox"][name*="uvjeti"]',
+                'input[type="checkbox"][name*="agree"]',
+                'input[type="checkbox"][id*="terms"]'
+            ])
+
+            if terms_checkbox and not terms_checkbox.is_selected():
+                self._human_like_mouse_movement(terms_checkbox)
+                terms_checkbox.click()
+                self.logger.info("✅ Terms and conditions accepted")
+
+            # Look for privacy policy checkbox
+            privacy_checkbox = self._find_form_field([
+                'input[type="checkbox"][name*="privacy"]',
+                'input[type="checkbox"][name*="privatnost"]',
+                'input[type="checkbox"][id*="privacy"]'
+            ])
+
+            if privacy_checkbox and not privacy_checkbox.is_selected():
+                self._human_like_mouse_movement(privacy_checkbox)
+                privacy_checkbox.click()
+                self.logger.info("✅ Privacy policy accepted")
+
+            # Final form validation
+            self.logger.info("✅ Form ready for submission")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"❌ Error preparing form submission: {e}")
+            return False
+
+    def _find_form_field(self, selectors: list) -> WebElement:
+        """Find form field using multiple selector strategies"""
+        try:
+            for selector in selectors:
+                try:
+                    element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if element.is_displayed() and element.is_enabled():
+                        return element
+                except NoSuchElementException:
+                    continue
+            return None
+        except Exception as e:
+            self.logger.debug(f"Field search error: {e}")
+            return None
+
+    def _select_dropdown_option(self, select_element: WebElement, options: Union[List[str], str]) -> bool:
+        """Select option from dropdown by matching text"""
+        try:
+            if isinstance(options, str):
+                options = [options]
+
+            select = Select(select_element)
+
+            for option_text in options:
+                # Try exact match first
+                try:
+                    select.select_by_visible_text(option_text)
+                    return True
+                except NoSuchElementException:
+                    pass
+
+                # Try partial match
+                for option in select.options:
+                    if option_text.lower() in option.text.lower():
+                        select.select_by_visible_text(option.text)
+                        return True
+
+            self.logger.debug(f"No matching option found for: {options}")
+            return False
+
+        except Exception as e:
+            self.logger.debug(f"Dropdown selection error: {e}")
+            return False
+
+    def _select_feature_checkbox(self, feature_name: str) -> bool:
+        """Find and select a feature checkbox by name"""
+        try:
+            # Search strategies for finding feature checkboxes
+            search_strategies = [
+                # By label text (most common)
+                f"//label[contains(text(), '{feature_name}')]//input[@type='checkbox']",
+                f"//label[contains(text(), '{feature_name}')]/input[@type='checkbox']",
+
+                # By checkbox value or name attribute
+                f"//input[@type='checkbox'][@value='{feature_name}']",
+                f"//input[@type='checkbox'][contains(@name, '{feature_name.lower()}')]",
+
+                # By ID matching feature name
+                f"//input[@type='checkbox'][contains(@id, '{feature_name.lower()}')]",
+
+                # Adjacent label approach
+                f"//input[@type='checkbox'][following-sibling::label[contains(text(), '{feature_name}')]]",
+                f"//input[@type='checkbox'][preceding-sibling::label[contains(text(), '{feature_name}')]]"
+            ]
+
+            for strategy in search_strategies:
+                try:
+                    checkbox = self.driver.find_element(By.XPATH, strategy)
+                    if checkbox.is_displayed() and not checkbox.is_selected():
+                        self._human_like_mouse_movement(checkbox)
+                        checkbox.click()
+                        self.logger.debug(f"✅ Feature selected: {feature_name}")
+                        return True
+                except NoSuchElementException:
+                    continue
+
+            self.logger.debug(f"⚠️ Feature checkbox not found: {feature_name}")
+            return False
+
+        except Exception as e:
+            self.logger.debug(f"Feature selection error for '{feature_name}': {e}")
             return False
 
     def run_stealth_publish(self) -> bool:
