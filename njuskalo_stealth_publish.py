@@ -62,7 +62,7 @@ class NjuskaloStealthPublish:
 
     def __init__(self, headless: bool = True, use_tunnel: bool = False,
                  username: str = None, password: str = None, persistent: bool = True,
-                 user_uuid: str = None, test_mode: bool = False):
+                 user_uuid: str = None, test_mode: bool = False, submit_ad: bool = False):
         """
         Initialize stealth publish system
 
@@ -74,12 +74,14 @@ class NjuskaloStealthPublish:
             persistent: Use persistent browser profile to avoid new device detection
             user_uuid: UUID for persistent Firefox session (avoids confirmation codes)
             test_mode: Enable test mode for 2FA (manual code input vs database retrieval)
+            submit_ad: Enable ad submission process after successful login
         """
         self.headless = headless
         self.use_tunnel = use_tunnel
         self.persistent = persistent
         self.user_uuid = user_uuid
         self.test_mode = test_mode
+        self.submit_ad = submit_ad
         self.driver = None
         self.logger = self._setup_logging()
 
@@ -1560,6 +1562,137 @@ class NjuskaloStealthPublish:
         except Exception as e:
             self.logger.error(f"❌ Failed to take screenshot: {e}")
 
+    def submit_ad(self) -> bool:
+        """Submit a new ad through the category selection process"""
+        try:
+            self.logger.info("📝 Starting ad submission process...")
+
+            # Step 1: Click on "Predaj oglas" button
+            self.logger.info("🔍 Looking for 'Predaj oglas' button...")
+
+            try:
+                # Wait for the "Predaj oglas" button to be present and clickable
+                predaj_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "span.Header-submitClassifiedInner"))
+                )
+
+                # Human-like mouse movement before clicking
+                self._human_like_mouse_movement(predaj_button)
+                time.sleep(random.uniform(0.5, 1.2))
+
+                predaj_button.click()
+                self.logger.info("✅ Clicked 'Predaj oglas' button")
+
+                # Wait for page transition
+                time.sleep(random.uniform(2, 4))
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to click 'Predaj oglas' button: {e}")
+                return False
+
+            # Step 2: Select "Auto Moto" category
+            self.logger.info("🔍 Looking for 'Auto Moto' category...")
+
+            try:
+                # Wait for the Auto Moto category to be clickable
+                auto_moto_label = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='submitCategorySelectorLevelCategory2']"))
+                )
+
+                # Human-like mouse movement before clicking
+                self._human_like_mouse_movement(auto_moto_label)
+                time.sleep(random.uniform(0.5, 1.2))
+
+                auto_moto_label.click()
+                self.logger.info("✅ Selected 'Auto Moto' category")
+
+                # Wait for subcategories to load
+                time.sleep(random.uniform(1.5, 2.5))
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to select 'Auto Moto' category: {e}")
+                return False
+
+            # Step 3: Select "Osobni automobili" subcategory
+            self.logger.info("🔍 Looking for 'Osobni automobili' subcategory...")
+
+            try:
+                # Wait for the Osobni automobili subcategory to be clickable
+                osobni_label = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='submitCategorySelectorLevelCategory13688']"))
+                )
+
+                # Human-like mouse movement before clicking
+                self._human_like_mouse_movement(osobni_label)
+                time.sleep(random.uniform(0.5, 1.2))
+
+                osobni_label.click()
+                self.logger.info("✅ Selected 'Osobni automobili' subcategory")
+
+                # Wait for the form to update and sub-subcategories to load
+                time.sleep(random.uniform(1.5, 2.5))
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to select 'Osobni automobili' subcategory: {e}")
+                return False
+
+            # Step 3.5: Select "Rabljeni automobili" (Used cars) sub-subcategory
+            self.logger.info("🔍 Looking for 'Rabljeni automobili' sub-subcategory...")
+
+            try:
+                # Wait for the Rabljeni automobili sub-subcategory to be clickable
+                rabljeni_label = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='submitCategorySelectorLevelCategory7']"))
+                )
+
+                # Human-like mouse movement before clicking
+                self._human_like_mouse_movement(rabljeni_label)
+                time.sleep(random.uniform(0.5, 1.2))
+
+                rabljeni_label.click()
+                self.logger.info("✅ Selected 'Rabljeni automobili' sub-subcategory")
+
+                # Wait for the form to update
+                time.sleep(random.uniform(1.5, 2.5))
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to select 'Rabljeni automobili' sub-subcategory: {e}")
+                return False
+
+            # Step 4: Click "Nastavi" button
+            self.logger.info("🔍 Looking for 'Nastavi' button...")
+
+            try:
+                # Wait for the Nastavi button to be clickable
+                nastavi_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.SubmitCategorySelector-submit"))
+                )
+
+                # Human-like mouse movement before clicking
+                self._human_like_mouse_movement(nastavi_button)
+                time.sleep(random.uniform(0.5, 1.2))
+
+                nastavi_button.click()
+                self.logger.info("✅ Clicked 'Nastavi' button")
+
+                # Wait for the next page to load
+                time.sleep(random.uniform(2, 4))
+
+                # Take screenshot after successful navigation
+                self.take_screenshot("ad_submission_success")
+
+                return True
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to click 'Nastavi' button: {e}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"❌ Ad submission process failed: {e}")
+            # Take screenshot on error for debugging
+            self.take_screenshot("ad_submission_error")
+            return False
+
     def run_stealth_publish(self) -> bool:
         """Main method to run complete stealth publish process"""
         try:
@@ -1591,8 +1724,18 @@ class NjuskaloStealthPublish:
             self.take_screenshot("login_success" if success else "login_failed")
 
             if success:
-                self.logger.info("🎉 Stealth publish completed successfully!")
+                self.logger.info("🎉 Login completed successfully!")
                 self.logger.info(f"You are now logged in to Njuskalo as: {self.username}")
+
+                # Step 7: Submit ad if enabled
+                if self.submit_ad:
+                    self.logger.info("📝 Proceeding with ad submission...")
+                    ad_success = self.submit_ad()
+                    if ad_success:
+                        self.logger.info("🎉 Ad submission process completed successfully!")
+                    else:
+                        self.logger.error("❌ Ad submission failed")
+                        return False
 
                 # Keep browser open for development
                 if not self.headless:
@@ -1638,6 +1781,8 @@ def main():
                        help="UUID for persistent Firefox session (avoids confirmation codes)")
     parser.add_argument("--test-mode", action="store_true",
                        help="Enable test mode for 2FA (manual code input)")
+    parser.add_argument("--submit-ad", action="store_true",
+                       help="Enable ad submission after successful login")
 
     args = parser.parse_args()
 
@@ -1649,7 +1794,8 @@ def main():
         password=args.password,
         persistent=not args.no_persistent,  # Persistent by default
         user_uuid=args.uuid,  # Pass UUID if provided
-        test_mode=args.test_mode  # Enable test mode if requested
+        test_mode=args.test_mode,  # Enable test mode if requested
+        submit_ad=args.submit_ad  # Enable ad submission if requested
     )
 
     # Run publish process
