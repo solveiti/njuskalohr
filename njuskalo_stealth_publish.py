@@ -59,36 +59,51 @@ load_dotenv()
 
 
 class NjuskaloStealthPublish:
-    """Advanced stealth publish for Njuskalo.hr using enhanced anti-detection techniques"""
+    """
+    Advanced stealth publish for Njuskalo.hr using enhanced anti-detection techniques
+
+    Architecture Overview:
+    1. Takes ad_uuid as primary identifier
+    2. Resolves user_uuid from adItem.user field
+    3. Gets user credentials from users table
+    4. Uses user_uuid for Firefox sessions and 2FA
+    5. Uses ad_uuid for form data retrieval
+
+    This ensures proper ad-user relationships while maintaining session persistence.
+    """
 
     def __init__(self, headless: bool = True, use_tunnel: bool = False,
                  username: str = None, password: str = None, persistent: bool = True,
-                 user_uuid: str = None, test_mode: bool = False, submit_ad: bool = False):
+                 ad_uuid: str = None, user_uuid: str = None, test_mode: bool = False, submit_ad: bool = False):
         """
         Initialize stealth publish system
 
         Args:
             headless: Run browser in headless mode
             use_tunnel: Enable SSH tunnel support
-            username: Njuskalo username
-            password: Njuskalo password
+            username: Njuskalo username (optional, will be retrieved from database if not provided)
+            password: Njuskalo password (optional, will be retrieved from database if not provided)
             persistent: Use persistent browser profile to avoid new device detection
-            user_uuid: UUID for persistent Firefox session (avoids confirmation codes)
+            ad_uuid: UUID of the ad to publish (primary identifier)
+            user_uuid: UUID of user (will be resolved from ad_uuid if not provided)
             test_mode: Enable test mode for 2FA (manual code input vs database retrieval)
             submit_ad: Enable ad submission process after successful login
         """
         self.headless = headless
         self.use_tunnel = use_tunnel
         self.persistent = persistent
+        self.ad_uuid = ad_uuid
         self.user_uuid = user_uuid
         self.test_mode = test_mode
         self.submit_ad = submit_ad
         self.driver = None
         self.logger = self._setup_logging()
 
-        # Login credentials
-        self.username = username or "MilkicHalo"
-        self.password = password or "rvp2mqu@xye1JRC0fjt"
+        # Login credentials (will be populated from database if not provided)
+        self.username = username
+        self.password = password
+        self.default_username = "MilkicHalo"
+        self.default_password = "rvp2mqu@xye1JRC0fjt"
 
         # Njuskalo URLs
         self.base_url = os.getenv("NJUSKALO_BASE_URL", "https://www.njuskalo.hr")
@@ -101,6 +116,10 @@ class NjuskaloStealthPublish:
         # Firefox session management (UUID-based)
         self.firefox_session_dir = None
         self.session_fingerprint = None
+
+        # Initialize user credentials and UUID from database
+        if self.ad_uuid:
+            self._resolve_user_from_ad()
 
         # Setup Firefox session management
         if self.user_uuid:
@@ -144,6 +163,171 @@ class NjuskaloStealthPublish:
             logger.addHandler(file_handler)
 
         return logger
+
+    def _resolve_user_from_ad(self):
+        """Resolve user UUID and credentials from ad UUID"""
+        if not self.ad_uuid:
+            return
+
+        try:
+            import pymysql
+            import json
+            import uuid as uuid_lib
+
+            self.logger.info(f"🔍 Resolving user from ad UUID: {self.ad_uuid}")
+
+            # Database connection configuration
+            db_config = {
+                'host': os.getenv('DATABASE_HOST', 'localhost'),
+                'port': int(os.getenv('DATABASE_PORT', 3306)),
+                'user': os.getenv('DATABASE_USER', 'root'),
+                'password': os.getenv('DATABASE_PASSWORD', ''),
+                'database': os.getenv('DATABASE_NAME', 'njuskalohr'),
+                'charset': 'utf8mb4'
+            }
+
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    # Convert ad UUID to binary format
+                    try:
+                        ad_uuid_obj = uuid_lib.UUID(self.ad_uuid)
+                        ad_uuid_binary = ad_uuid_obj.bytes
+                    except ValueError:
+                        self.logger.error(f"❌ Invalid ad UUID format: {self.ad_uuid}")
+                        return
+
+                    # First, get user UUID from adItem table
+                    sql_ad = """
+                        SELECT user FROM adItem
+                        WHERE uuid = %s
+                        LIMIT 1
+                    """
+                    cursor.execute(sql_ad, (ad_uuid_binary,))
+                    result = cursor.fetchone()
+
+                    if not result:
+                        # Try with UUID as string (fallback)
+                        sql_ad = """
+                            SELECT user FROM adItem
+                            WHERE HEX(uuid) = %s
+                            LIMIT 1
+                        """
+                        cursor.execute(sql_ad, (self.ad_uuid.replace('-', '').upper(),))
+                        result = cursor.fetchone()
+
+                    if not result:
+                        self.logger.error(f"❌ No ad found with UUID: {self.ad_uuid}")
+                        self.logger.error("❌ Cannot proceed without valid ad UUID in adItem table")
+                        return
+
+                    user_uuid_binary = result[0]
+                    self.logger.info(f"📋 Found ad in database, extracting user reference...")
+
+                    # Convert user UUID binary to string
+                    if isinstance(user_uuid_binary, bytes):
+                        user_uuid_obj = uuid_lib.UUID(bytes=user_uuid_binary)
+                        self.user_uuid = str(user_uuid_obj)
+                    else:
+                        self.user_uuid = str(user_uuid_binary)
+
+                    self.logger.info(f"✅ Resolved user UUID: {self.user_uuid}")
+
+                    # Now get user credentials from users table
+                    try:
+                        user_uuid_obj = uuid_lib.UUID(self.user_uuid)
+                        user_uuid_binary = user_uuid_obj.bytes
+                    except ValueError:
+                        self.logger.error(f"❌ Invalid user UUID format: {self.user_uuid}")
+                        return
+
+                    # Try to get credentials from users table
+                    json_columns = ['njuskalo', 'profile', 'avtonet']
+                    user_data = None
+
+                    for column in json_columns:
+                        sql_user = f"SELECT {column} FROM users WHERE uuid = %s AND {column} IS NOT NULL LIMIT 1"
+                        cursor.execute(sql_user, (user_uuid_binary,))
+                        result = cursor.fetchone()
+
+                        if result and result[0]:
+                            user_data = result[0]
+                            self.logger.debug(f"📄 Found user data in column '{column}'")
+                            break
+
+                    if not user_data:
+                        # Try string lookup as fallback
+                        for column in json_columns:
+                            sql_user = f"SELECT {column} FROM users WHERE HEX(uuid) = %s AND {column} IS NOT NULL LIMIT 1"
+                            cursor.execute(sql_user, (self.user_uuid.replace('-', '').upper(),))
+                            result = cursor.fetchone()
+
+                            if result and result[0]:
+                                user_data = result[0]
+                                self.logger.debug(f"📄 Found user data in column '{column}' (string lookup)")
+                                break
+
+                    if user_data:
+                        # Parse user data to extract credentials
+                        try:
+                            if isinstance(user_data, str):
+                                user_info = json.loads(user_data)
+                            else:
+                                user_info = user_data
+
+                            # Handle array format
+                            if isinstance(user_info, list) and len(user_info) > 0:
+                                user_obj = user_info[0]
+                            elif isinstance(user_info, dict):
+                                user_obj = user_info
+                            else:
+                                user_obj = {}
+
+                            # Extract credentials if available
+                            if 'username' in user_obj and not self.username:
+                                self.username = user_obj['username']
+                                self.logger.info(f"✅ Retrieved username: {self.username}")
+
+                            if 'password' in user_obj and not self.password:
+                                self.password = user_obj['password']
+                                self.logger.info("✅ Retrieved password from database")
+
+                        except (json.JSONDecodeError, KeyError, IndexError) as e:
+                            self.logger.warning(f"⚠️ Could not parse user data: {e}")
+
+                    # Use defaults if credentials not found in database
+                    if not self.username:
+                        self.username = self.default_username
+                        self.logger.info(f"ℹ️ Using default username: {self.username}")
+
+                    if not self.password:
+                        self.password = self.default_password
+                        self.logger.info("ℹ️ Using default password")
+
+            finally:
+                connection.close()
+
+        except Exception as e:
+            self.logger.error(f"❌ Error resolving user from ad: {e}")
+            # Use defaults on error
+            if not self.username:
+                self.username = self.default_username
+            if not self.password:
+                self.password = self.default_password
+
+    def _validate_required_uuids(self) -> bool:
+        """Validate that we have the required UUIDs for operation"""
+        if not self.ad_uuid:
+            self.logger.error("❌ No ad UUID provided - cannot proceed without ad identifier")
+            return False
+
+        if not self.user_uuid:
+            self.logger.error("❌ No user UUID resolved - cannot proceed without user identifier")
+            return False
+
+        self.logger.info(f"✅ UUID validation passed - Ad: {self.ad_uuid}, User: {self.user_uuid}")
+        return True
 
     def _setup_persistent_profile(self):
         """Setup persistent Firefox profile to avoid new device detection"""
@@ -1314,7 +1498,7 @@ class NjuskaloStealthPublish:
             import json
             import os
 
-            self.logger.info(f"🔍 Retrieving 2FA code for UUID: {self.user_uuid}")
+            self.logger.info(f"🔍 Retrieving 2FA code for user UUID: {self.user_uuid}")
 
             # Database connection configuration (using existing DATABASE_* variables)
             db_config = {
@@ -1709,10 +1893,10 @@ class NjuskaloStealthPublish:
             import json
             import os
 
-            # Check if we have UUID for database lookup
-            if not self.user_uuid:
+            # Check if we have ad UUID for database lookup
+            if not self.ad_uuid:
                 if self._is_test_environment():
-                    # In test mode, prompt for UUID
+                    # In test mode, prompt for ad UUID
                     print("\n" + "="*60)
                     print("🔍 AD DATA RETRIEVAL - TEST MODE")
                     print("="*60)
@@ -1720,19 +1904,21 @@ class NjuskaloStealthPublish:
                     print("="*60)
 
                     try:
-                        uuid_input = input("UUID: ").strip()
+                        uuid_input = input("Ad UUID: ").strip()
                         if not uuid_input:
-                            self.logger.error("❌ No UUID provided")
+                            self.logger.error("❌ No ad UUID provided")
                             return None
-                        self.user_uuid = uuid_input
+                        self.ad_uuid = uuid_input
+                        # Re-resolve user from the new ad UUID
+                        self._resolve_user_from_ad()
                     except KeyboardInterrupt:
                         self.logger.info("👋 Ad data retrieval interrupted by user")
                         return None
                 else:
-                    self.logger.error("❌ No UUID provided for database lookup in production mode")
+                    self.logger.error("❌ No ad UUID provided for database lookup in production mode")
                     return None
 
-            self.logger.info(f"🔍 Retrieving ad data for UUID: {self.user_uuid}")
+            self.logger.info(f"🔍 Retrieving ad data for ad UUID: {self.ad_uuid}")
 
             # Database connection configuration (using existing DATABASE_* variables)
             db_config = {
@@ -1754,11 +1940,11 @@ class NjuskaloStealthPublish:
                     import uuid as uuid_lib
 
                     try:
-                        # Convert UUID string to binary format
-                        uuid_obj = uuid_lib.UUID(self.user_uuid)
+                        # Convert ad UUID string to binary format
+                        uuid_obj = uuid_lib.UUID(self.ad_uuid)
                         uuid_binary = uuid_obj.bytes
                     except ValueError:
-                        self.logger.error(f"❌ Invalid UUID format: {self.user_uuid}")
+                        self.logger.error(f"❌ Invalid ad UUID format: {self.ad_uuid}")
                         return None
 
                     # Query adItem table for ad data with status validation
@@ -1779,11 +1965,11 @@ class NjuskaloStealthPublish:
                             WHERE HEX(uuid) = %s
                             LIMIT 1
                         """
-                        cursor.execute(sql, (self.user_uuid.replace('-', '').upper(),))
+                        cursor.execute(sql, (self.ad_uuid.replace('-', '').upper(),))
                         result = cursor.fetchone()
 
                     if not result:
-                        self.logger.error(f"❌ No ad found with UUID: {self.user_uuid}")
+                        self.logger.error(f"❌ No ad found with UUID: {self.ad_uuid}")
                         return None
 
                     uuid_col, content_col, status_col, publish_njuskalo_col = result
@@ -1816,7 +2002,7 @@ class NjuskaloStealthPublish:
                         self.logger.debug(f"Ad content preview: {str(ad_content)[:200]}...")
 
                         return {
-                            'uuid': self.user_uuid,
+                            'uuid': self.ad_uuid,
                             'content': ad_content,
                             'status': status_col,
                             'publishNjuskalo': publish_njuskalo_col
@@ -2387,6 +2573,10 @@ class NjuskaloStealthPublish:
             self.logger.info("🚀 Starting Njuskalo Stealth Publish")
             self.logger.info("=" * 50)
 
+            # Step 0: Validate required UUIDs
+            if not self._validate_required_uuids():
+                return False
+
             # Step 1: Setup tunnel if enabled
             if self.use_tunnel:
                 if not self._start_tunnel():
@@ -2459,14 +2649,16 @@ def main():
                        help="Run in visible mode (not headless)")
     parser.add_argument("--tunnel", action="store_true",
                        help="Use SSH tunnel for anonymity")
-    parser.add_argument("--username", type=str, default="MilkicHalo",
-                       help="Njuskalo username")
-    parser.add_argument("--password", type=str, default="rvp2mqu@xye1JRC0fjt",
-                       help="Njuskalo password")
+    parser.add_argument("--username", type=str,
+                       help="Njuskalo username (optional, will be retrieved from database)")
+    parser.add_argument("--password", type=str,
+                       help="Njuskalo password (optional, will be retrieved from database)")
     parser.add_argument("--no-persistent", action="store_true",
                        help="Disable persistent profile (always appear as new device)")
-    parser.add_argument("--uuid", type=str,
-                       help="UUID for persistent Firefox session (avoids confirmation codes)")
+    parser.add_argument("--ad-uuid", "--uuid", type=str, dest="ad_uuid",
+                       help="UUID of the ad to publish (primary identifier)")
+    parser.add_argument("--user-uuid", type=str,
+                       help="UUID of the user (optional, will be resolved from ad-uuid)")
     parser.add_argument("--test-mode", action="store_true",
                        help="Enable test mode for 2FA (manual code input)")
     parser.add_argument("--submit-ad", action="store_true",
@@ -2481,7 +2673,8 @@ def main():
         username=args.username,
         password=args.password,
         persistent=not args.no_persistent,  # Persistent by default
-        user_uuid=args.uuid,  # Pass UUID if provided
+        ad_uuid=args.ad_uuid,  # Pass ad UUID (primary identifier)
+        user_uuid=args.user_uuid,  # Pass user UUID if provided (optional)
         test_mode=args.test_mode,  # Enable test mode if requested
         submit_ad=args.submit_ad  # Enable ad submission if requested
     )
