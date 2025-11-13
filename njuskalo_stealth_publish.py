@@ -61,7 +61,8 @@ class NjuskaloStealthPublish:
     """Advanced stealth publish for Njuskalo.hr using enhanced anti-detection techniques"""
 
     def __init__(self, headless: bool = True, use_tunnel: bool = False,
-                 username: str = None, password: str = None, persistent: bool = True):
+                 username: str = None, password: str = None, persistent: bool = True,
+                 user_uuid: str = None, test_mode: bool = False):
         """
         Initialize stealth publish system
 
@@ -71,10 +72,14 @@ class NjuskaloStealthPublish:
             username: Njuskalo username
             password: Njuskalo password
             persistent: Use persistent browser profile to avoid new device detection
+            user_uuid: UUID for persistent Firefox session (avoids confirmation codes)
+            test_mode: Enable test mode for 2FA (manual code input vs database retrieval)
         """
         self.headless = headless
         self.use_tunnel = use_tunnel
         self.persistent = persistent
+        self.user_uuid = user_uuid
+        self.test_mode = test_mode
         self.driver = None
         self.logger = self._setup_logging()
 
@@ -89,7 +94,15 @@ class NjuskaloStealthPublish:
         # Persistent profile management
         self.profile_dir = None
         self.device_fingerprint = None
-        if self.persistent:
+
+        # Firefox session management (UUID-based)
+        self.firefox_session_dir = None
+        self.session_fingerprint = None
+
+        # Setup Firefox session management
+        if self.user_uuid:
+            self._setup_firefox_session()
+        elif self.persistent:
             self._setup_persistent_profile()
 
         # Tunnel configuration
@@ -162,6 +175,69 @@ class NjuskaloStealthPublish:
         except Exception as e:
             self.logger.error(f"❌ Error setting up persistent profile: {e}")
             self.persistent = False
+
+    def _setup_firefox_session(self):
+        """Setup UUID-based Firefox session to avoid confirmation codes"""
+        try:
+            import uuid
+            import time
+
+            # Validate UUID format
+            if self.user_uuid:
+                try:
+                    uuid.UUID(self.user_uuid)
+                except ValueError:
+                    self.logger.error(f"❌ Invalid UUID format: {self.user_uuid}")
+                    self.user_uuid = None
+                    return
+
+            # Create Firefox sessions directory
+            sessions_base = Path("firefoxsessions")
+            sessions_base.mkdir(exist_ok=True)
+
+            # Use UUID as session directory name
+            if self.user_uuid:
+                session_id = self.user_uuid
+            else:
+                # Generate new UUID if not provided
+                session_id = str(uuid.uuid4())
+                self.user_uuid = session_id
+                self.logger.info(f"🆔 Generated new session UUID: {session_id}")
+
+            self.firefox_session_dir = sessions_base / session_id
+            self.firefox_session_dir.mkdir(exist_ok=True)
+
+            self.logger.info(f"🔥 Using Firefox session: {session_id}")
+            self.logger.info(f"📁 Session directory: {self.firefox_session_dir}")
+
+            # Generate consistent device fingerprint based on UUID
+            import hashlib
+            fingerprint_seed = f"{self.user_uuid}_{self.base_url}_firefox_session"
+            self.device_fingerprint = hashlib.md5(fingerprint_seed.encode()).hexdigest()
+
+            # Create session fingerprint for browser preferences
+            self.session_fingerprint = self._get_consistent_fingerprint()
+
+            # Save session metadata
+            session_info = {
+                "uuid": self.user_uuid,
+                "username": self.username,
+                "created": time.time(),
+                "last_used": time.time(),
+                "fingerprint": self.device_fingerprint
+            }
+
+            import json
+            session_file = self.firefox_session_dir / "session_info.json"
+            with open(session_file, 'w') as f:
+                json.dump(session_info, f, indent=2)
+
+            self.logger.info(f"💾 Session metadata saved")
+
+        except Exception as e:
+            self.logger.error(f"❌ Error setting up Firefox session: {e}")
+            self.user_uuid = None
+            self.firefox_session_dir = None
 
     def _setup_tunnel(self):
         """Setup SSH tunnel if available"""
@@ -1006,12 +1082,19 @@ class NjuskaloStealthPublish:
                         # Use JavaScript click if regular click fails
                         self.driver.execute_script("arguments[0].click();", login_button)
 
-                # Wait for login to complete
-                self.logger.info("⏳ Waiting for login to complete...")
+                # Wait for initial response
+                self.logger.info("⏳ Waiting for login response...")
                 time.sleep(random.uniform(3, 6))
 
                 # Handle any popups that might appear after login
                 self.handle_advertisement_popup()
+
+                # Check if 2FA is required
+                if self._check_2fa_required():
+                    self.logger.info("🔐 Two-factor authentication required")
+                    if not self._handle_2fa():
+                        self.logger.error("❌ 2FA failed")
+                        return False
 
                 # Check if login was successful
                 current_url = self.driver.current_url
@@ -1047,6 +1130,371 @@ class NjuskaloStealthPublish:
 
         except Exception as e:
             self.logger.error(f"❌ Login failed: {e}")
+            return False
+
+    def _check_2fa_required(self) -> bool:
+        """Check if two-factor authentication is required"""
+        try:
+            # Look for 2FA step button
+            tfa_button_selector = ".form-action.form-action--submit.button-standard.button-standard--alpha.button-standard--full.TwoFactorAuthentication-stepNextAction"
+
+            try:
+                tfa_button = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, tfa_button_selector))
+                )
+                if tfa_button.is_displayed():
+                    self.logger.info("🔐 Two-factor authentication step detected")
+                    return True
+            except TimeoutException:
+                # Also check for alternative 2FA indicators
+                tfa_indicators = [
+                    "[class*='TwoFactor']",
+                    "[class*='verification']",
+                    "input[placeholder*='kod']",
+                    "input[placeholder*='code']"
+                ]
+
+                for indicator in tfa_indicators:
+                    try:
+                        element = self.driver.find_element(By.CSS_SELECTOR, indicator)
+                        if element.is_displayed():
+                            self.logger.info(f"🔐 2FA indicator found: {indicator}")
+                            return True
+                    except NoSuchElementException:
+                        continue
+
+            return False
+
+        except Exception as e:
+            self.logger.error(f"❌ Error checking 2FA requirement: {e}")
+            return False
+
+    def _handle_2fa(self) -> bool:
+        """Handle two-factor authentication process"""
+        try:
+            self.logger.info("🔐 Handling two-factor authentication...")
+
+            # Step 1: Click the "Next Step" button to trigger 2FA
+            tfa_step_button_selector = ".form-action.form-action--submit.button-standard.button-standard--alpha.button-standard--full.TwoFactorAuthentication-stepNextAction"
+
+            try:
+                tfa_step_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, tfa_step_button_selector))
+                )
+
+                self.logger.info("📱 Clicking 2FA step button to request code...")
+                self._human_like_mouse_movement(tfa_step_button)
+                time.sleep(random.uniform(1, 2))
+                tfa_step_button.click()
+
+            except TimeoutException:
+                self.logger.error("❌ 2FA step button not found")
+                return False
+
+            # Wait for the code input form to appear
+            time.sleep(random.uniform(2, 4))
+
+            # Step 2: Handle code input (different for test vs production)
+            if self._is_test_environment():
+                return self._handle_2fa_test_mode()
+            else:
+                return self._handle_2fa_production_mode()
+
+        except Exception as e:
+            self.logger.error(f"❌ 2FA handling failed: {e}")
+            return False
+
+    def _is_test_environment(self) -> bool:
+        """Check if we're in test environment (based on test_mode parameter or username)"""
+        if hasattr(self, 'test_mode') and self.test_mode:
+            return True
+
+        # Fallback: check username
+        test_usernames = ["test", "srdjanmsd", "testuser"]
+        return self.username.lower() in test_usernames
+
+    def _handle_2fa_test_mode(self) -> bool:
+        """Handle 2FA in test mode - wait for user input"""
+        try:
+            self.logger.info("🧪 Test mode: Waiting for manual code input...")
+
+            # Look for code input field
+            code_input_selectors = [
+                "input[placeholder*='kod']",
+                "input[placeholder*='code']",
+                "input[name*='verification']",
+                "input[name*='kod']",
+                "[class*='TwoFactor'] input[type='text']",
+                "[class*='TwoFactor'] input[type='number']"
+            ]
+
+            code_input = None
+            for selector in code_input_selectors:
+                try:
+                    code_input = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    self.logger.info(f"✅ Found code input field: {selector}")
+                    break
+                except TimeoutException:
+                    continue
+
+            if not code_input:
+                self.logger.error("❌ Code input field not found")
+                return False
+
+            # In test mode, wait for user to manually enter the code
+            print("\n" + "="*60)
+            print("🔐 TWO-FACTOR AUTHENTICATION REQUIRED")
+            print("="*60)
+            print("Please check your phone/email for the verification code.")
+            print("Enter the code in the browser window and press Enter here when done.")
+            print("="*60)
+
+            try:
+                input("Press Enter when you have entered the code in the browser...")
+            except KeyboardInterrupt:
+                self.logger.info("👋 2FA interrupted by user")
+                return False
+
+            # Look for and click submit button
+            return self._click_2fa_submit_button()
+
+        except Exception as e:
+            self.logger.error(f"❌ 2FA test mode failed: {e}")
+            return False
+
+    def _handle_2fa_production_mode(self) -> bool:
+        """Handle 2FA in production mode - get code from database"""
+        try:
+            self.logger.info("🏭 Production mode: Waiting for database code...")
+
+            # Check if UUID is available for database lookup
+            if not self.user_uuid:
+                self.logger.error("❌ No UUID provided for database lookup in production mode")
+                self.logger.info("💡 Falling back to test mode for manual code entry")
+                return self._handle_2fa_test_mode()
+
+            # Wait 15 minutes for the code to appear in database
+            max_wait_time = 15 * 60  # 15 minutes in seconds
+            check_interval = 30  # Check every 30 seconds
+
+            self.logger.info("⏰ Waiting up to 15 minutes for verification code in database...")
+
+            start_time = time.time()
+            code = None
+
+            while (time.time() - start_time) < max_wait_time:
+                code = self._get_2fa_code_from_database()
+                if code:
+                    break
+
+                remaining_time = max_wait_time - (time.time() - start_time)
+                self.logger.info(f"⏳ No code yet, checking again in {check_interval}s (remaining: {int(remaining_time/60)}m {int(remaining_time%60)}s)")
+                time.sleep(check_interval)
+
+            if not code:
+                self.logger.error("❌ Timeout waiting for 2FA code in database")
+                return False
+
+            # Enter the code
+            return self._enter_2fa_code(code)
+
+        except Exception as e:
+            self.logger.error(f"❌ 2FA production mode failed: {e}")
+            return False
+
+    def _get_2fa_code_from_database(self) -> str:
+        """Get 2FA code from database users table by UUID"""
+        try:
+            import pymysql
+            import json
+            import os
+
+            self.logger.info(f"🔍 Retrieving 2FA code for UUID: {self.user_uuid}")
+
+            # Database connection configuration (using existing DATABASE_* variables)
+            db_config = {
+                'host': os.getenv('DATABASE_HOST', 'localhost'),
+                'port': int(os.getenv('DATABASE_PORT', 3306)),
+                'user': os.getenv('DATABASE_USER', 'root'),
+                'password': os.getenv('DATABASE_PASSWORD', ''),
+                'database': os.getenv('DATABASE_NAME', 'njuskalohr'),
+                'charset': 'utf8mb4'
+            }
+
+            self.logger.debug(f"🔗 Connecting to database: {db_config['host']}")
+
+            connection = pymysql.connect(**db_config)
+
+            try:
+                with connection.cursor() as cursor:
+                    # Get user by UUID from users table (UUID is stored as binary(16))
+                    # First try to convert UUID string to binary format for lookup
+                    import uuid as uuid_lib
+
+                    try:
+                        # Convert UUID string to binary format
+                        uuid_obj = uuid_lib.UUID(self.user_uuid)
+                        uuid_binary = uuid_obj.bytes
+                    except ValueError:
+                        self.logger.error(f"❌ Invalid UUID format: {self.user_uuid}")
+                        return None
+
+                    # Try multiple possible columns that might contain JSON data
+                    json_columns = ['njuskalo', 'profile', 'avtonet']
+                    user_data = None
+                    used_column = None
+
+                    for column in json_columns:
+                        sql = f"SELECT {column} FROM users WHERE uuid = %s AND {column} IS NOT NULL LIMIT 1"
+                        cursor.execute(sql, (uuid_binary,))
+                        result = cursor.fetchone()
+
+                        if result and result[0]:
+                            user_data = result[0]
+                            used_column = column
+                            self.logger.debug(f"📄 Found data in column '{column}': {user_data}")
+                            break
+
+                    if not user_data:
+                        # Also try with UUID as string (in case it's stored differently)
+                        for column in json_columns:
+                            sql = f"SELECT {column} FROM users WHERE HEX(uuid) = %s AND {column} IS NOT NULL LIMIT 1"
+                            cursor.execute(sql, (self.user_uuid.replace('-', '').upper(),))
+                            result = cursor.fetchone()
+
+                            if result and result[0]:
+                                user_data = result[0]
+                                used_column = column
+                                self.logger.debug(f"📄 Found data in column '{column}' (string lookup): {user_data}")
+                                break
+
+                    if not user_data:
+                        self.logger.warning(f"⚠️ No user found with UUID: {self.user_uuid}")
+                        return None
+
+                    self.logger.info(f"📄 Retrieved data from '{used_column}' column")
+
+                    # Parse JSON data
+                    try:
+                        if isinstance(user_data, str):
+                            user_info = json.loads(user_data)
+                        else:
+                            user_info = user_data
+
+                        # Extract code from JSON structure
+                        verification_code = None
+
+                        if isinstance(user_info, list) and len(user_info) > 0:
+                            # If it's an array, get the first item
+                            user_obj = user_info[0]
+                            verification_code = user_obj.get('code')
+                        elif isinstance(user_info, dict):
+                            # If it's already a dict, use it directly
+                            verification_code = user_info.get('code')
+                        else:
+                            self.logger.error(f"❌ Unexpected user data format: {type(user_info)}")
+                            return None
+
+                        # Get the verification code
+                        if verification_code:
+                            self.logger.info(f"✅ Found 2FA code: {verification_code}")
+                            return str(verification_code)
+                        else:
+                            self.logger.info("ℹ️ No verification code found in user data")
+                            return None
+
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"❌ Failed to parse JSON data from '{used_column}': {e}")
+                        self.logger.debug(f"Raw data: {user_data}")
+                        return None
+
+            finally:
+                connection.close()
+                self.logger.debug("🔗 Database connection closed")
+
+        except pymysql.Error as e:
+            self.logger.error(f"❌ MySQL error: {e}")
+            return None
+        except ImportError:
+            self.logger.error("❌ PyMySQL not installed. Install with: pip install pymysql")
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error getting code from database: {e}")
+            return None
+
+    def _enter_2fa_code(self, code: str) -> bool:
+        """Enter the 2FA code and submit"""
+        try:
+            self.logger.info(f"🔑 Entering 2FA code: {code}")
+
+            # Find code input field
+            code_input_selectors = [
+                "input[placeholder*='kod']",
+                "input[placeholder*='code']",
+                "input[name*='verification']",
+                "input[name*='kod']",
+                "[class*='TwoFactor'] input[type='text']",
+                "[class*='TwoFactor'] input[type='number']"
+            ]
+
+            code_input = None
+            for selector in code_input_selectors:
+                try:
+                    code_input = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    break
+                except TimeoutException:
+                    continue
+
+            if not code_input:
+                self.logger.error("❌ Code input field not found")
+                return False
+
+            # Clear and enter code with human-like behavior
+            code_input.clear()
+            time.sleep(random.uniform(0.5, 1))
+
+            for digit in code:
+                code_input.send_keys(digit)
+                time.sleep(random.uniform(0.1, 0.3))
+
+            time.sleep(random.uniform(1, 2))
+
+            # Click submit button
+            return self._click_2fa_submit_button()
+
+        except Exception as e:
+            self.logger.error(f"❌ Error entering 2FA code: {e}")
+            return False
+
+    def _click_2fa_submit_button(self) -> bool:
+        """Click the 2FA submit button"""
+        try:
+            submit_button_selector = ".form-action.form-action--submit.button-standard.button-standard--alpha.button-standard--full.TwoFactorAuthentication-submitAction"
+
+            submit_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_selector))
+            )
+
+            self.logger.info("✅ Clicking 2FA submit button...")
+            self._human_like_mouse_movement(submit_button)
+            time.sleep(random.uniform(1, 2))
+            submit_button.click()
+
+            # Wait for submission to complete
+            time.sleep(random.uniform(3, 6))
+
+            self.logger.info("🎉 2FA submission completed!")
+            return True
+
+        except TimeoutException:
+            self.logger.error("❌ 2FA submit button not found")
+            return False
+        except Exception as e:
+            self.logger.error(f"❌ Error clicking 2FA submit button: {e}")
             return False
 
     def verify_login_success(self) -> bool:
@@ -1186,6 +1634,10 @@ def main():
                        help="Njuskalo password")
     parser.add_argument("--no-persistent", action="store_true",
                        help="Disable persistent profile (always appear as new device)")
+    parser.add_argument("--uuid", type=str,
+                       help="UUID for persistent Firefox session (avoids confirmation codes)")
+    parser.add_argument("--test-mode", action="store_true",
+                       help="Enable test mode for 2FA (manual code input)")
 
     args = parser.parse_args()
 
@@ -1195,7 +1647,9 @@ def main():
         use_tunnel=args.tunnel,
         username=args.username,
         password=args.password,
-        persistent=not args.no_persistent  # Persistent by default
+        persistent=not args.no_persistent,  # Persistent by default
+        user_uuid=args.uuid,  # Pass UUID if provided
+        test_mode=args.test_mode  # Enable test mode if requested
     )
 
     # Run publish process

@@ -37,7 +37,8 @@ def test_stealth_publish(user_uuid=None):
         username="srdjanmsd",
         password="rvp2mqu@xye1JRC0fjt",
         persistent=False,  # Disable persistence for clean testing
-        user_uuid=user_uuid  # Pass UUID if provided
+        user_uuid=user_uuid,  # Pass UUID if provided
+        test_mode=True  # Enable test mode for manual 2FA code input
     )
 
     try:
@@ -116,7 +117,8 @@ def test_headless_publish(user_uuid=None):
         username="srdjanmsd",
         password="rvp2mqu@xye1JRC0fjt",
         persistent=False,  # Clean test environment
-        user_uuid=user_uuid  # Pass UUID if provided
+        user_uuid=user_uuid,  # Pass UUID if provided
+        test_mode=True  # Enable test mode for manual 2FA code input
     )
 
     success = stealth_publish.run_stealth_publish()
