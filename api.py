@@ -19,9 +19,33 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 # Load environment variables
 load_dotenv()
+
+# Initialize Sentry
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0")),
+        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "1.0")),
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+        ],
+        # Send session data
+        auto_session_tracking=True,
+        # Capture SQL queries
+        enable_tracing=True,
+    )
+    print(f"✅ Sentry initialized for environment: {os.getenv('SENTRY_ENVIRONMENT', 'production')}")
+else:
+    print("⚠️ Sentry DSN not configured - error tracking disabled")
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

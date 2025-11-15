@@ -53,9 +53,33 @@ from selenium.common.exceptions import (
     WebDriverException, ElementClickInterceptedException
 )
 
+# Sentry for error tracking
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
+
 # Environment setup
 from dotenv import load_dotenv
 load_dotenv()
+
+# Initialize Sentry
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0")),
+        profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "1.0")),
+        integrations=[
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR
+            ),
+        ],
+        # Track script execution
+        auto_session_tracking=True,
+        before_send=lambda event, hint: event,  # Can filter events here if needed
+    )
+    print(f"✅ Sentry initialized for njuskalo_stealth_publish.py")
 
 
 class NjuskaloStealthPublish:
@@ -1660,11 +1684,13 @@ class NjuskaloStealthPublish:
 
     def submit_ad_to_njuskalo(self) -> bool:
         """Submit a new ad through the category selection process"""
-        try:
-            self.logger.info("📝 Starting ad submission process...")
-
-            # Step 1: Click on "Predaj oglas" button
-            self.logger.info("🔍 Looking for 'Predaj oglas' button...")
+        # Start Sentry transaction
+        with sentry_sdk.start_transaction(op="ad_submission", name="submit_ad_to_njuskalo"):
+            sentry_sdk.set_context("ad", {
+                "ad_uuid": self.ad_uuid,
+                "user_uuid": self.user_uuid,
+                "submit_enabled": self.submit_ad
+            })
 
             try:
                 # Wait for the "Predaj oglas" button to be present and clickable
@@ -1792,13 +1818,15 @@ class NjuskaloStealthPublish:
 
             except Exception as e:
                 self.logger.error(f"❌ Failed to click 'Nastavi' button: {e}")
+                sentry_sdk.capture_exception(e)
                 return False
 
-        except Exception as e:
-            self.logger.error(f"❌ Ad submission process failed: {e}")
-            # Take screenshot on error for debugging
-            self.take_screenshot("ad_submission_error")
-            return False
+            except Exception as e:
+                self.logger.error(f"❌ Ad submission process failed: {e}")
+                sentry_sdk.capture_exception(e)
+                # Take screenshot on error for debugging
+                self.take_screenshot("ad_submission_error")
+                return False
 
     def _extract_njuskalo_ad_code(self) -> str:
         """Extract the Njuskalo ad code from the current URL or page"""
@@ -2816,30 +2844,58 @@ def main():
 
     args = parser.parse_args()
 
-    # Create stealth publish instance
-    stealth_publish = NjuskaloStealthPublish(
-        headless=not args.visible,
-        use_tunnel=args.tunnel,
-        email=args.email,
-        password=args.password,
-        persistent=not args.no_persistent,  # Persistent by default
-        ad_uuid=args.ad_uuid,  # Pass ad UUID (primary identifier)
-        user_uuid=args.user_uuid,  # Pass user UUID if provided (optional)
-        test_mode=args.test_mode,  # Enable test mode if requested
-        submit_ad=args.submit_ad  # Enable ad submission if requested
-    )
+    # Start Sentry transaction for the entire script run
+    with sentry_sdk.start_transaction(op="script", name="njuskalo_stealth_publish"):
+        # Set context for Sentry
+        sentry_sdk.set_context("script_args", {
+            "visible": not args.visible,
+            "tunnel": args.tunnel,
+            "persistent": not args.no_persistent,
+            "ad_uuid": args.ad_uuid,
+            "user_uuid": args.user_uuid,
+            "test_mode": args.test_mode,
+            "submit_ad": args.submit_ad
+        })
 
-    # Run publish process
-    success = stealth_publish.run_stealth_publish()
+        try:
+            # Create stealth publish instance
+            stealth_publish = NjuskaloStealthPublish(
+                headless=not args.visible,
+                use_tunnel=args.tunnel,
+                email=args.email,
+                password=args.password,
+                persistent=not args.no_persistent,  # Persistent by default
+                ad_uuid=args.ad_uuid,  # Pass ad UUID (primary identifier)
+                user_uuid=args.user_uuid,  # Pass user UUID if provided (optional)
+                test_mode=args.test_mode,  # Enable test mode if requested
+                submit_ad=args.submit_ad  # Enable ad submission if requested
+            )
 
-    # Print the Njuskalo ad code if available (for API to capture)
-    if success and stealth_publish.njuskalo_ad_code:
-        print(f"\n{'='*60}")
-        print(f"✅ SUCCESS - Njuskalo ad code: {stealth_publish.njuskalo_ad_code}")
-        print(f"{'='*60}\n")
+            # Run publish process
+            success = stealth_publish.run_stealth_publish()
 
-    # Exit with appropriate code
-    sys.exit(0 if success else 1)
+            # Print the Njuskalo ad code if available (for API to capture)
+            if success and stealth_publish.njuskalo_ad_code:
+                print(f"\n{'='*60}")
+                print(f"✅ SUCCESS - Njuskalo ad code: {stealth_publish.njuskalo_ad_code}")
+                print(f"{'='*60}\n")
+
+                # Track success in Sentry
+                sentry_sdk.set_tag("ad_submission", "success")
+                sentry_sdk.set_context("result", {
+                    "ad_code": stealth_publish.njuskalo_ad_code
+                })
+            else:
+                sentry_sdk.set_tag("ad_submission", "failed")
+
+            # Exit with appropriate code
+            sys.exit(0 if success else 1)
+
+        except Exception as e:
+            # Capture any unhandled exceptions
+            sentry_sdk.capture_exception(e)
+            print(f"❌ Fatal error: {e}")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

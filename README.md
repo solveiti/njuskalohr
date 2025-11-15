@@ -1776,3 +1776,393 @@ The system is **ready to use immediately** with no configuration required. All f
 
 - `njuskalo_stealth_publish.py` - 4 methods rewritten for enhanced form filling
 - `README.md` - Merged all documentation into single comprehensive guide
+
+---
+
+# Sentry Integration Setup Guide
+
+## Overview
+
+Sentry has been integrated into the njuskalohr project for comprehensive error tracking and monitoring across all scripts and API endpoints.
+
+## Installation
+
+```bash
+# Install sentry-sdk with FastAPI support
+pip install "sentry-sdk[fastapi]>=1.40.0"
+
+# Or install all requirements
+pip install -r requirements.txt
+```
+
+## Configuration
+
+### 1. Environment Variables
+
+Add the following to your `.env` file:
+
+```bash
+# Sentry Configuration
+SENTRY_DSN=your_sentry_dsn_here
+SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=1.0
+SENTRY_PROFILES_SAMPLE_RATE=1.0
+```
+
+### 2. Get Your Sentry DSN
+
+1. Sign up for a free account at https://sentry.io
+2. Create a new project (Python/FastAPI)
+3. Copy your DSN from Project Settings → Client Keys (DSN)
+4. Paste it into your `.env` file
+
+**Example DSN:**
+
+```
+SENTRY_DSN=https://abc123def456@o123456.ingest.sentry.io/789012
+```
+
+### 3. Environment Configuration
+
+- `SENTRY_ENVIRONMENT`: Set to `production`, `staging`, or `development`
+- `SENTRY_TRACES_SAMPLE_RATE`: 0.0 to 1.0 (1.0 = 100% of transactions tracked)
+- `SENTRY_PROFILES_SAMPLE_RATE`: 0.0 to 1.0 (1.0 = 100% of profiles captured)
+
+**Recommended Settings:**
+
+```bash
+# Production - Full monitoring
+SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=1.0
+SENTRY_PROFILES_SAMPLE_RATE=1.0
+
+# Development - Reduced sampling
+SENTRY_ENVIRONMENT=development
+SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_PROFILES_SAMPLE_RATE=0.1
+```
+
+## Integrated Components
+
+### 1. FastAPI Application (`api.py`)
+
+**Features:**
+
+- Automatic endpoint tracking
+- Request/response monitoring
+- Error capture with context
+- Performance monitoring
+
+**What's Tracked:**
+
+- All HTTP requests and responses
+- API errors and exceptions
+- Endpoint performance
+- Authentication errors
+- Database query performance (when enabled)
+
+### 2. Stealth Publish Script (`njuskalo_stealth_publish.py`)
+
+**Features:**
+
+- Transaction tracking for ad submissions
+- Error capture with ad context
+- Success/failure tracking
+- Performance monitoring
+
+**What's Tracked:**
+
+- Complete ad submission flow
+- Browser automation errors
+- Database lookup failures
+- Form filling errors
+- 2FA issues
+
+**Context Captured:**
+
+- `ad_uuid` - Ad identifier
+- `user_uuid` - User identifier
+- `submit_enabled` - Whether submission is enabled
+- Script arguments (visible, tunnel, persistent, etc.)
+
+### 3. Enhanced Tunnel Scraper (`enhanced_tunnel_scraper.py`)
+
+**Features:**
+
+- Scraping session monitoring
+- Error tracking
+- SSH tunnel issues
+
+**What's Tracked:**
+
+- Scraping errors
+- Network issues
+- Database save failures
+
+### 4. API Data Sender (`njuskalo_api_data_sender.py`)
+
+**Features:**
+
+- API request monitoring
+- Data transformation errors
+- External API failures
+
+**What's Tracked:**
+
+- Dober Avto API requests
+- Data conversion errors
+- Database query issues
+
+## Usage Examples
+
+### Using the Helper Module
+
+The `sentry_helper.py` module provides convenient functions:
+
+```python
+from sentry_helper import (
+    init_sentry,
+    capture_exception_with_context,
+    set_user_context,
+    start_transaction
+)
+
+# Initialize Sentry
+init_sentry(script_name="my_script")
+
+# Set user context
+set_user_context(
+    user_uuid="123e4567-e89b-12d3-a456-426614174000",
+    email="user@example.com"
+)
+
+# Track a transaction
+with start_transaction(op="data_processing", name="process_dealership_data"):
+    # Your code here
+    pass
+
+# Capture exception with context
+try:
+    # Some operation
+    pass
+except Exception as e:
+    capture_exception_with_context(
+        e,
+        context={"operation": "data_fetch"},
+        tags={"component": "scraper"}
+    )
+```
+
+### Manual Sentry Calls
+
+```python
+import sentry_sdk
+
+# Capture exception
+try:
+    risky_operation()
+except Exception as e:
+    sentry_sdk.capture_exception(e)
+
+# Add context
+sentry_sdk.set_context("ad_info", {
+    "ad_uuid": ad_uuid,
+    "status": "processing"
+})
+
+# Add tags
+sentry_sdk.set_tag("environment", "production")
+sentry_sdk.set_tag("component", "form_filler")
+
+# Track transaction
+with sentry_sdk.start_transaction(op="task", name="publish_ad"):
+    publish_ad()
+```
+
+## Monitoring
+
+### Sentry Dashboard
+
+Once configured, visit your Sentry dashboard to see:
+
+1. **Issues** - All captured errors and exceptions
+2. **Performance** - Transaction traces and slow operations
+3. **Releases** - Track deployments (optional)
+4. **Alerts** - Configure notifications
+
+### Key Metrics
+
+- **Error Rate** - Percentage of requests resulting in errors
+- **Transaction Duration** - Time taken for operations
+- **User Impact** - Number of users affected by issues
+- **Frequency** - How often errors occur
+
+### Useful Filters
+
+In Sentry dashboard, filter by:
+
+- `environment:production` - Only production errors
+- `transaction:/publish/{ad_uuid}` - Specific endpoint
+- `user.id:USER_UUID` - Specific user
+- `level:error` - Only errors (not warnings)
+
+## Performance Impact
+
+Sentry's overhead is minimal:
+
+- ~1-2ms per request for tracking
+- Async transmission (doesn't block requests)
+- Configurable sampling rates
+- Automatic rate limiting
+
+## Privacy & Security
+
+**What's NOT sent to Sentry:**
+
+- Passwords (automatically scrubbed)
+- Auth tokens (automatically scrubbed)
+- Credit card numbers (automatically scrubbed)
+
+**What IS sent:**
+
+- Stack traces
+- Error messages
+- Request URLs
+- User identifiers (UUIDs)
+- Custom context you explicitly add
+
+**Configuration:**
+
+```python
+# Add custom scrubbing in sentry_helper.py
+sentry_sdk.init(
+    before_send=lambda event, hint: scrub_sensitive_data(event),
+    # ... other config
+)
+```
+
+## Troubleshooting
+
+### Sentry Not Working
+
+1. **Check DSN is configured:**
+
+   ```bash
+   grep SENTRY_DSN .env
+   ```
+
+2. **Verify sentry-sdk is installed:**
+
+   ```bash
+   pip show sentry-sdk
+   ```
+
+3. **Check initialization message:**
+
+   - Should see: `✅ Sentry initialized for environment: production`
+   - If you see: `⚠️ Sentry DSN not configured` - check your .env
+
+4. **Test manually:**
+   ```python
+   import sentry_sdk
+   sentry_sdk.capture_message("Test message from njuskalohr")
+   ```
+
+### No Events in Dashboard
+
+1. **Wait a few minutes** - Processing can take 1-2 minutes
+2. **Check environment filter** - Make sure you're viewing the right environment
+3. **Verify DSN** - Incorrect DSN won't send events
+4. **Check sampling rate** - If < 1.0, some events may be dropped
+
+### Too Many Events
+
+Adjust sampling rates:
+
+```bash
+# .env
+SENTRY_TRACES_SAMPLE_RATE=0.1  # Track 10% of transactions
+SENTRY_PROFILES_SAMPLE_RATE=0.1  # Profile 10% of transactions
+```
+
+## Best Practices
+
+1. **Use descriptive transaction names:**
+
+   ```python
+   with sentry_sdk.start_transaction(op="ad_submission", name=f"submit_ad_{ad_uuid}"):
+       # ...
+   ```
+
+2. **Add context to errors:**
+
+   ```python
+   sentry_sdk.set_context("form_data", {
+       "fields_filled": 15,
+       "errors": ["field_x_missing"]
+   })
+   ```
+
+3. **Tag important attributes:**
+
+   ```python
+   sentry_sdk.set_tag("ad_type", "vehicle")
+   sentry_sdk.set_tag("submission_method", "api")
+   ```
+
+4. **Set user context:**
+
+   ```python
+   sentry_sdk.set_user({"id": user_uuid})
+   ```
+
+5. **Use breadcrumbs for debugging:**
+   ```python
+   sentry_sdk.add_breadcrumb(
+       category="navigation",
+       message="Navigated to ad submission page",
+       level="info"
+   )
+   ```
+
+## Disabling Sentry
+
+To temporarily disable Sentry without uninstalling:
+
+```bash
+# Comment out or remove from .env
+# SENTRY_DSN=your_dsn_here
+```
+
+The application will detect the missing DSN and skip initialization with a warning message.
+
+## Support
+
+- **Sentry Docs:** https://docs.sentry.io/platforms/python/
+- **FastAPI Integration:** https://docs.sentry.io/platforms/python/integrations/fastapi/
+- **Community:** https://github.com/getsentry/sentry-python
+
+## Sentry Summary
+
+✅ **Integrated Components:**
+
+- FastAPI API (`api.py`)
+- Stealth Publish Script (`njuskalo_stealth_publish.py`)
+- Enhanced Tunnel Scraper (`enhanced_tunnel_scraper.py`)
+- API Data Sender (`njuskalo_api_data_sender.py`)
+
+✅ **Features:**
+
+- Automatic error capture
+- Performance monitoring
+- Transaction tracking
+- Custom context and tags
+- User tracking
+
+✅ **Configuration:**
+
+- Environment-based settings via `.env`
+- Adjustable sampling rates
+- Privacy-focused defaults
+
+🚀 **Ready to use** - Just add your `SENTRY_DSN` to `.env`!

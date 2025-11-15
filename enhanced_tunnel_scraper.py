@@ -16,6 +16,23 @@ from pathlib import Path
 # Add current directory to Python path
 sys.path.append(str(Path(__file__).parent))
 
+# Sentry integration
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Initialize Sentry
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0")),
+        integrations=[LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
+    )
+
 # Import enhanced scraper
 from enhanced_njuskalo_scraper import EnhancedNjuskaloScraper
 from selenium.webdriver.firefox.options import Options

@@ -19,6 +19,22 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import requests
 from dotenv import load_dotenv
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
+import logging
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Sentry
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "1.0")),
+        integrations=[LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
+    )
 
 # Import database class
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
