@@ -147,7 +147,7 @@
             </div>
 
             <!-- Advanced Controls -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 <!-- Enhanced Tunnel Scraping -->
                 <div class="border rounded-lg p-4">
                     <h3 class="font-semibold mb-2">Enhanced Tunnel Scraping</h3>
@@ -167,6 +167,30 @@
                             :disabled="isLoading"
                             class="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 disabled:opacity-50">
                         <i class="fas fa-shield-alt mr-2"></i>Start Tunnel Scraping
+                    </button>
+                </div>
+
+                <!-- Publish Ad by UUID -->
+                <div class="border rounded-lg p-4 bg-gradient-to-br from-orange-50 to-orange-100">
+                    <h3 class="font-semibold mb-2 text-orange-800">
+                        <i class="fas fa-rocket mr-1"></i>Publish Ad to Njuskalo
+                    </h3>
+                    <div class="space-y-2 mb-3">
+                        <label class="block">
+                            <span class="text-sm text-gray-600">Ad UUID:</span>
+                            <input type="text" x-model="publishAdOptions.ad_uuid"
+                                   placeholder="Enter ad UUID to publish"
+                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-orange-500">
+                        </label>
+                        <div class="text-xs text-gray-600 bg-white bg-opacity-50 p-2 rounded">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            This will trigger the stealth publish script
+                        </div>
+                    </div>
+                    <button @click="publishAdToNjuskalo()"
+                            :disabled="isLoading || !publishAdOptions.ad_uuid"
+                            class="w-full bg-orange-600 text-white py-2 px-4 rounded hover:bg-orange-700 disabled:opacity-50 font-medium">
+                        <i class="fas fa-paper-plane mr-2"></i>Publish Ad Now
                     </button>
                 </div>
 
@@ -364,6 +388,9 @@
                 publishOptions: {
                     uuid: ''
                 },
+                publishAdOptions: {
+                    ad_uuid: ''
+                },
                 publishResults: null,
 
                 init() {
@@ -486,6 +513,58 @@
                         }
                     } catch (error) {
                         this.showMessage(`Error: ${error.message}`, 'error');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                async publishAdToNjuskalo() {
+                    if (!this.publishAdOptions.ad_uuid) {
+                        this.showMessage('Please enter a valid ad UUID', 'error');
+                        return;
+                    }
+
+                    // Validate UUID format (basic check)
+                    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    if (!uuidPattern.test(this.publishAdOptions.ad_uuid)) {
+                        this.showMessage('Invalid UUID format', 'error');
+                        return;
+                    }
+
+                    if (!confirm(`Are you sure you want to publish ad ${this.publishAdOptions.ad_uuid} to Njuskalo?`)) {
+                        return;
+                    }
+
+                    this.isLoading = true;
+
+                    try {
+                        const response = await fetch(`${window.API_CONFIG.endpoints.publish}/${this.publishAdOptions.ad_uuid}`, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            const successMsg = data.njuskalo_code
+                                ? `✅ Ad published successfully! Njuskalo code: ${data.njuskalo_code}`
+                                : `✅ Ad published but no code retrieved`;
+                            this.showMessage(successMsg, 'success');
+
+                            // Clear the input field on success
+                            this.publishAdOptions.ad_uuid = '';
+                        } else if (response.status === 404) {
+                            this.showMessage('❌ Ad not found in database', 'error');
+                        } else if (response.status === 504) {
+                            this.showMessage('❌ Publishing script timeout - please check logs', 'error');
+                        } else {
+                            this.showMessage(`❌ Failed to publish ad: ${data.detail}`, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage(`❌ Error: ${error.message}`, 'error');
                     } finally {
                         this.isLoading = false;
                     }
