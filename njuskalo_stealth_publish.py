@@ -2075,25 +2075,76 @@ class NjuskaloStealthPublish:
             return False
 
     def _fill_basic_ad_info(self, ad_content: dict) -> bool:
-        """Fill basic ad information (price, description, etc.)"""
+        """Fill basic ad information (price, description, title, etc.)"""
         try:
             self.logger.info("💰 Filling basic ad information...")
 
-            # Fill price
-            if 'price' in ad_content and ad_content['price']:
+            # Ad Title - often required
+            if 'title' in ad_content and ad_content['title']:
+                title_field = self._find_form_field([
+                    'input[name*="title"]',
+                    'input[name*="naslov"]',
+                    'input[id*="title"]',
+                    'input[placeholder*="naslov"]'
+                ])
+
+                if title_field:
+                    self._human_like_typing(title_field, str(ad_content['title']))
+                    self.logger.info(f"✅ Title filled: {ad_content['title']}")
+
+            # Generate title from vehicle data if not provided
+            elif 'vehicleManufacturerName' in ad_content and 'vehicleBaseModelName' in ad_content:
+                auto_title = f"{ad_content['vehicleManufacturerName']} {ad_content['vehicleBaseModelName']}"
+                if 'vehicleTrimYear' in ad_content:
+                    auto_title += f" ({ad_content['vehicleTrimYear']})"
+
+                title_field = self._find_form_field([
+                    'input[name*="title"]',
+                    'input[name*="naslov"]',
+                    'input[id*="title"]'
+                ])
+
+                if title_field:
+                    self._human_like_typing(title_field, auto_title)
+                    self.logger.info(f"✅ Title auto-generated: {auto_title}")
+
+            # Fill price - use specialPrice if available, otherwise regular price
+            price_value = None
+            if 'specialPrice' in ad_content and ad_content['specialPrice']:
+                price_value = ad_content['specialPrice']
+                self.logger.info(f"💰 Using special/discounted price: {price_value}")
+            elif 'price' in ad_content and ad_content['price']:
+                price_value = ad_content['price']
+
+            if price_value:
                 price_field = self._find_form_field([
                     'input[name*="price"]',
                     'input[id*="price"]',
+                    'input[name*="cijena"]',
                     'input[placeholder*="cijena"]',
-                    'input[placeholder*="Cijena"]',
                     'input[type="number"]'
                 ])
 
                 if price_field:
-                    self._human_like_typing(price_field, str(ad_content['price']))
-                    self.logger.info(f"✅ Price filled: {ad_content['price']}")
+                    # Remove decimal points for whole numbers
+                    price_str = str(int(float(price_value)))
+                    self._human_like_typing(price_field, price_str)
+                    self.logger.info(f"✅ Price filled: {price_str} EUR")
                 else:
                     self.logger.warning("⚠️ Price field not found")
+
+            # Price type checkbox (if discounted/special price)
+            if 'priceType' in ad_content and ad_content['priceType'] == 'DISCOUNTED':
+                discount_checkbox = self._find_form_field([
+                    'input[type="checkbox"][name*="discount"]',
+                    'input[type="checkbox"][name*="popust"]',
+                    'input[type="checkbox"][name*="akcij"]'
+                ])
+
+                if discount_checkbox and not discount_checkbox.is_selected():
+                    self._human_like_mouse_movement(discount_checkbox)
+                    discount_checkbox.click()
+                    self.logger.info("✅ Discount/special price checkbox marked")
 
             # Fill description
             if 'description' in ad_content and ad_content['description']:
@@ -2101,12 +2152,15 @@ class NjuskaloStealthPublish:
                     'textarea[name*="description"]',
                     'textarea[id*="description"]',
                     'textarea[name*="opis"]',
+                    'textarea[id*="opis"]',
                     'textarea[placeholder*="opis"]'
                 ])
 
                 if desc_field:
-                    # Clean description text
+                    # Clean description text - remove excessive newlines
                     description = ad_content['description'].strip()
+                    description = '\n'.join(line.strip() for line in description.split('\n') if line.strip())
+
                     self._human_like_typing(desc_field, description, 0.02, 0.08)  # Faster typing for long text
                     self.logger.info(f"✅ Description filled: {len(description)} characters")
                 else:
@@ -2119,88 +2173,175 @@ class NjuskaloStealthPublish:
             return False
 
     def _fill_vehicle_details(self, ad_content: dict) -> bool:
-        """Fill vehicle-specific details (make, model, year, etc.)"""
+        """Fill vehicle-specific details (make, model, year, etc.) with comprehensive field mapping"""
         try:
-            self.logger.info("🚗 Filling vehicle details...")
+            self.logger.info("🚗 Filling vehicle details using enhanced field recognition...")
 
-            # Vehicle manufacturer/make
-            if 'vehicleManufacturerName' in ad_content:
-                make_field = self._find_form_field([
-                    'select[name*="make"]',
-                    'select[name*="manufacturer"]',
-                    'input[name*="make"]',
-                    'input[name*="manufacturer"]'
-                ])
+            # Import form mapper
+            from njuskalo_form_mapper import NjuskaloFormMapper
 
-                if make_field:
-                    if make_field.tag_name == 'select':
-                        self._select_dropdown_option(make_field, ad_content['vehicleManufacturerName'])
-                    else:
-                        self._human_like_typing(make_field, ad_content['vehicleManufacturerName'])
-                    self.logger.info(f"✅ Vehicle make filled: {ad_content['vehicleManufacturerName']}")
-
-            # Vehicle model
-            if 'vehicleBaseModelName' in ad_content:
-                model_field = self._find_form_field([
-                    'select[name*="model"]',
-                    'input[name*="model"]'
-                ])
-
-                if model_field:
-                    if model_field.tag_name == 'select':
-                        # Wait for model dropdown to load after make selection
-                        time.sleep(random.uniform(1, 2))
-                        self._select_dropdown_option(model_field, ad_content['vehicleBaseModelName'])
-                    else:
-                        self._human_like_typing(model_field, ad_content['vehicleBaseModelName'])
-                    self.logger.info(f"✅ Vehicle model filled: {ad_content['vehicleBaseModelName']}")
-
-            # Year of manufacture
-            if 'vehicleTrimYear' in ad_content:
+            # === YEAR SELECTION (First Required Field) ===
+            if 'vehicleTrimYear' in ad_content or 'historyFirstRegistrationDate' in ad_content:
+                year_value = ad_content.get('vehicleTrimYear') or ad_content.get('historyFirstRegistrationDate', '')[:4]
                 year_field = self._find_form_field([
+                    'select[id="ad-carSelector-yearManufactured"]',
+                    'select[name*="yearManufactured"]',
                     'select[name*="year"]',
-                    'select[name*="godina"]',
-                    'input[name*="year"]',
-                    'input[name*="godina"]'
+                    'select[name*="godina"]'
                 ])
 
                 if year_field:
-                    if year_field.tag_name == 'select':
-                        self._select_dropdown_option(year_field, str(ad_content['vehicleTrimYear']))
-                    else:
-                        self._human_like_typing(year_field, str(ad_content['vehicleTrimYear']))
-                    self.logger.info(f"✅ Vehicle year filled: {ad_content['vehicleTrimYear']}")
+                    self._select_dropdown_option(year_field, str(year_value))
+                    self.logger.info(f"✅ Year filled: {year_value}")
+                    time.sleep(random.uniform(0.5, 1.0))  # Wait for manufacturer dropdown to populate
 
-            # Engine displacement
+            # === MANUFACTURER SELECTION (Second Required Field) ===
+            if 'vehicleManufacturerName' in ad_content:
+                manufacturer_field = self._find_form_field([
+                    'select[id="ad-carSelector-manufacturerId"]',
+                    'select[name*="manufacturerId"]',
+                    'select[name*="make"]',
+                    'select[name*="manufacturer"]'
+                ])
+
+                if manufacturer_field:
+                    self._select_dropdown_option(manufacturer_field, ad_content['vehicleManufacturerName'])
+                    self.logger.info(f"✅ Manufacturer filled: {ad_content['vehicleManufacturerName']}")
+                    time.sleep(random.uniform(0.8, 1.5))  # Wait for model dropdown to populate
+
+            # === MODEL SELECTION (Third Required Field) ===
+            if 'vehicleBaseModelName' in ad_content or 'vehicleTrimName' in ad_content:
+                model_name = ad_content.get('vehicleBaseModelName') or ad_content.get('vehicleTrimName')
+                model_field = self._find_form_field([
+                    'select[id="ad-carSelector-modelId"]',
+                    'select[name*="modelId"]',
+                    'select[name*="model"]'
+                ])
+
+                if model_field:
+                    # Wait for model dropdown to be populated
+                    time.sleep(random.uniform(1.0, 2.0))
+                    self._select_dropdown_option(model_field, model_name)
+                    self.logger.info(f"✅ Model filled: {model_name}")
+
+            # === MODEL TYPE (Optional Text Field) ===
+            if 'vehicleTrimName' in ad_content:
+                model_type_field = self._find_form_field([
+                    'input[id="ad-carSelector-modelType"]',
+                    'input[name*="modelType"]'
+                ])
+
+                if model_type_field:
+                    self._human_like_typing(model_type_field, ad_content['vehicleTrimName'])
+                    self.logger.info(f"✅ Model type filled: {ad_content['vehicleTrimName']}")
+
+            # === FUEL TYPE (REQUIRED) ===
+            if 'vehicleFuelType' in ad_content:
+                fuel_info = NjuskaloFormMapper.map_fuel_type(ad_content['vehicleFuelType'])
+                fuel_field = self._find_form_field([
+                    'select[id="ad-specManualInput-ad-fuel_type_id"]',
+                    'select[name*="fuel_type_id"]',
+                    'select[name*="fuel"]'
+                ])
+
+                if fuel_field:
+                    # Try with Croatian name first, then original
+                    self._select_dropdown_option(fuel_field, [fuel_info['croatian'], ad_content['vehicleFuelType']])
+                    self.logger.info(f"✅ Fuel type filled: {fuel_info['croatian']}")
+
+            # === ENGINE DISPLACEMENT (REQUIRED) ===
             if 'vehicleEngineDisplacement' in ad_content:
                 displacement_field = self._find_form_field([
-                    'input[name*="displacement"]',
-                    'input[name*="engine"]',
-                    'input[name*="ccm"]'
+                    'input[id="ad-specManualInput-ad-motor_size"]',
+                    'input[name*="motor_size"]',
+                    'input[name*="displacement"]'
                 ])
 
                 if displacement_field:
                     self._human_like_typing(displacement_field, str(ad_content['vehicleEngineDisplacement']))
-                    self.logger.info(f"✅ Engine displacement filled: {ad_content['vehicleEngineDisplacement']}")
+                    self.logger.info(f"✅ Engine displacement filled: {ad_content['vehicleEngineDisplacement']} cm³")
 
-            # Engine power
+            # === ENGINE POWER (Optional) ===
             if 'vehicleEnginePower' in ad_content:
                 power_field = self._find_form_field([
-                    'input[name*="power"]',
-                    'input[name*="kw"]',
-                    'input[name*="snaga"]'
+                    'input[id="ad-specManualInput-ad-motor_power"]',
+                    'input[name*="motor_power"]',
+                    'input[name*="power"]'
                 ])
 
                 if power_field:
                     self._human_like_typing(power_field, str(ad_content['vehicleEnginePower']))
                     self.logger.info(f"✅ Engine power filled: {ad_content['vehicleEnginePower']} kW")
 
-            # Mileage/Odometer
+            # === DRIVE TYPE (Optional) ===
+            if 'vehicleDriveWheels' in ad_content:
+                drive_info = NjuskaloFormMapper.map_drive_type(ad_content['vehicleDriveWheels'])
+                drive_field = self._find_form_field([
+                    'select[id="ad-specManualInput-ad-drive_type_id"]',
+                    'select[name*="drive_type_id"]',
+                    'select[name*="drive"]'
+                ])
+
+                if drive_field:
+                    self._select_dropdown_option(drive_field, [drive_info['croatian'], ad_content['vehicleDriveWheels']])
+                    self.logger.info(f"✅ Drive type filled: {drive_info['croatian']}")
+
+            # === TRANSMISSION TYPE (Optional) ===
+            if 'vehicleTransmissionType' in ad_content:
+                trans_info = NjuskaloFormMapper.map_transmission(ad_content['vehicleTransmissionType'])
+                transmission_field = self._find_form_field([
+                    'select[id="ad-specManualInput-ad-transmission_type_id"]',
+                    'select[name*="transmission_type_id"]',
+                    'select[name*="transmission"]'
+                ])
+
+                if transmission_field:
+                    self._select_dropdown_option(transmission_field, [trans_info['croatian'], ad_content['vehicleTransmissionType']])
+                    self.logger.info(f"✅ Transmission filled: {trans_info['croatian']}")
+
+            # === DOOR COUNT (REQUIRED) ===
+            if 'vehicleDoors' in ad_content:
+                door_info = NjuskaloFormMapper.map_door_count(ad_content['vehicleDoors'])
+                door_field = self._find_form_field([
+                    'select[id="ad-specManualInput-ad-door_count_id"]',
+                    'select[name*="door_count_id"]',
+                    'select[name*="door"]'
+                ])
+
+                if door_field:
+                    self._select_dropdown_option(door_field, [door_info['croatian'], str(ad_content['vehicleDoors'])])
+                    self.logger.info(f"✅ Door count filled: {door_info['croatian']}")
+
+            # === BODY TYPE (REQUIRED) ===
+            if 'vehicleBodyType' in ad_content:
+                body_info = NjuskaloFormMapper.map_body_type(ad_content['vehicleBodyType'])
+                body_field = self._find_form_field([
+                    'select[id="ad-specManualInput-ad-body_type_id"]',
+                    'select[name*="body_type_id"]',
+                    'select[name*="body"]'
+                ])
+
+                if body_field:
+                    self._select_dropdown_option(body_field, [body_info['croatian'], ad_content['vehicleBodyType']])
+                    self.logger.info(f"✅ Body type filled: {body_info['croatian']}")
+
+            # === MODEL YEAR (Optional - if different from production year) ===
+            if 'historyFirstRegistrationDate' in ad_content:
+                model_year = ad_content['historyFirstRegistrationDate'][:4]
+                model_year_field = self._find_form_field([
+                    'input[id="ad-specManualInput-ad-model_year"]',
+                    'input[name*="model_year"]'
+                ])
+
+                if model_year_field:
+                    self._human_like_typing(model_year_field, model_year)
+                    self.logger.info(f"✅ Model year filled: {model_year}")
+
+            # === MILEAGE (Optional) ===
             if 'vehicleCurrentOdometer' in ad_content:
                 mileage_field = self._find_form_field([
                     'input[name*="mileage"]',
                     'input[name*="odometer"]',
-                    'input[name*="km"]',
                     'input[name*="kilometraza"]'
                 ])
 
@@ -2208,46 +2349,28 @@ class NjuskaloStealthPublish:
                     self._human_like_typing(mileage_field, str(ad_content['vehicleCurrentOdometer']))
                     self.logger.info(f"✅ Mileage filled: {ad_content['vehicleCurrentOdometer']} km")
 
-            # Fuel type
-            if 'vehicleFuelType' in ad_content:
-                fuel_field = self._find_form_field([
-                    'select[name*="fuel"]',
-                    'select[name*="gorivo"]'
+            # === EXTERIOR COLOR (Optional) ===
+            if 'vehicleExteriorColor' in ad_content:
+                croatian_color = NjuskaloFormMapper.map_color(ad_content['vehicleExteriorColor'])
+                color_field = self._find_form_field([
+                    'select[name*="color"]',
+                    'select[name*="boja"]',
+                    'input[name*="color"]'
                 ])
 
-                if fuel_field:
-                    fuel_mapping = {
-                        'DIESEL': ['Diesel', 'DIESEL', 'diesel'],
-                        'PETROL': ['Benzin', 'PETROL', 'petrol', 'Gasoline'],
-                        'HYBRID': ['Hibrid', 'HYBRID', 'hybrid'],
-                        'ELECTRIC': ['Električni', 'ELECTRIC', 'electric']
-                    }
-                    fuel_options = fuel_mapping.get(ad_content['vehicleFuelType'], [ad_content['vehicleFuelType']])
-                    self._select_dropdown_option(fuel_field, fuel_options)
-                    self.logger.info(f"✅ Fuel type filled: {ad_content['vehicleFuelType']}")
+                if color_field:
+                    if color_field.tag_name == 'select':
+                        self._select_dropdown_option(color_field, [croatian_color, ad_content['vehicleExteriorColor']])
+                    else:
+                        self._human_like_typing(color_field, croatian_color)
+                    self.logger.info(f"✅ Color filled: {croatian_color}")
 
-            # Transmission type
-            if 'vehicleTransmissionType' in ad_content:
-                transmission_field = self._find_form_field([
-                    'select[name*="transmission"]',
-                    'select[name*="mjenjac"]'
-                ])
-
-                if transmission_field:
-                    transmission_mapping = {
-                        'Automatic': ['Automatski', 'Automatic', 'automatski'],
-                        'Manual': ['Ručni', 'Manual', 'ručni', 'Manualni']
-                    }
-                    trans_options = transmission_mapping.get(ad_content['vehicleTransmissionType'], [ad_content['vehicleTransmissionType']])
-                    self._select_dropdown_option(transmission_field, trans_options)
-                    self.logger.info(f"✅ Transmission filled: {ad_content['vehicleTransmissionType']}")
-
-            # VIN number
+            # === VIN NUMBER (Optional but important) ===
             if 'vin' in ad_content and ad_content['vin']:
                 vin_field = self._find_form_field([
                     'input[name*="vin"]',
                     'input[name*="VIN"]',
-                    'input[placeholder*="vin"]'
+                    'input[id*="vin"]'
                 ])
 
                 if vin_field:
@@ -2261,7 +2384,7 @@ class NjuskaloStealthPublish:
             return False
 
     def _fill_contact_info(self, ad_content: dict) -> bool:
-        """Fill contact information"""
+        """Fill contact information with proper array handling"""
         try:
             self.logger.info("📞 Filling contact information...")
 
@@ -2271,79 +2394,91 @@ class NjuskaloStealthPublish:
 
             contact = ad_content['contact']
 
+            # Import form mapper for helper methods
+            from njuskalo_form_mapper import NjuskaloFormMapper
+
             # Contact name
             if 'name' in contact and contact['name']:
-                name_field = self._find_form_field([
-                    'input[name*="contact_name"]',
-                    'input[name*="name"]',
-                    'input[name*="ime"]',
-                    'input[placeholder*="ime"]'
-                ])
+                name_value = NjuskaloFormMapper.extract_contact_value(contact['name'])
+                if name_value:
+                    name_field = self._find_form_field([
+                        'input[name*="contact_name"]',
+                        'input[name*="name"]',
+                        'input[name*="ime"]',
+                        'input[id*="contact"]',
+                        'input[placeholder*="ime"]'
+                    ])
 
-                if name_field:
-                    self._human_like_typing(name_field, contact['name'])
-                    self.logger.info(f"✅ Contact name filled: {contact['name']}")
+                    if name_field:
+                        self._human_like_typing(name_field, name_value)
+                        self.logger.info(f"✅ Contact name filled: {name_value}")
 
-            # Phone number
+            # Phone number - extract first valid from array or string
             if 'phone' in contact and contact['phone']:
-                # Get first non-empty phone number
-                phone_number = None
-                if isinstance(contact['phone'], list):
-                    for phone in contact['phone']:
-                        if phone and phone.strip():
-                            phone_number = phone.strip()
-                            break
-                else:
-                    phone_number = contact['phone']
+                phone_number = NjuskaloFormMapper.extract_contact_value(contact['phone'])
 
                 if phone_number:
                     phone_field = self._find_form_field([
                         'input[name*="phone"]',
                         'input[name*="telefon"]',
-                        'input[type="tel"]'
+                        'input[type="tel"]',
+                        'input[id*="phone"]'
                     ])
 
                     if phone_field:
                         self._human_like_typing(phone_field, phone_number)
                         self.logger.info(f"✅ Phone number filled: {phone_number}")
 
-            # Email address
+            # Email address - extract first valid from array or string
             if 'email' in contact and contact['email']:
-                # Get first non-empty email
-                email_address = None
-                if isinstance(contact['email'], list):
-                    for email in contact['email']:
-                        if email and email.strip():
-                            email_address = email.strip()
-                            break
-                else:
-                    email_address = contact['email']
+                email_address = NjuskaloFormMapper.extract_contact_value(contact['email'])
 
                 if email_address:
                     email_field = self._find_form_field([
                         'input[name*="email"]',
-                        'input[type="email"]'
+                        'input[type="email"]',
+                        'input[id*="email"]'
                     ])
 
                     if email_field:
                         self._human_like_typing(email_field, email_address)
                         self.logger.info(f"✅ Email filled: {email_address}")
 
-            # Location
+            # Location/City
             if 'location' in contact and contact['location']:
-                location_field = self._find_form_field([
-                    'input[name*="location"]',
-                    'input[name*="lokacija"]',
-                    'input[name*="mjesto"]',
-                    'select[name*="location"]'
-                ])
+                location_value = NjuskaloFormMapper.extract_contact_value(contact['location'])
 
-                if location_field:
-                    if location_field.tag_name == 'select':
-                        self._select_dropdown_option(location_field, contact['location'])
-                    else:
-                        self._human_like_typing(location_field, contact['location'])
-                    self.logger.info(f"✅ Location filled: {contact['location']}")
+                if location_value:
+                    location_field = self._find_form_field([
+                        'select[name*="location"]',
+                        'select[name*="city"]',
+                        'select[name*="grad"]',
+                        'input[name*="location"]',
+                        'input[name*="lokacija"]',
+                        'input[name*="mjesto"]'
+                    ])
+
+                    if location_field:
+                        if location_field.tag_name == 'select':
+                            self._select_dropdown_option(location_field, location_value)
+                        else:
+                            self._human_like_typing(location_field, location_value)
+                        self.logger.info(f"✅ Location filled: {location_value}")
+
+            # Dealer description (if available)
+            if 'dealerDescription' in contact and contact['dealerDescription']:
+                dealer_desc = NjuskaloFormMapper.extract_contact_value(contact['dealerDescription'])
+
+                if dealer_desc:
+                    dealer_field = self._find_form_field([
+                        'textarea[name*="dealer"]',
+                        'textarea[name*="description"]',
+                        'input[name*="dealer"]'
+                    ])
+
+                    if dealer_field:
+                        self._human_like_typing(dealer_field, dealer_desc, 0.02, 0.06)
+                        self.logger.info(f"✅ Dealer description filled: {len(dealer_desc)} chars")
 
             return True
 
@@ -2352,25 +2487,84 @@ class NjuskaloStealthPublish:
             return False
 
     def _fill_vehicle_features(self, ad_content: dict) -> bool:
-        """Fill vehicle features/equipment checkboxes"""
+        """Fill vehicle features/equipment checkboxes with comprehensive Slovenian-Croatian mapping"""
         try:
-            self.logger.info("🔧 Filling vehicle features...")
+            self.logger.info("🔧 Filling vehicle features using comprehensive mapper...")
 
             if 'features' not in ad_content or not ad_content['features']:
                 self.logger.info("ℹ️ No features found in ad data")
                 return True
 
+            # Import form mapper
+            from njuskalo_form_mapper import NjuskaloFormMapper
+
+            # Map Slovenian/English features to Croatian checkbox IDs
+            mapped_features = NjuskaloFormMapper.map_features(ad_content['features'])
+
             features_filled = 0
-            features_total = len(ad_content['features'])
+            features_attempted = 0
 
-            for feature in ad_content['features']:
-                if self._select_feature_checkbox(feature):
-                    features_filled += 1
+            # === FILL ADDITIONAL EQUIPMENT CHECKBOXES ===
+            if mapped_features['additional_equipment']:
+                self.logger.info(f"📦 Filling {len(mapped_features['additional_equipment'])} additional equipment features...")
 
-                # Small delay between feature selections
-                time.sleep(random.uniform(0.1, 0.3))
+                for checkbox_id in mapped_features['additional_equipment']:
+                    features_attempted += 1
+                    checkbox_selector = f'input[name="ad[equipmentManualInput][ad][additional_equipment][{checkbox_id}]"]'
 
-            self.logger.info(f"✅ Features filled: {features_filled}/{features_total}")
+                    try:
+                        checkbox = self.driver.find_element(By.CSS_SELECTOR, checkbox_selector)
+                        if checkbox.is_displayed() and not checkbox.is_selected():
+                            self._human_like_mouse_movement(checkbox)
+                            checkbox.click()
+                            features_filled += 1
+                            self.logger.info(f"  ✓ Checked additional equipment: ID {checkbox_id}")
+                            time.sleep(random.uniform(0.15, 0.35))
+                    except Exception as e:
+                        self.logger.warning(f"  ⚠️ Could not check additional equipment ID {checkbox_id}: {e}")
+
+            # === FILL SAFETY FEATURES CHECKBOXES ===
+            if mapped_features['safety_features']:
+                self.logger.info(f"🛡️ Filling {len(mapped_features['safety_features'])} safety features...")
+
+                for checkbox_id in mapped_features['safety_features']:
+                    features_attempted += 1
+                    checkbox_selector = f'input[name="ad[equipmentManualInput][ad][safety_features][{checkbox_id}]"]'
+
+                    try:
+                        checkbox = self.driver.find_element(By.CSS_SELECTOR, checkbox_selector)
+                        if checkbox.is_displayed() and not checkbox.is_selected():
+                            self._human_like_mouse_movement(checkbox)
+                            checkbox.click()
+                            features_filled += 1
+                            self.logger.info(f"  ✓ Checked safety feature: ID {checkbox_id}")
+                            time.sleep(random.uniform(0.15, 0.35))
+                    except Exception as e:
+                        self.logger.warning(f"  ⚠️ Could not check safety feature ID {checkbox_id}: {e}")
+
+            # === FILL COMFORT FEATURES CHECKBOXES ===
+            if mapped_features['comfort_features']:
+                self.logger.info(f"🪑 Filling {len(mapped_features['comfort_features'])} comfort features...")
+
+                for checkbox_id in mapped_features['comfort_features']:
+                    features_attempted += 1
+                    checkbox_selector = f'input[name="ad[equipmentManualInput][ad][comfort_features][{checkbox_id}]"]'
+
+                    try:
+                        checkbox = self.driver.find_element(By.CSS_SELECTOR, checkbox_selector)
+                        if checkbox.is_displayed() and not checkbox.is_selected():
+                            self._human_like_mouse_movement(checkbox)
+                            checkbox.click()
+                            features_filled += 1
+                            self.logger.info(f"  ✓ Checked comfort feature: ID {checkbox_id}")
+                            time.sleep(random.uniform(0.15, 0.35))
+                    except Exception as e:
+                        self.logger.warning(f"  ⚠️ Could not check comfort feature ID {checkbox_id}: {e}")
+
+            # Summary
+            total_mapped = len(mapped_features['additional_equipment']) + len(mapped_features['safety_features']) + len(mapped_features['comfort_features'])
+            self.logger.info(f"✅ Features filled: {features_filled}/{features_attempted} (mapped {total_mapped} from {len(ad_content['features'])} input features)")
+
             return True
 
         except Exception as e:

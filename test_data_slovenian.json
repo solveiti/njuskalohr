@@ -1,0 +1,54 @@
+{
+  "priceType": "DISCOUNTED",
+  "price": "100000",
+  "specialPrice": 90232,
+  "description": "Audi S5 v6\n\nTestiram",
+  "vehicleManufacturerCode": "Audi",
+  "vehicleManufacturerName": "Audi",
+  "vehicleTrimName": "S5",
+  "vehicleTrimYear": "2014",
+  "vehicleBaseModelName": "S5",
+  "vin": "WAUZZZ8T1EA046113",
+  "vehicleCurrentOdometer": "120000",
+  "vehicleInteriorColor": "Black",
+  "vehicleExteriorColor": "Gray",
+  "vehicleEngineDisplacement": "3000",
+  "vehicleEnginePower": "245",
+  "vehicleEngineHorsePower": 333,
+  "vehicleTransmissionType": "Automatic",
+  "vehicleBodyType": "Coupe",
+  "vehicleFuelType": "Petrol",
+  "vehicleDriveWheels": "BOTH",
+  "vehicleDoors": 3,
+  "vehicleSeats": 4,
+  "historyFirstRegistrationDate": "2014",
+  "contact": {
+    "dealerDescription": "Testiram",
+    "name": "Test App",
+    "phone": [
+      "6737373627"
+    ],
+    "email": [
+      "nikola@halo.cool"
+    ],
+    "location": "Test"
+  },
+  "features": [
+    "Adaptive Cruise Control",
+    "Adaptive Headlights",
+    "Adjustable Pedals",
+    "Aftermarket Wheels",
+    "Air Conditioning",
+    "Alloy Wheels",
+    "ABS",
+    "Sedeži - gretje spredaj",
+    "Sedeži - gretje zadaj",
+    "Sedeži - električna nastavitev",
+    "Organizator prtljažnega prostora",
+    "Osvetlitev v vratih - zunaj",
+    "Ročni menjalnik",
+    "Kolesa: ostalo",
+    "Krmiljenje vseh koles - 4WS",
+    "Ojačana zadnja os"
+  ]
+}
