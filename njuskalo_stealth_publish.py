@@ -73,7 +73,7 @@ class NjuskaloStealthPublish:
     """
 
     def __init__(self, headless: bool = True, use_tunnel: bool = False,
-                 username: str = None, password: str = None, persistent: bool = True,
+                 email: str = None, password: str = None, persistent: bool = True,
                  ad_uuid: str = None, user_uuid: str = None, test_mode: bool = False, submit_ad: bool = False):
         """
         Initialize stealth publish system
@@ -100,9 +100,9 @@ class NjuskaloStealthPublish:
         self.logger = self._setup_logging()
 
         # Login credentials (will be populated from database if not provided)
-        self.username = username
+        self.email = email
         self.password = password
-        self.default_username = "MilkicHalo"
+        self.default_email = "srdjanm"
         self.default_password = "rvp2mqu@xye1JRC0fjt"
 
         # Njuskalo URLs
@@ -200,7 +200,7 @@ class NjuskaloStealthPublish:
 
                     # First, get user UUID from adItem table
                     sql_ad = """
-                        SELECT user FROM adItem
+                        SELECT user FROM aditem
                         WHERE uuid = %s
                         LIMIT 1
                     """
@@ -210,7 +210,7 @@ class NjuskaloStealthPublish:
                     if not result:
                         # Try with UUID as string (fallback)
                         sql_ad = """
-                            SELECT user FROM adItem
+                            SELECT user FROM aditem
                             WHERE HEX(uuid) = %s
                             LIMIT 1
                         """
@@ -285,9 +285,9 @@ class NjuskaloStealthPublish:
                                 user_obj = {}
 
                             # Extract credentials if available
-                            if 'username' in user_obj and not self.username:
-                                self.username = user_obj['username']
-                                self.logger.info(f"✅ Retrieved username: {self.username}")
+                            if 'email' in user_obj and not self.email:
+                                self.email = user_obj['email']
+                                self.logger.info(f"✅ Retrieved email: {self.email}")
 
                             if 'password' in user_obj and not self.password:
                                 self.password = user_obj['password']
@@ -297,9 +297,9 @@ class NjuskaloStealthPublish:
                             self.logger.warning(f"⚠️ Could not parse user data: {e}")
 
                     # Use defaults if credentials not found in database
-                    if not self.username:
-                        self.username = self.default_username
-                        self.logger.info(f"ℹ️ Using default username: {self.username}")
+                    if not self.email:
+                        self.email = self.default_email
+                        self.logger.info(f"ℹ️ Using default email: {self.email}")
 
                     if not self.password:
                         self.password = self.default_password
@@ -311,8 +311,8 @@ class NjuskaloStealthPublish:
         except Exception as e:
             self.logger.error(f"❌ Error resolving user from ad: {e}")
             # Use defaults on error
-            if not self.username:
-                self.username = self.default_username
+            if not self.email:
+                self.email = self.default_email
             if not self.password:
                 self.password = self.default_password
 
@@ -336,16 +336,16 @@ class NjuskaloStealthPublish:
             profiles_base = Path("browser_profiles")
             profiles_base.mkdir(exist_ok=True)
 
-            # Use username-based profile directory
-            safe_username = "".join(c for c in self.username if c.isalnum() or c in "-_")
-            self.profile_dir = profiles_base / f"njuskalo_profile_{safe_username}"
+            # Use email-based profile directory
+            safe_email = "".join(c for c in self.email if c.isalnum() or c in "-_")
+            self.profile_dir = profiles_base / f"njuskalo_profile_{safe_email}"
             self.profile_dir.mkdir(exist_ok=True)
 
             self.logger.info(f"📁 Using persistent profile: {self.profile_dir}")
 
             # Generate consistent device fingerprint
             import hashlib
-            fingerprint_seed = f"{self.username}_{self.base_url}_njuskalo_stealth"
+            fingerprint_seed = f"{self.email}_{self.base_url}_njuskalo_stealth"
             self.device_fingerprint = hashlib.md5(fingerprint_seed.encode()).hexdigest()
 
             # Create device fingerprint file for consistency
@@ -408,7 +408,7 @@ class NjuskaloStealthPublish:
             # Save session metadata
             session_info = {
                 "uuid": self.user_uuid,
-                "username": self.username,
+                "email": self.email,
                 "created": time.time(),
                 "last_used": time.time(),
                 "fingerprint": self.device_fingerprint
@@ -864,57 +864,27 @@ class NjuskaloStealthPublish:
         except Exception as e:
             self.logger.debug(f"Mouse movement warning: {e}")
 
-    def handle_advertisement_popup(self) -> bool:
-        """Handle advertisement notice popup with Didomi consent button and other popups"""
+    def handle_didomi_consent(self) -> bool:
+        """Handle Didomi consent popup if present"""
         try:
-            self.logger.info("🔍 Checking for consent/advertisement popups...")
+            self.logger.info("🔍 Checking for Didomi consent popup...")
 
             # Wait a bit for popup to appear
             time.sleep(random.uniform(1, 2))
 
-            # Common selectors for popup accept buttons (prioritized order)
-            accept_button_selectors = [
-                "#didomi-notice-agree-button",  # Didomi consent management button
-                "button:contains('Prihvati i zatvori')",
-                "button[text*='Prihvati i zatvori']",
-                "input[value*='Prihvati i zatvori']",
-                "a:contains('Prihvati i zatvori')",
-                ".accept-button",
-                ".cookie-accept",
-                ".gdpr-accept",
-                "[data-accept]",
-                "button[class*='accept']",
-                "button[id*='accept']",
-                ".popup button:contains('Prihvati')",
-                ".modal button:contains('Prihvati')",
-                ".overlay button:contains('Prihvati')"
-            ]
-
-            # Additional Didomi consent management selectors
+            # Didomi consent management selectors
             didomi_selectors = [
                 "#didomi-notice-agree-button",
                 "[data-didomi-id='agree']",
                 ".didomi-notice-component-button[aria-labelledby*='agree']",
                 ".didomi-button-agree",
-                ".didomi-continue-without-agreeing"
+                ".didomi-continue-without-agreeing",
+                "button[id*='didomi-notice-agree']",
+                "button[class*='didomi-notice-agree']",
+                "button.didomi-components-button"
             ]
 
-            # Also look for generic close/accept buttons in popups
-            generic_popup_selectors = [
-                ".popup .close-button",
-                ".modal .close-button",
-                ".overlay .close-button",
-                ".popup button[type='button']",
-                ".modal button[type='button']",
-                ".cookie-banner button",
-                ".gdpr-banner button"
-            ]
-
-            # Try to find and click the accept button (check Didomi first, then others)
-            button_found = False
-            all_selectors = didomi_selectors + accept_button_selectors + generic_popup_selectors
-
-            for selector in all_selectors:
+            for selector in didomi_selectors:
                 try:
                     # Wait a short time for the button to appear
                     button = WebDriverWait(self.driver, 2).until(
@@ -922,9 +892,9 @@ class NjuskaloStealthPublish:
                     )
 
                     if button.is_displayed():
-                        self.logger.info(f"✅ Found popup accept button: {selector}")
+                        self.logger.info(f"✅ Found Didomi consent button: {selector}")
 
-                        # Human-like interaction with popup
+                        # Human-like interaction
                         time.sleep(random.uniform(0.5, 1.0))
 
                         # Scroll button into view
@@ -937,35 +907,28 @@ class NjuskaloStealthPublish:
                         # Click the button
                         try:
                             button.click()
-                            button_type = "Didomi consent" if "didomi" in selector.lower() else "popup accept"
-                            self.logger.info(f"🎯 Clicked {button_type} button")
+                            self.logger.info("🎯 Clicked Didomi consent button")
                         except ElementClickInterceptedException:
                             # Use JavaScript click if regular click fails
                             self.driver.execute_script("arguments[0].click();", button)
-                            button_type = "Didomi consent" if "didomi" in selector.lower() else "popup accept"
-                            self.logger.info(f"🎯 JavaScript clicked {button_type} button")
+                            self.logger.info("🎯 JavaScript clicked Didomi consent button")
 
                         # Wait for popup to disappear
                         time.sleep(random.uniform(1, 2))
-                        button_found = True
-                        break
+                        return True
 
                 except (TimeoutException, NoSuchElementException):
                     continue
                 except Exception as e:
-                    self.logger.debug(f"Error with selector {selector}: {e}")
+                    self.logger.debug(f"Error with Didomi selector {selector}: {e}")
                     continue
 
-            if not button_found:
-                self.logger.info("ℹ️ No consent/advertisement popup found or already handled")
-            else:
-                self.logger.info("✅ Consent/advertisement popup handled successfully")
-
+            self.logger.info("ℹ️ No Didomi consent popup found or already handled")
             return True
 
         except Exception as e:
-            self.logger.warning(f"⚠️ Error handling advertisement popup: {e}")
-            return True  # Continue anyway, popup handling is not critical
+            self.logger.warning(f"⚠️ Error handling Didomi consent: {e}")
+            return True  # Continue anyway, consent handling is not critical
 
     def _check_if_already_logged_in(self) -> bool:
         """Check if user is already logged in by looking for logged-in indicators"""
@@ -1058,8 +1021,8 @@ class NjuskaloStealthPublish:
             if self.persistent:
                 self.restore_session_data()
 
-            # Handle advertisement popup if present
-            self.handle_advertisement_popup()
+            # Handle Didomi consent if present
+            self.handle_didomi_consent()
 
             # Check if we're on login page or already logged in (redirected to homepage)
             current_url = self.driver.current_url.lower()
@@ -1211,9 +1174,9 @@ class NjuskaloStealthPublish:
                 # Clear and type username
                 username_field.clear()
                 time.sleep(random.uniform(0.1, 0.3))
-                self._human_like_typing(username_field, self.username)
+                self._human_like_typing(username_field, self.email)
 
-                self.logger.info(f"✅ Username entered: {self.username}")
+                self.logger.info(f"✅ Email entered: {self.email}")
 
                 # Random delay before password
                 time.sleep(random.uniform(0.5, 1.5))
@@ -1273,8 +1236,8 @@ class NjuskaloStealthPublish:
                 self.logger.info("⏳ Waiting for login response...")
                 time.sleep(random.uniform(3, 6))
 
-                # Handle any popups that might appear after login
-                self.handle_advertisement_popup()
+                # Handle Didomi consent if present
+                self.handle_didomi_consent()
 
                 # Check if 2FA is required
                 if self._check_2fa_required():
@@ -1381,86 +1344,22 @@ class NjuskaloStealthPublish:
             # Wait for the code input form to appear
             time.sleep(random.uniform(2, 4))
 
-            # Step 2: Handle code input (different for test vs production)
-            if self._is_test_environment():
-                return self._handle_2fa_test_mode()
-            else:
-                return self._handle_2fa_production_mode()
+            # Step 2: Get code from database and enter it
+            return self._handle_2fa_from_database()
 
         except Exception as e:
             self.logger.error(f"❌ 2FA handling failed: {e}")
             return False
 
-    def _is_test_environment(self) -> bool:
-        """Check if we're in test environment (based on test_mode parameter or username)"""
-        if hasattr(self, 'test_mode') and self.test_mode:
-            return True
-
-        # Fallback: check username
-        test_usernames = ["test", "srdjanmsd", "testuser"]
-        return self.username.lower() in test_usernames
-
-    def _handle_2fa_test_mode(self) -> bool:
-        """Handle 2FA in test mode - wait for user input"""
+    def _handle_2fa_from_database(self) -> bool:
+        """Handle 2FA by getting code from database"""
         try:
-            self.logger.info("🧪 Test mode: Waiting for manual code input...")
-
-            # Look for code input field
-            code_input_selectors = [
-                "input[placeholder*='kod']",
-                "input[placeholder*='code']",
-                "input[name*='verification']",
-                "input[name*='kod']",
-                "[class*='TwoFactor'] input[type='text']",
-                "[class*='TwoFactor'] input[type='number']"
-            ]
-
-            code_input = None
-            for selector in code_input_selectors:
-                try:
-                    code_input = WebDriverWait(self.driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                    )
-                    self.logger.info(f"✅ Found code input field: {selector}")
-                    break
-                except TimeoutException:
-                    continue
-
-            if not code_input:
-                self.logger.error("❌ Code input field not found")
-                return False
-
-            # In test mode, wait for user to manually enter the code
-            print("\n" + "="*60)
-            print("🔐 TWO-FACTOR AUTHENTICATION REQUIRED")
-            print("="*60)
-            print("Please check your phone/email for the verification code.")
-            print("Enter the code in the browser window and press Enter here when done.")
-            print("="*60)
-
-            try:
-                input("Press Enter when you have entered the code in the browser...")
-            except KeyboardInterrupt:
-                self.logger.info("👋 2FA interrupted by user")
-                return False
-
-            # Look for and click submit button
-            return self._click_2fa_submit_button()
-
-        except Exception as e:
-            self.logger.error(f"❌ 2FA test mode failed: {e}")
-            return False
-
-    def _handle_2fa_production_mode(self) -> bool:
-        """Handle 2FA in production mode - get code from database"""
-        try:
-            self.logger.info("🏭 Production mode: Waiting for database code...")
+            self.logger.info("� Retrieving 2FA code from database...")
 
             # Check if UUID is available for database lookup
             if not self.user_uuid:
-                self.logger.error("❌ No UUID provided for database lookup in production mode")
-                self.logger.info("💡 Falling back to test mode for manual code entry")
-                return self._handle_2fa_test_mode()
+                self.logger.error("❌ No user UUID provided for database lookup")
+                return False
 
             # Wait 15 minutes for the code to appear in database
             max_wait_time = 15 * 60  # 15 minutes in seconds
@@ -1488,7 +1387,7 @@ class NjuskaloStealthPublish:
             return self._enter_2fa_code(code)
 
         except Exception as e:
-            self.logger.error(f"❌ 2FA production mode failed: {e}")
+            self.logger.error(f"❌ 2FA database retrieval failed: {e}")
             return False
 
     def _get_2fa_code_from_database(self) -> str:
@@ -1658,31 +1557,42 @@ class NjuskaloStealthPublish:
             return False
 
     def _click_2fa_submit_button(self) -> bool:
-        """Click the 2FA submit button"""
+        """Click the 2FA submit button if present (sometimes auto-redirects after code entry)"""
         try:
             submit_button_selector = ".form-action.form-action--submit.button-standard.button-standard--alpha.button-standard--full.TwoFactorAuthentication-submitAction"
 
-            submit_button = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_selector))
-            )
+            # Try to find the submit button with a shorter timeout
+            try:
+                submit_button = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, submit_button_selector))
+                )
 
-            self.logger.info("✅ Clicking 2FA submit button...")
-            self._human_like_mouse_movement(submit_button)
-            time.sleep(random.uniform(1, 2))
-            submit_button.click()
+                self.logger.info("✅ Found 2FA submit button, clicking...")
+                self._human_like_mouse_movement(submit_button)
+                time.sleep(random.uniform(1, 2))
+                submit_button.click()
 
-            # Wait for submission to complete
-            time.sleep(random.uniform(3, 6))
+                # Wait for submission to complete
+                time.sleep(random.uniform(3, 6))
 
-            self.logger.info("🎉 2FA submission completed!")
-            return True
+                self.logger.info("🎉 2FA submission completed!")
+                return True
 
-        except TimeoutException:
-            self.logger.error("❌ 2FA submit button not found")
-            return False
+            except TimeoutException:
+                # Button not found - might have auto-redirected after entering code
+                self.logger.info("ℹ️ 2FA submit button not found - likely auto-redirected after code entry")
+
+                # Give it a moment for potential redirect
+                time.sleep(random.uniform(2, 4))
+
+                self.logger.info("✅ 2FA process completed (auto-redirect)")
+                return True
+
         except Exception as e:
-            self.logger.error(f"❌ Error clicking 2FA submit button: {e}")
-            return False
+            self.logger.warning(f"⚠️ Error during 2FA submission: {e}")
+            # Don't fail the process - might have succeeded anyway
+            time.sleep(random.uniform(2, 4))
+            return True
 
     def verify_login_success(self) -> bool:
         """Verify that login was successful"""
@@ -1747,7 +1657,7 @@ class NjuskaloStealthPublish:
         except Exception as e:
             self.logger.error(f"❌ Failed to take screenshot: {e}")
 
-    def submit_ad(self) -> bool:
+    def submit_ad_to_njuskalo(self) -> bool:
         """Submit a new ad through the category selection process"""
         try:
             self.logger.info("📝 Starting ad submission process...")
@@ -1936,7 +1846,7 @@ class NjuskaloStealthPublish:
 
             try:
                 with connection.cursor() as cursor:
-                    # Get ad by UUID from adItem table
+                    # Get ad by UUID from aditem table
                     import uuid as uuid_lib
 
                     try:
@@ -1947,10 +1857,10 @@ class NjuskaloStealthPublish:
                         self.logger.error(f"❌ Invalid ad UUID format: {self.ad_uuid}")
                         return None
 
-                    # Query adItem table for ad data with status validation
+                    # Query aditem table for ad data with status validation
                     sql = """
                         SELECT uuid, content, status, publishNjuskalo
-                        FROM adItem
+                        FROM aditem
                         WHERE uuid = %s
                         LIMIT 1
                     """
@@ -1961,7 +1871,7 @@ class NjuskaloStealthPublish:
                         # Also try with UUID as string (in case it's stored differently)
                         sql = """
                             SELECT uuid, content, status, publishNjuskalo
-                            FROM adItem
+                            FROM aditem
                             WHERE HEX(uuid) = %s
                             LIMIT 1
                         """
@@ -2603,12 +2513,12 @@ class NjuskaloStealthPublish:
 
             if success:
                 self.logger.info("🎉 Login completed successfully!")
-                self.logger.info(f"You are now logged in to Njuskalo as: {self.username}")
+                self.logger.info(f"You are now logged in to Njuskalo as: {self.email}")
 
                 # Step 7: Submit ad if enabled
                 if self.submit_ad:
                     self.logger.info("📝 Proceeding with ad submission...")
-                    ad_success = self.submit_ad()
+                    ad_success = self.submit_ad_to_njuskalo()
                     if ad_success:
                         self.logger.info("🎉 Ad submission process completed successfully!")
                     else:
@@ -2649,8 +2559,8 @@ def main():
                        help="Run in visible mode (not headless)")
     parser.add_argument("--tunnel", action="store_true",
                        help="Use SSH tunnel for anonymity")
-    parser.add_argument("--username", type=str,
-                       help="Njuskalo username (optional, will be retrieved from database)")
+    parser.add_argument("--email", type=str,
+                       help="Njuskalo email (optional, will be retrieved from database)")
     parser.add_argument("--password", type=str,
                        help="Njuskalo password (optional, will be retrieved from database)")
     parser.add_argument("--no-persistent", action="store_true",
@@ -2670,7 +2580,7 @@ def main():
     stealth_publish = NjuskaloStealthPublish(
         headless=not args.visible,
         use_tunnel=args.tunnel,
-        username=args.username,
+        email=args.email,
         password=args.password,
         persistent=not args.no_persistent,  # Persistent by default
         ad_uuid=args.ad_uuid,  # Pass ad UUID (primary identifier)

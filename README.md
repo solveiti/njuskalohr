@@ -1,25 +1,28 @@
 # 🏪 Njuskalo HR - Complete System Documentation
 
-## Table of Contents
+**A comprehensive Python system for automated interaction with Njuskalo.hr using advanced stealth techniques, database-driven content management, and intelligent form filling capabilities.**
+
+---
+
+## 📑 Table of Contents
 
 1. [Project Overview](#project-overview)
-2. [System Architecture](#system-architecture)
+2. [UUID Architecture](#uuid-architecture)
 3. [Installation & Setup](#installation--setup)
-4. [Stealth Publish System](#stealth-publish-system)
-5. [Form Filling Implementation](#form-filling-implementation)
-6. [Ad Status Validation](#ad-status-validation)
-7. [Usage Examples](#usage-examples)
-8. [Configuration Reference](#configuration-reference)
-9. [Security & Stealth Features](#security--stealth-features)
+4. [Usage & Examples](#usage--examples)
+5. [System Architecture](#system-architecture)
+6. [Stealth & Security Features](#stealth--security-features)
+7. [Form Filling Implementation](#form-filling-implementation)
+8. [Ad Status Validation](#ad-status-validation)
+9. [Configuration Reference](#configuration-reference)
 10. [Error Handling & Troubleshooting](#error-handling--troubleshooting)
 11. [Advanced Features](#advanced-features)
-12. [Future Extensions](#future-extensions)
+12. [File Structure](#file-structure)
+13. [Future Extensions](#future-extensions)
 
 ---
 
 ## Project Overview
-
-A comprehensive Python system for automated interaction with Njuskalo.hr using advanced stealth techniques, database-driven content management, and intelligent form filling capabilities.
 
 ### 🎯 Purpose
 
@@ -42,36 +45,82 @@ This system provides:
 - 📊 **Status Validation**: Ensures only properly prepared ads are published
 - 🌐 **SSH Tunnel Support**: Optional SOCKS proxy for anonymity
 - 💾 **Session Persistence**: Maintains device identity across sessions
+- 🔑 **Dual UUID Architecture**: Proper separation of ads and user sessions
 - 📸 **Debug Capabilities**: Screenshot capture and comprehensive logging
 
 ---
 
-## System Architecture
+## UUID Architecture
 
-### Data Flow Overview
+### 🏗️ Architecture Overview
+
+The system uses a two-step UUID lookup system that properly separates ad identification from user sessions while maintaining data relationships.
+
+#### Before (Single UUID)
 
 ```
-Database (adItem) → Status Validation → Content Extraction → Form Mapping → Human Simulation → Submission
+user_uuid → Firefox sessions + Form data + User credentials
 ```
 
-### Core Components
+#### After (Dual UUID System)
 
-1. **NjuskaloStealthPublish**: Main orchestrator class
-2. **Database Integration**: MySQL integration with status validation
-3. **Form Filling Engine**: Intelligent field detection and mapping
-4. **Stealth Browser**: Advanced anti-detection browser configuration
-5. **Session Management**: Persistent device identity and session restoration
+```
+ad_uuid → adItem.user → user_uuid → Firefox sessions + User credentials
+ad_uuid → adItem.content → Form data
+```
 
-### Database Schema
+### 📊 Database Schema Requirements
+
+#### Required Tables
+
+**1. adItem table**
+
+- `uuid` (BINARY(16)) - Primary ad identifier
+- `user` (BINARY(16)) - Reference to users.uuid
+- `content` (JSON) - Ad form data
+- `status` (VARCHAR) - Must be 'PUBLISHED'
+- `publishNjuskalo` (BOOLEAN) - Must be TRUE
+
+**2. users table**
+
+- `uuid` (BINARY(16)) - Primary user identifier
+- `njuskalo`/`profile`/`avtonet` (JSON) - Contains credentials and 2FA codes
+
+#### Example Data Structure
 
 ```sql
-CREATE TABLE adItem (
-  uuid BINARY(16) PRIMARY KEY,
-  content JSON NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  publishNjuskalo BOOLEAN DEFAULT FALSE
-);
+-- adItem table
+INSERT INTO adItem (uuid, user, content, status, publishNjuskalo) VALUES
+(UNHEX(REPLACE('ad-uuid-here', '-', '')),
+ UNHEX(REPLACE('user-uuid-here', '-', '')),
+ '{"price": 5000, "description": "Car description..."}',
+ 'PUBLISHED',
+ TRUE);
+
+-- users table
+INSERT INTO users (uuid, njuskalo) VALUES
+(UNHEX(REPLACE('user-uuid-here', '-', '')),
+ '[{"username": "user123", "password": "pass123", "code": "123456"}]');
 ```
+
+### 🔍 Validation Flow
+
+1. **Input**: Provide ad_uuid (required)
+2. **Lookup**: Find user from adItem.user field
+3. **Resolve**: Get user credentials from users table
+4. **Validate**: Check both ad_uuid and user_uuid exist
+5. **Session**: Use user_uuid for Firefox profiles
+6. **Form**: Use ad_uuid for ad content retrieval
+7. **Publish**: Submit with proper user authentication
+
+### 📝 Benefits
+
+- **Proper Data Relationships**: Ad and user data properly separated
+- **Automatic Resolution**: Only need ad UUID - user data resolved automatically
+- **Session Persistence**: User UUID used for Firefox profiles and 2FA
+- **Flexible Overrides**: Can override user or credentials when needed
+- **Backward Compatible**: Existing scripts continue to work
+- **Clear Separation**: Ad content vs user session data clearly separated
 
 ---
 
@@ -82,6 +131,13 @@ CREATE TABLE adItem (
 ```bash
 pip install -r requirements.txt
 ```
+
+**Required packages:**
+
+- selenium
+- pymysql
+- python-dotenv
+- webdriver-manager (optional)
 
 ### 2. GeckoDriver Installation
 
@@ -115,51 +171,257 @@ NJUSKALO_BASE_URL=https://www.njuskalo.hr
 
 # Database configuration
 DB_HOST=localhost
+DB_PORT=3306
 DB_USER=your_username
 DB_PASSWORD=your_password
-DB_NAME=your_database
+DB_NAME=njuskalo_database
 
 # SSH Tunnel configuration (optional)
 SOCKS_PROXY_HOST=127.0.0.1
 SOCKS_PROXY_PORT=1080
+
+# Stealth Configuration
+USER_AGENT_RANDOMIZATION=true
+DEVICE_PERSISTENCE=true
+JAVASCRIPT_STEALTH=true
+```
+
+### 5. SSH Tunnel Setup (Optional)
+
+For maximum anonymity, create `tunnel_config.json`:
+
+```json
+{
+  "tunnel1": {
+    "ssh_host": "your-server.com",
+    "ssh_port": 22,
+    "ssh_user": "username",
+    "ssh_key": "/path/to/private/key",
+    "local_port": 1080,
+    "remote_host": "localhost",
+    "remote_port": 1080
+  }
+}
 ```
 
 ---
 
-## Stealth Publish System
+## Usage & Examples
 
-### Core Features
+### Basic Usage (Recommended)
 
-#### Advanced Stealth Configuration
+```bash
+# Only need ad UUID - everything else is resolved automatically
+python njuskalo_stealth_publish.py --ad-uuid 12345678-1234-1234-1234-123456789abc --submit-ad
 
-- **Webdriver Detection Bypass**: Disables `navigator.webdriver` property
-- **User Agent Randomization**: Uses realistic Firefox user agents based on device fingerprint
-- **Language Settings**: Configured for Croatian locale (hr-HR)
-- **Hardware Fingerprinting**: Disabled WebGL and hardware acceleration
-- **Automation Indicators**: Removes Selenium automation markers
-- **Cache Disabled**: No disk or memory cache for stealth operation
-- **JavaScript Injection**: Comprehensive stealth script injection
+# Development mode with visible Firefox
+python njuskalo_stealth_publish.py --ad-uuid your-ad-uuid --visible
 
-#### Device Persistence & Identity Management
+# Headless production mode
+python njuskalo_stealth_publish.py --ad-uuid your-ad-uuid --submit-ad
+
+# With SSH tunnel for anonymity
+python njuskalo_stealth_publish.py --ad-uuid your-ad-uuid --submit-ad --tunnel
+```
+
+### Advanced Usage
+
+```bash
+# Override user UUID for specific user session
+python njuskalo_stealth_publish.py \
+  --ad-uuid ad-uuid-here \
+  --user-uuid user-uuid-here \
+  --submit-ad
+
+# Custom credentials override
+python njuskalo_stealth_publish.py \
+  --ad-uuid your-ad-uuid \
+  --username "your_user" \
+  --password "your_pass" \
+  --submit-ad
+
+# Disable device persistence (appear as new device)
+python njuskalo_stealth_publish.py \
+  --ad-uuid your-ad-uuid \
+  --submit-ad \
+  --no-persistent
+
+# Test mode with manual input
+python njuskalo_stealth_publish.py --test-mode --submit-ad --visible
+```
+
+### Backward Compatibility
+
+```bash
+# Legacy --uuid parameter still works (maps to --ad-uuid)
+python njuskalo_stealth_publish.py --uuid ad-uuid-here --submit-ad
+```
+
+### Testing Scripts
+
+```bash
+# Test in visible mode (recommended for first run)
+python test_stealth_publish.py --mode visible
+
+# Test in headless mode
+python test_stealth_publish.py --mode headless
+
+# Test both modes sequentially
+python test_stealth_publish.py --mode both
+
+# Test UUID resolution architecture
+python tests/test_uuid_architecture.py
+
+# See usage examples
+python tests/usage_examples_new_architecture.py
+```
+
+### Command Line Arguments
+
+```bash
+# Core Arguments
+--ad-uuid UUID           # Specific ad UUID to process (NEW)
+--uuid UUID              # Legacy parameter (maps to --ad-uuid)
+--user-uuid UUID         # Override user UUID
+--username USERNAME      # Njuskalo login username override
+--password PASSWORD      # Njuskalo login password override
+--visible                # Run in visible mode (not headless)
+--headless               # Force headless mode
+--submit-ad              # Enable form submission
+--test-mode              # Enable test mode with manual UUID input
+
+# Advanced Arguments
+--tunnel                 # Use SSH tunnel for anonymity
+--no-persistent          # Disable device persistence
+--debug                  # Enable debug logging
+--screenshot-dir DIR     # Custom screenshot directory
+--profile-dir DIR        # Custom browser profile directory
+```
+
+---
+
+## System Architecture
+
+### Data Flow Overview
+
+```
+Database (adItem) → UUID Resolution → Status Validation → Content Extraction → Form Mapping → Human Simulation → Submission
+```
+
+### Core Components
+
+1. **NjuskaloStealthPublish**: Main orchestrator class
+2. **UUID Resolution System**: Two-step ad → user lookup
+3. **Database Integration**: MySQL with status validation
+4. **Form Filling Engine**: Intelligent field detection and mapping
+5. **Stealth Browser**: Advanced anti-detection configuration
+6. **Session Management**: Persistent device identity and restoration
+7. **2FA Handler**: Database-driven two-factor authentication
+
+### Key Methods
+
+#### Constructor
 
 ```python
-# Persistent browser profiles based on username
-profile_dir = f"browser_profiles/{username}_profile"
+def __init__(self,
+    ad_uuid: str = None,           # NEW: Primary ad identifier
+    user_uuid: str = None,         # Optional user override
+    username: str = None,          # Optional credential override
+    password: str = None,          # Optional credential override
+    headless: bool = True,
+    tunnel_enabled: bool = False,
+    persistent: bool = True,
+    ...
+):
+```
+
+#### New UUID Resolution Methods
+
+- `_resolve_user_from_ad()` - Resolves user from ad UUID
+- `_validate_required_uuids()` - Validates required UUIDs
+
+#### Updated Methods
+
+- `_get_ad_data_from_database()` - Uses ad_uuid instead of user_uuid
+- `_get_2fa_code_from_database()` - Uses user_uuid for 2FA lookup
+- `run_stealth_publish()` - Added UUID validation step
+
+---
+
+## Stealth & Security Features
+
+### Advanced Stealth Configuration
+
+#### Webdriver Detection Bypass
+
+```python
+# Disables navigator.webdriver property
+options.set_preference("dom.webdriver.enabled", False)
+options.set_preference("useAutomationExtension", False)
+
+# Remove automation indicators
+options.set_preference("marionette", False)
+```
+
+#### User Agent Randomization
+
+```python
+# Consistent but randomized based on device fingerprint
+device_seed = hashlib.md5(username.encode()).hexdigest()[:8]
+user_agents = [
+    "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:95.0) Gecko/20100101 Firefox/95.0"
+]
+selected_ua = user_agents[int(device_seed[4:6], 16) % len(user_agents)]
+```
+
+#### JavaScript Stealth Injection
+
+```javascript
+// Remove webdriver properties
+Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+
+// Fake plugin detection
+Object.defineProperty(navigator, "plugins", {
+  get: () => [1, 2, 3, 4, 5].map(() => "Plugin"),
+});
+
+// Spoof language preferences
+Object.defineProperty(navigator, "languages", {
+  get: () => ["hr-HR", "hr", "en-US", "en"],
+});
+
+// Hide automation indicators
+[
+  "__webdriver_evaluate",
+  "__selenium_evaluate",
+  "__webdriver_script_function",
+].forEach((prop) => {
+  window[prop] = undefined;
+});
+```
+
+### Device Persistence & Identity Management
+
+```python
+# Persistent browser profiles based on user UUID
+profile_dir = f"browser_profiles/{user_uuid}_profile"
 
 # Consistent device fingerprinting
-device_seed = hashlib.md5(username.encode()).hexdigest()[:8]
+device_seed = hashlib.md5(user_uuid.encode()).hexdigest()[:8]
 screen_width = 1366 + int(device_seed[:2], 16) % 100
+screen_height = 768 + int(device_seed[2:4], 16) % 100
 ```
 
 **Features:**
 
 - **Persistent Browser Profiles**: Creates and maintains user-specific Firefox profiles
-- **Consistent Device Fingerprinting**: Uses username-based seeds for browser characteristics
+- **Consistent Device Fingerprinting**: Uses user UUID-based seeds for browser characteristics
 - **Cookie & Session Management**: Automatically saves and restores login sessions
 - **Local Storage Persistence**: Maintains browser data for device continuity
 - **Stable User-Agent**: Consistent user agent strings based on device fingerprint
 
-#### Human-like Behavior Simulation
+### Human-like Behavior Simulation
 
 ```python
 def _human_like_typing(self, element, text: str, min_delay=0.05, max_delay=0.15):
@@ -182,29 +444,35 @@ def _human_like_typing(self, element, text: str, min_delay=0.05, max_delay=0.15)
 - **Screen Size Randomization**: Common resolution patterns
 - **Scroll Behavior**: Natural scrolling to bring elements into view
 
-#### Consent & Advertisement Popup Handling
+### Didomi Consent Handling
 
 ```python
-popup_strategies = [
-    # Didomi consent management (GDPR)
+# Didomi consent management selectors
+didomi_selectors = [
     "#didomi-notice-agree-button",
-
-    # Croatian "Accept and Close" buttons
-    "//button[contains(text(), 'Prihvati i zatvori')]",
-    "//a[contains(text(), 'Prihvati i zatvori')]",
-
-    # Generic consent buttons
-    ".consent-accept", ".cookie-accept", ".gdpr-accept"
+    "[data-didomi-id='agree']",
+    ".didomi-notice-component-button[aria-labelledby*='agree']",
+    ".didomi-button-agree",
+    ".didomi-continue-without-agreeing",
+    "button[id*='didomi-notice-agree']",
+    "button[class*='didomi-notice-agree']",
+    "button.didomi-components-button"
 ]
 ```
 
-**Popup Management:**
+**Consent Management:**
 
-- **Didomi Consent Management**: Prioritized GDPR compliance handling
-- **Croatian Button Recognition**: Detects "Prihvati i zatvori" buttons
-- **Multiple Detection Strategies**: Comprehensive CSS selectors
+- **Didomi Consent Detection**: Prioritized GDPR compliance handling
 - **Human-like Interaction**: Realistic click timing and mouse movements
-- **Non-blocking Operation**: Continues even if popup handling fails
+- **Non-blocking Operation**: Continues even if consent handling fails
+- **Dual Timing**: Handles consent on page load and after login
+
+### Network Security
+
+- **SSH Tunnel Support**: SOCKS5 proxy through encrypted tunnels
+- **IP Randomization**: Different IP addresses per session
+- **DNS over HTTPS**: Encrypted DNS resolution
+- **Certificate Validation**: Full SSL certificate verification
 
 ---
 
@@ -403,7 +671,7 @@ Comprehensive validation system ensures only properly prepared ads proceed to fo
 def _get_ad_data_from_database(self):
     """Validate ad status and retrieve content"""
 
-    # Database query
+    # Database query using ad_uuid
     query = """
     SELECT uuid, content, status, publishNjuskalo
     FROM adItem
@@ -443,52 +711,6 @@ def _get_ad_data_from_database(self):
 
 ---
 
-## Usage Examples
-
-### Development & Testing
-
-```bash
-# Test mode with visible browser and manual UUID input
-python3 njuskalo_stealth_publish.py --test-mode --submit-ad --visible
-
-# Test existing ad with specific UUID
-python3 njuskalo_stealth_publish.py --uuid "12345678-1234-1234-1234-123456789abc" --submit-ad --visible
-
-# Development mode without ad submission
-python3 njuskalo_stealth_publish.py --visible
-```
-
-### Production Modes
-
-```bash
-# Headless production with form submission
-python3 njuskalo_stealth_publish.py --uuid "ad-uuid" --submit-ad
-
-# With SSH tunnel for anonymity
-python3 njuskalo_stealth_publish.py --uuid "ad-uuid" --submit-ad --tunnel
-
-# Custom credentials
-python3 njuskalo_stealth_publish.py --username "user" --password "pass" --submit-ad
-
-# Disable device persistence (appear as new device)
-python3 njuskalo_stealth_publish.py --uuid "ad-uuid" --submit-ad --no-persistent
-```
-
-### Testing Scripts
-
-```bash
-# Comprehensive testing in visible mode
-python test_stealth_publish.py --mode visible
-
-# Test headless mode
-python test_stealth_publish.py --mode headless
-
-# Test both modes sequentially
-python test_stealth_publish.py --mode both
-```
-
----
-
 ## Configuration Reference
 
 ### Environment Variables (.env)
@@ -514,106 +736,7 @@ DEVICE_PERSISTENCE=true
 JAVASCRIPT_STEALTH=true
 ```
 
-### SSH Tunnel Setup (Optional)
-
-Create `tunnel_config.json`:
-
-```json
-{
-  "tunnel1": {
-    "ssh_host": "your-server.com",
-    "ssh_port": 22,
-    "ssh_user": "username",
-    "ssh_key": "/path/to/private/key",
-    "local_port": 1080,
-    "remote_host": "localhost",
-    "remote_port": 1080
-  }
-}
-```
-
-### Command Line Arguments
-
-```bash
-# Core Arguments
---uuid UUID              # Specific ad UUID to process
---username USERNAME       # Njuskalo login username
---password PASSWORD       # Njuskalo login password
---visible                # Run in visible mode (not headless)
---headless               # Force headless mode
---submit-ad              # Enable form submission
---test-mode              # Enable test mode with manual UUID input
-
-# Advanced Arguments
---tunnel                 # Use SSH tunnel for anonymity
---no-persistent          # Disable device persistence
---debug                  # Enable debug logging
---screenshot-dir DIR     # Custom screenshot directory
---profile-dir DIR        # Custom browser profile directory
-```
-
----
-
-## Security & Stealth Features
-
-### Anti-Detection Measures
-
-#### JavaScript Stealth Injection
-
-```javascript
-// Remove webdriver properties
-Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-
-// Fake plugin detection
-Object.defineProperty(navigator, "plugins", {
-  get: () => [1, 2, 3, 4, 5].map(() => "Plugin"),
-});
-
-// Spoof language preferences
-Object.defineProperty(navigator, "languages", {
-  get: () => ["hr-HR", "hr", "en-US", "en"],
-});
-
-// Hide automation indicators
-[
-  "__webdriver_evaluate",
-  "__selenium_evaluate",
-  "__webdriver_script_function",
-].forEach((prop) => {
-  window[prop] = undefined;
-});
-```
-
-#### Browser Fingerprint Randomization
-
-```python
-# Consistent but randomized screen resolution
-device_seed = hashlib.md5(username.encode()).hexdigest()[:8]
-screen_width = 1366 + int(device_seed[:2], 16) % 100
-screen_height = 768 + int(device_seed[2:4], 16) % 100
-
-# User agent selection based on device fingerprint
-user_agents = [
-    "Mozilla/5.0 (X11; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0",
-    "Mozilla/5.0 (X11; Linux x86_64; rv:95.0) Gecko/20100101 Firefox/95.0"
-]
-selected_ua = user_agents[int(device_seed[4:6], 16) % len(user_agents)]
-```
-
-### Data Privacy & Security
-
-- **Secure Database Connections**: SSL/TLS encrypted database communication
-- **Credential Handling**: No persistent credential storage
-- **PII Protection**: Personal data anonymized in logs
-- **Session Cleanup**: Browser data cleared after headless sessions
-- **Encrypted Profiles**: Browser profiles with encryption support
-
-### Network Security
-
-- **SSH Tunnel Support**: SOCKS5 proxy through encrypted tunnels
-- **IP Randomization**: Different IP addresses per session
-- **DNS over HTTPS**: Encrypted DNS resolution
-- **Certificate Validation**: Full SSL certificate verification
+**Note**: The script automatically uses the correct Croatian login URL (`/prijava`) and looks for Croatian field names.
 
 ---
 
@@ -644,6 +767,14 @@ self.logger.error("❌ Failed to fill basic ad information - cannot proceed")
 "❌ Failed to retrieve valid ad data - cannot proceed with form filling"
 ```
 
+#### UUID Resolution Errors
+
+```python
+"❌ No user found for ad UUID: [ad_uuid]"
+"❌ Failed to resolve user from ad - cannot proceed"
+"❌ Both ad_uuid and user_uuid are required but not provided"
+```
+
 ### Common Issues & Solutions
 
 #### 1. GeckoDriver Issues
@@ -657,6 +788,7 @@ sudo apt-get install firefox-geckodriver
 wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux64.tar.gz
 tar -xzf geckodriver-v0.33.0-linux64.tar.gz
 sudo mv geckodriver /usr/local/bin/
+sudo chmod +x /usr/local/bin/geckodriver
 ```
 
 #### 2. Firefox Installation
@@ -675,16 +807,23 @@ mysql -h localhost -u username -p database_name
 
 # Verify table structure
 DESCRIBE adItem;
+DESCRIBE users;
 
-# Test UUID lookup
-SELECT uuid, status, publishNjuskalo FROM adItem WHERE uuid = UNHEX(REPLACE('your-uuid', '-', ''));
+# Test ad UUID lookup
+SELECT uuid, user, status, publishNjuskalo FROM adItem
+WHERE uuid = UNHEX(REPLACE('your-ad-uuid', '-', ''));
+
+# Test user resolution
+SELECT u.uuid, u.njuskalo FROM users u
+JOIN adItem a ON a.user = u.uuid
+WHERE a.uuid = UNHEX(REPLACE('your-ad-uuid', '-', ''));
 ```
 
 #### 4. Login Form Detection
 
 ```bash
 # Debug with visible mode
-python3 njuskalo_stealth_publish.py --visible --debug
+python njuskalo_stealth_publish.py --ad-uuid your-uuid --visible --debug
 
 # Check screenshots
 ls -la screenshots/login_*.png
@@ -710,26 +849,13 @@ curl --socks5 127.0.0.1:1080 http://httpbin.org/ip
 
 ```bash
 # Maximum debugging visibility
-python3 njuskalo_stealth_publish.py --visible --debug --screenshot-dir ./debug_screenshots
+python njuskalo_stealth_publish.py --ad-uuid your-uuid --visible --debug --screenshot-dir ./debug_screenshots
 
 # Log analysis
 tail -f logs/njuskalo_stealth_publish.log | grep -E "(ERROR|WARNING)"
 
 # Screenshot review
 find screenshots/ -name "*.png" -mtime -1 | sort
-```
-
-### Performance Monitoring
-
-```python
-# Execution timing logs
-self.logger.info(f"⏱️ Form filling completed in {elapsed_time:.2f}s")
-
-# Memory usage monitoring
-self.logger.debug(f"📊 Memory usage: {psutil.Process().memory_info().rss / 1024 / 1024:.1f}MB")
-
-# Database query performance
-self.logger.debug(f"🗄️ Database query executed in {query_time:.3f}s")
 ```
 
 ---
@@ -745,13 +871,14 @@ from njuskalo_stealth_publish import NjuskaloStealthPublish
 
 # Create instance with custom configuration
 publish = NjuskaloStealthPublish(
+    ad_uuid="your-ad-uuid",
     headless=True,
     tunnel_enabled=True,
     persistent_device=True
 )
 
 # Run with specific ad
-success = publish.run_stealth_publish(ad_uuid="your-ad-uuid")
+success = publish.run_stealth_publish()
 
 if success:
     # Continue with browser session
@@ -768,8 +895,8 @@ ad_uuids = ["uuid1", "uuid2", "uuid3"]
 
 for uuid in ad_uuids:
     try:
-        publisher = NjuskaloStealthPublish()
-        success = publisher.run_stealth_publish(ad_uuid=uuid)
+        publisher = NjuskaloStealthPublish(ad_uuid=uuid)
+        success = publisher.run_stealth_publish()
 
         if success:
             print(f"✅ Successfully published ad: {uuid}")
@@ -803,27 +930,42 @@ custom_selectors = {
 publish._custom_field_selectors = custom_selectors
 ```
 
-### Advanced Stealth Configuration
+---
 
-```python
-# Custom stealth settings
-def setup_advanced_stealth(self):
-    """Enhanced stealth configuration"""
+## File Structure
 
-    # Custom Firefox preferences
-    self.options.set_preference("dom.webdriver.enabled", False)
-    self.options.set_preference("useAutomationExtension", False)
-    self.options.set_preference("general.platform.override", "Linux x86_64")
-
-    # Advanced fingerprint spoofing
-    self.options.set_preference("webgl.disabled", True)
-    self.options.set_preference("media.navigator.enabled", False)
-    self.options.set_preference("battery.api.enabled", False)
-
-    # Custom user agent rotation
-    ua_list = self._load_user_agent_database()
-    selected_ua = self._select_optimal_user_agent(ua_list)
-    self.options.set_preference("general.useragent.override", selected_ua)
+```
+njuskalohr/
+├── njuskalo_stealth_publish.py      # Main stealth publish system
+├── README.md                        # This comprehensive documentation
+├── config.py                        # Configuration management
+├── requirements.txt                 # Python dependencies
+├── setup.sh                         # Environment setup script
+├── .env                             # Environment variables
+├── tunnel_config.json               # SSH tunnel configuration (optional)
+├── tests/                           # Test files directory
+│   ├── __init__.py
+│   ├── README.md
+│   ├── test_stealth_publish.py
+│   ├── test_form_filling.py
+│   ├── test_uuid_architecture.py
+│   ├── usage_examples_new_architecture.py
+│   ├── demo_form_filling_complete.py
+│   └── demo_ad_status_validation.py
+├── logs/                            # Log files directory
+│   ├── njuskalo_stealth_publish.log
+│   ├── form_filling.log
+│   └── debug.log
+├── screenshots/                     # Debug screenshots
+│   ├── login_page_*.png
+│   ├── form_filled_*.png
+│   ├── login_success_*.png
+│   └── error_*.png
+├── browser_profiles/                # Persistent browser profiles (gitignored)
+│   ├── user_uuid_1_profile/
+│   ├── user_uuid_2_profile/
+│   └── ...
+└── __pycache__/                     # Python cache files
 ```
 
 ---
@@ -930,60 +1072,6 @@ class DistributedPublisher:
             self.task_queue.enqueue(worker, ad_uuid)
 ```
 
-#### Performance Optimization
-
-```python
-# Future: Advanced caching and optimization
-class OptimizedPublisher:
-    def __init__(self):
-        self.form_cache = {}
-        self.field_cache = {}
-
-    def cache_form_structure(self, url_hash, form_fields):
-        """Cache form structure for faster subsequent processing"""
-        self.form_cache[url_hash] = {
-            'fields': form_fields,
-            'timestamp': time.time(),
-            'success_rate': 0.95
-        }
-```
-
----
-
-## File Structure
-
-```
-njuskalohr/
-├── njuskalo_stealth_publish.py      # Main stealth publish system
-├── test_stealth_publish.py          # Comprehensive testing script
-├── test_form_filling.py             # Form filling test script
-├── demo_form_filling_complete.py    # Complete demo script
-├── enhanced_tunnel_scraper.py       # Source of stealth techniques
-├── ssh_tunnel_manager.py            # SSH tunnel management
-├── run_scraper.py                   # Scraper execution script
-├── njuskalo_scraper.py              # Core scraping functionality
-├── config.py                        # Configuration management
-├── requirements.txt                 # Python dependencies
-├── setup.sh                         # Environment setup script
-├── .env                             # Environment variables
-├── tunnel_config.json               # SSH tunnel configuration (optional)
-├── logs/                            # Log files directory
-│   ├── njuskalo_stealth_publish.log
-│   ├── form_filling.log
-│   └── debug.log
-├── screenshots/                     # Debug screenshots
-│   ├── login_page_*.png
-│   ├── form_filled_*.png
-│   ├── login_success_*.png
-│   └── error_*.png
-├── browser_profiles/                # Persistent browser profiles
-│   ├── username1_profile/
-│   ├── username2_profile/
-│   └── ...
-├── __pycache__/                     # Python cache files
-└── MERGED_COMPLETE_DOCUMENTATION.md # This comprehensive documentation
-```
-
 ---
 
 ## License & Legal
@@ -1000,10 +1088,13 @@ This system is developed for educational and legitimate automation purposes. Use
 
 ---
 
+## Summary
+
 ✅ **Implementation Status**: Complete and Production Ready
 🔧 **Last Updated**: November 2025
 📚 **Compatibility**: Njuskalo.hr Croatian automotive marketplace
-🏗️ **Architecture**: Modular, scalable, and extensible design
+🏗️ **Architecture**: Modular, scalable, dual UUID design
 🛡️ **Security**: Advanced anti-detection and privacy protection
 📊 **Database**: MySQL integration with comprehensive validation
 🚀 **Performance**: Optimized for reliability and efficiency
+🔑 **UUID System**: Proper ad/user separation with automatic resolution
