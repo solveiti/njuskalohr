@@ -201,6 +201,28 @@ class SimpleDatabase:
             self.logger.error(f"Error getting ad photos: {e}")
             return []
 
+    def get_ad_by_uuid(self, ad_uuid: str) -> Optional[Dict]:
+        """Get a single ad by UUID"""
+        try:
+            sql = """
+            SELECT id, HEX(uuid) as uuid, HEX(user) as user, title, created, updated,
+                   status, content, adCode, doberAvtoCode, publishDoberAvto, publishAvtoNet, publishNjuskalo
+            FROM aditem
+            WHERE uuid = UNHEX(REPLACE(%s, '-', ''))
+            LIMIT 1
+            """
+
+            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                cursor.execute(sql, (ad_uuid,))
+                result = cursor.fetchone()
+                if result:
+                    return self._parse_row(result, AdItem)
+                return None
+
+        except pymysql.Error as e:
+            self.logger.error(f"Error getting ad by UUID: {e}")
+            return None
+
     def get_published_ads_by_user(self, user_uuid: str) -> List[Dict]:
         """Get published ads for a specific user that have publishNjuskalo enabled"""
         try:
@@ -374,6 +396,54 @@ class SimpleDatabase:
         except pymysql.Error as e:
             self.logger.error(f"Error getting table counts: {e}")
             return {table: 0 for table in tables}
+
+    # Update methods
+    def update_ad_njuskalo_code(self, ad_uuid: str, njuskalo_code: str) -> bool:
+        """Update the doberAvtoCode field for an ad item"""
+        try:
+            import uuid as uuid_lib
+
+            # Convert UUID string to binary
+            try:
+                uuid_obj = uuid_lib.UUID(ad_uuid)
+                uuid_binary = uuid_obj.bytes
+            except ValueError:
+                self.logger.error(f"Invalid UUID format: {ad_uuid}")
+                return False
+
+            with self.connection.cursor() as cursor:
+                sql = """
+                    UPDATE aditem
+                    SET doberAvtoCode = %s
+                    WHERE uuid = %s
+                """
+                cursor.execute(sql, (njuskalo_code, uuid_binary))
+                self.connection.commit()
+
+                if cursor.rowcount > 0:
+                    self.logger.info(f"✅ Updated doberAvtoCode for ad {ad_uuid}: {njuskalo_code}")
+                    return True
+                else:
+                    # Try with string UUID
+                    sql = """
+                        UPDATE aditem
+                        SET doberAvtoCode = %s
+                        WHERE HEX(uuid) = %s
+                    """
+                    cursor.execute(sql, (njuskalo_code, ad_uuid.replace('-', '').upper()))
+                    self.connection.commit()
+
+                    if cursor.rowcount > 0:
+                        self.logger.info(f"✅ Updated doberAvtoCode for ad {ad_uuid}: {njuskalo_code}")
+                        return True
+                    else:
+                        self.logger.warning(f"No ad found with UUID: {ad_uuid}")
+                        return False
+
+        except pymysql.Error as e:
+            self.logger.error(f"Error updating ad njuskalo code: {e}")
+            self.connection.rollback()
+            return False
 
     # Raw query method for custom queries
     def execute_query(self, sql: str, params: tuple = None) -> List[Dict]:

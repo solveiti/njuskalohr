@@ -261,10 +261,12 @@ try:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    @app.get("/publish/{uuid}")
-    async def get_published_content(uuid: str):
-        """Get user by UUID and their published ads with publishNjuskalo enabled, log the access"""
+    @app.post("/publish/{ad_uuid}")
+    async def publish_ad_to_njuskalo(ad_uuid: str, background_tasks: BackgroundTasks):
+        """Trigger njuskalo_stealth_publish script for an ad and store the returned code"""
         import logging
+        import subprocess
+        import re
         from pathlib import Path
 
         # Setup specific log file for publish endpoint
@@ -286,43 +288,98 @@ try:
             publish_logger.addHandler(file_handler)
 
         try:
+            # Verify ad exists in database
             with SimpleDatabase() as db:
-                # Get user by UUID
-                user = db.get_user_by_uuid(uuid)
-                if not user:
-                    publish_logger.warning(f"User not found for UUID: {uuid}")
-                    raise HTTPException(status_code=404, detail="User not found")
+                ad = db.get_ad_by_uuid(ad_uuid)
+                if not ad:
+                    publish_logger.warning(f"Ad not found for UUID: {ad_uuid}")
+                    raise HTTPException(status_code=404, detail="Ad not found")
 
-                # Get published ads for this user (only those with publishNjuskalo = true)
-                published_ads = db.get_published_ads_by_user(uuid)
-
-                # Log the access
+                # Log the publish attempt
                 publish_logger.info(
-                    f"User access - UUID: {uuid}, Username: {user.get('username')}, "
-                    f"Email: {user.get('email')}, Published Njuskalo Ads: {len(published_ads)}"
+                    f"Publishing ad to Njuskalo - UUID: {ad_uuid}, Title: {ad.get('title')}, "
+                    f"Status: {ad.get('status')}, PublishNjuskalo: {ad.get('publishNjuskalo')}"
                 )
 
-                # Log detailed ad information
-                for ad in published_ads:
-                    publish_logger.info(
-                        f"Njuskalo Ad - UUID: {ad.get('uuid')}, Title: {ad.get('title')}, "
-                        f"Status: {ad.get('status')}, Created: {ad.get('created')}, "
-                        f"AdCode: {ad.get('adCode')}, PublishNjuskalo: {ad.get('publishNjuskalo')}"
-                    )
+            # Run the njuskalo_stealth_publish script
+            script_path = os.path.join(os.path.dirname(__file__), "njuskalo_stealth_publish.py")
 
-                return {
-                    "user": user,
-                    "published_ads": published_ads,
-                    "njuskalo_ads_count": len(published_ads),
-                    "timestamp": datetime.now().isoformat(),
-                    "filter_applied": "publishNjuskalo = true"
-                }
+            publish_logger.info(f"Executing script: {script_path} with ad-uuid: {ad_uuid}")
 
+            # Execute the script with the ad UUID
+            result = subprocess.run(
+                ["python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad"],
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minutes timeout
+            )
+
+            publish_logger.info(f"Script exit code: {result.returncode}")
+            publish_logger.debug(f"Script stdout: {result.stdout}")
+
+            if result.stderr:
+                publish_logger.warning(f"Script stderr: {result.stderr}")
+
+            # Check if script was successful
+            if result.returncode != 0:
+                publish_logger.error(f"Script failed with exit code {result.returncode}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Publishing failed with exit code {result.returncode}"
+                )
+
+            # Extract Njuskalo code from the output
+            # Look for patterns like "Njuskalo ad code: XXXXX" or "NJUSKALO_AD_CODE: XXXXX"
+            njuskalo_code = None
+            code_patterns = [
+                r"NJUSKALO_AD_CODE[:\s]+([A-Za-z0-9\-]+)",
+                r"SUCCESS\s*-\s*Njuskalo\s+ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+                r"Njuskalo\s+ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+                r"Extracted\s+Njuskalo\s+ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+                r"Ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+            ]
+
+            for pattern in code_patterns:
+                match = re.search(pattern, result.stdout, re.IGNORECASE | re.MULTILINE)
+                if match:
+                    njuskalo_code = match.group(1)
+                    publish_logger.info(f"Extracted Njuskalo code using pattern '{pattern}': {njuskalo_code}")
+                    break
+
+            # If no code found in output, check if there's a URL we can extract code from
+            if not njuskalo_code:
+                url_match = re.search(r"njuskalo\.hr/[^/]+/(?:oglas|ad)/([A-Za-z0-9\-]+)", result.stdout)
+                if url_match:
+                    njuskalo_code = url_match.group(1)
+                    publish_logger.info(f"Extracted Njuskalo code from URL: {njuskalo_code}")
+
+            # Update the database with the Njuskalo code if found
+            if njuskalo_code:
+                with SimpleDatabase() as db:
+                    success = db.update_ad_njuskalo_code(ad_uuid, njuskalo_code)
+                    if success:
+                        publish_logger.info(f"✅ Successfully updated doberAvtoCode for ad {ad_uuid}")
+                    else:
+                        publish_logger.warning(f"⚠️ Failed to update doberAvtoCode for ad {ad_uuid}")
+            else:
+                publish_logger.warning("⚠️ No Njuskalo code found in script output")
+
+            return {
+                "success": True,
+                "ad_uuid": ad_uuid,
+                "njuskalo_code": njuskalo_code,
+                "message": "Ad published successfully" if njuskalo_code else "Ad published but no code retrieved",
+                "timestamp": datetime.now().isoformat()
+            }
+
+        except subprocess.TimeoutExpired:
+            publish_logger.error(f"Script timeout for ad UUID {ad_uuid}")
+            raise HTTPException(status_code=504, detail="Publishing script timeout")
         except HTTPException:
             raise
         except Exception as e:
-            publish_logger.error(f"Database error for UUID {uuid}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+            publish_logger.error(f"Error publishing ad {ad_uuid}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Publishing error: {str(e)}")
 
 except ImportError as e:
     print(f"Warning: Database models not available: {e}")

@@ -97,6 +97,7 @@ class NjuskaloStealthPublish:
         self.test_mode = test_mode
         self.submit_ad = submit_ad
         self.driver = None
+        self.njuskalo_ad_code = None  # Will store the ad code after successful submission
         self.logger = self._setup_logging()
 
         # Login credentials (will be populated from database if not provided)
@@ -1781,6 +1782,9 @@ class NjuskaloStealthPublish:
                 if not self._fill_ad_form():
                     return False
 
+                # Step 7: Extract Njuskalo ad code from URL after successful submission
+                self.njuskalo_ad_code = self._extract_njuskalo_ad_code()
+
                 # Take screenshot after successful completion
                 self.take_screenshot("ad_submission_complete")
 
@@ -1795,6 +1799,48 @@ class NjuskaloStealthPublish:
             # Take screenshot on error for debugging
             self.take_screenshot("ad_submission_error")
             return False
+
+    def _extract_njuskalo_ad_code(self) -> str:
+        """Extract the Njuskalo ad code from the current URL or page"""
+        try:
+            # Wait a bit for any redirects to complete
+            time.sleep(random.uniform(2, 4))
+
+            current_url = self.driver.current_url
+            self.logger.info(f"🔍 Current URL: {current_url}")
+
+            # Extract code from URL patterns like:
+            # https://www.njuskalo.hr/autos/ad/12345-brand-model
+            # The code is typically the number after /ad/ or similar patterns
+            import re
+
+            # Pattern 1: /oglas/CODE or /ad/CODE
+            match = re.search(r'/(?:oglas|ad)/([A-Za-z0-9\-]+)', current_url)
+            if match:
+                code = match.group(1)
+                self.logger.info(f"✅ Extracted Njuskalo ad code: {code}")
+                print(f"NJUSKALO_AD_CODE: {code}")  # Print for API to capture
+                return code
+
+            # Pattern 2: Check page content for ad code
+            try:
+                page_source = self.driver.page_source
+                # Look for ad code in meta tags or page content
+                meta_match = re.search(r'(?:ad[_-]?code|oglas[_-]?id)["\s:]+([A-Za-z0-9\-]+)', page_source, re.IGNORECASE)
+                if meta_match:
+                    code = meta_match.group(1)
+                    self.logger.info(f"✅ Extracted Njuskalo ad code from page: {code}")
+                    print(f"NJUSKALO_AD_CODE: {code}")  # Print for API to capture
+                    return code
+            except Exception as e:
+                self.logger.debug(f"Could not extract code from page source: {e}")
+
+            self.logger.warning("⚠️ Could not extract Njuskalo ad code from URL or page")
+            return None
+
+        except Exception as e:
+            self.logger.error(f"❌ Error extracting Njuskalo ad code: {e}")
+            return None
 
     def _get_ad_data_from_database(self) -> dict:
         """Get ad data from database with status validation"""
@@ -2591,6 +2637,12 @@ def main():
 
     # Run publish process
     success = stealth_publish.run_stealth_publish()
+
+    # Print the Njuskalo ad code if available (for API to capture)
+    if success and stealth_publish.njuskalo_ad_code:
+        print(f"\n{'='*60}")
+        print(f"✅ SUCCESS - Njuskalo ad code: {stealth_publish.njuskalo_ad_code}")
+        print(f"{'='*60}\n")
 
     # Exit with appropriate code
     sys.exit(0 if success else 1)
