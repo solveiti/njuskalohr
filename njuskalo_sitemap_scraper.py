@@ -304,6 +304,11 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             firefox_options.set_preference("webgl.disabled", True)
             firefox_options.set_preference("javascript.enabled", True)
 
+            # Additional xvfb/headless stability
+            firefox_options.set_preference("gfx.webrender.all", False)
+            firefox_options.set_preference("gfx.x11-egl.force-disabled", True)
+            firefox_options.set_preference("widget.non-native-theme.enabled", False)
+
             # Disable automation indicators
             firefox_options.set_preference("marionette.enabled", False)
             firefox_options.set_preference("fission.autostart", False)
@@ -322,9 +327,20 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             width = random.randint(1366, 1920)
             height = random.randint(768, 1080)
 
-            # Setup Firefox service with explicit geckodriver path
-            service = Service("/usr/local/bin/geckodriver")
-            self.driver = webdriver.Firefox(service=service, options=firefox_options)
+            # Setup Firefox service with explicit geckodriver path and logging
+            geckodriver_path = "/usr/local/bin/geckodriver"
+            service = Service(geckodriver_path, log_output=os.path.join(tempfile.gettempdir(), "geckodriver.log"))
+
+            self.logger.info("🔧 Starting Firefox WebDriver...")
+            try:
+                self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                self.logger.info("✅ Firefox WebDriver started successfully")
+            except Exception as e:
+                self.logger.error(f"❌ Failed to start Firefox WebDriver: {e}")
+                self.logger.error(f"Geckodriver: {geckodriver_path}")
+                self.logger.error(f"Firefox binary: {firefox_binary}")
+                self.logger.error("Check geckodriver.log in temp directory")
+                raise
 
             # Set window size programmatically as well
             self.driver.set_window_size(width, height)

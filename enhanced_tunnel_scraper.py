@@ -274,6 +274,8 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             firefox_options.set_preference("browser.tabs.remote.autostart", False)
             firefox_options.set_preference("layers.acceleration.disabled", True)
             firefox_options.set_preference("gfx.webrender.force-disabled", True)
+            firefox_options.set_preference("gfx.webrender.all", False)
+            firefox_options.set_preference("gfx.x11-egl.force-disabled", True)
             firefox_options.set_preference("dom.ipc.plugins.enabled", False)
             firefox_options.set_preference("media.hardware-video-decoding.enabled", False)
             firefox_options.set_preference("media.hardware-video-decoding.force-enabled", False)
@@ -358,7 +360,16 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
 
             # Configure WebDriver with shorter timeout to detect server issues faster
             logger.info("🔧 Starting Firefox WebDriver (checking for server-side issues)...")
-            self.driver = webdriver.Firefox(service=service, options=firefox_options)
+            try:
+                self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                logger.info("✅ Firefox WebDriver started successfully")
+            except Exception as e:
+                logger.error(f"❌ Failed to start Firefox WebDriver: {e}")
+                logger.error(f"Geckodriver path: {geckodriver_path}")
+                logger.error(f"Firefox binary: {firefox_binary}")
+                logger.error(f"Headless mode: True")
+                logger.error("This may be a display/xvfb issue. Ensure DISPLAY is set or use xvfb-run")
+                raise
 
             # Set shorter page load timeout to catch server issues
             self.driver.set_page_load_timeout(20)  # 20 seconds for faster timeout

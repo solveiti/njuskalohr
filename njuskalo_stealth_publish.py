@@ -829,17 +829,31 @@ class NjuskaloStealthPublish:
             firefox_options.add_argument("--no-sandbox")
             firefox_options.add_argument("--disable-dev-shm-usage")
 
+            # Additional stability options for xvfb/headless environments
+            if self.headless:
+                firefox_options.add_argument("--disable-gpu")
+                firefox_options.add_argument("--disable-software-rasterizer")
+
             # Random window size
             width, height = self._get_random_screen_size()
             firefox_options.add_argument(f"--width={width}")
             firefox_options.add_argument(f"--height={height}")
 
-            # Create service
-            service = Service(geckodriver_path)
+            # Create service with proper logging
+            service = Service(geckodriver_path, log_output=os.path.join(tempfile.gettempdir(), "geckodriver.log"))
 
             # Initialize WebDriver
             self.logger.info("🔧 Starting Firefox WebDriver...")
-            self.driver = webdriver.Firefox(service=service, options=firefox_options)
+            try:
+                self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                self.logger.info("✅ Firefox WebDriver started successfully")
+            except Exception as e:
+                self.logger.error(f"❌ Failed to start Firefox WebDriver: {e}")
+                self.logger.error(f"Geckodriver path: {geckodriver_path}")
+                self.logger.error(f"Firefox binary: {firefox_binary}")
+                self.logger.error(f"Headless mode: {self.headless}")
+                self.logger.error("Check geckodriver.log in temp directory for more details")
+                raise
 
             # Set timeouts
             self.driver.set_page_load_timeout(20)
