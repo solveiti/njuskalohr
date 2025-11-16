@@ -904,3 +904,226 @@ def send_dealership_data_to_api_task(self, scraping_date: Optional[str] = None, 
 
         # Re-raise the exception so Celery marks the task as failed
         raise Exception(f"API data sender task failed: {error_msg}")
+
+
+@celery_app.task(base=CallbackTask, bind=True)
+def publish_ad_task(self, ad_uuid: str) -> Dict[str, Any]:
+    """
+    Celery task to publish an ad to Njuskalo using stealth publishing script
+
+    Args:
+        ad_uuid: UUID of the ad to publish
+
+    Returns:
+        Dict with task results including njuskalo_code if successful
+    """
+    import subprocess
+    import re
+    from pathlib import Path
+
+    task_id = self.request.id
+    start_time = datetime.now()
+
+    logger.info(f"Starting publish task {task_id} for ad UUID: {ad_uuid}")
+
+    # Setup specific log file for publish tasks
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+
+    # Create logger for publish tasks
+    publish_logger = logging.getLogger(f"publish_task_{task_id}")
+    publish_logger.setLevel(logging.INFO)
+
+    # Create file handler if not already exists
+    if not publish_logger.handlers:
+        log_file = log_dir / "publish_tasks.log"
+        file_handler = logging.FileHandler(log_file)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        file_handler.setFormatter(formatter)
+        publish_logger.addHandler(file_handler)
+
+    try:
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={
+                "status": "Verifying ad exists",
+                "progress": 0,
+                "start_time": start_time.isoformat(),
+                "ad_uuid": ad_uuid
+            }
+        )
+
+        # Verify ad exists in database
+        from db_helper import SimpleDatabase
+        with SimpleDatabase() as db:
+            ad = db.get_ad_by_uuid(ad_uuid)
+            if not ad:
+                publish_logger.warning(f"Ad not found for UUID: {ad_uuid}")
+                raise Exception(f"Ad not found for UUID: {ad_uuid}")
+
+            # Log the publish attempt
+            publish_logger.info(
+                f"Publishing ad to Njuskalo - UUID: {ad_uuid}, Title: {ad.get('title')}, "
+                f"Status: {ad.get('status')}, PublishNjuskalo: {ad.get('publishNjuskalo')}"
+            )
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={
+                "status": "Running stealth publish script",
+                "progress": 20,
+                "start_time": start_time.isoformat(),
+                "ad_uuid": ad_uuid,
+                "ad_title": ad.get('title')
+            }
+        )
+
+        # Run the njuskalo_stealth_publish script
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "njuskalo_stealth_publish.py")
+
+        publish_logger.info(f"Executing script: {script_path} with ad-uuid: {ad_uuid}")
+        publish_logger.info(f"Command: xvfb-run -a python3 {script_path} --ad-uuid {ad_uuid} --submit-ad")
+
+        # Execute the script with xvfb-run for display support
+        result = subprocess.run(
+            ["xvfb-run", "-a", "python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad"],
+            capture_output=True,
+            text=True,
+            timeout=900  # 15 minutes timeout
+        )
+
+        publish_logger.info(f"Script exit code: {result.returncode}")
+
+        # Log complete stdout output from the script
+        if result.stdout:
+            publish_logger.info("=" * 70)
+            publish_logger.info("SCRIPT OUTPUT (stdout):")
+            publish_logger.info("=" * 70)
+            for line in result.stdout.splitlines():
+                publish_logger.info(f"  {line}")
+            publish_logger.info("=" * 70)
+        else:
+            publish_logger.warning("Script produced no stdout output")
+
+        # Log complete stderr output from the script
+        if result.stderr:
+            publish_logger.warning("=" * 70)
+            publish_logger.warning("SCRIPT ERRORS (stderr):")
+            publish_logger.warning("=" * 70)
+            for line in result.stderr.splitlines():
+                publish_logger.warning(f"  {line}")
+            publish_logger.warning("=" * 70)
+
+        # Check if script was successful
+        if result.returncode != 0:
+            publish_logger.error(f"Script failed with exit code {result.returncode}")
+            raise Exception(f"Publishing failed with exit code {result.returncode}")
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={
+                "status": "Extracting Njuskalo code",
+                "progress": 80,
+                "start_time": start_time.isoformat(),
+                "ad_uuid": ad_uuid
+            }
+        )
+
+        # Extract Njuskalo code from the output
+        njuskalo_code = None
+        code_patterns = [
+            r"NJUSKALO_AD_CODE[:\s]+([A-Za-z0-9\-]+)",
+            r"SUCCESS\s*-\s*Njuskalo\s+ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+            r"Njuskalo\s+ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+            r"Extracted\s+Njuskalo\s+ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+            r"Ad\s+code[:\s]+([A-Za-z0-9\-]+)",
+        ]
+
+        for pattern in code_patterns:
+            match = re.search(pattern, result.stdout, re.IGNORECASE | re.MULTILINE)
+            if match:
+                njuskalo_code = match.group(1)
+                publish_logger.info(f"Extracted Njuskalo code using pattern '{pattern}': {njuskalo_code}")
+                break
+
+        # If no code found in output, check if there's a URL we can extract code from
+        if not njuskalo_code:
+            url_match = re.search(r"njuskalo\.hr/[^/]+/(?:oglas|ad)/([A-Za-z0-9\-]+)", result.stdout)
+            if url_match:
+                njuskalo_code = url_match.group(1)
+                publish_logger.info(f"Extracted Njuskalo code from URL: {njuskalo_code}")
+
+        # Update the database with the Njuskalo code if found
+        if njuskalo_code:
+            with SimpleDatabase() as db:
+                success = db.update_ad_njuskalo_code(ad_uuid, njuskalo_code)
+                if success:
+                    publish_logger.info(f"✅ Successfully updated doberAvtoCode for ad {ad_uuid}")
+                else:
+                    publish_logger.warning(f"⚠️ Failed to update doberAvtoCode for ad {ad_uuid}")
+        else:
+            publish_logger.warning("⚠️ No Njuskalo code found in script output")
+
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        result_data = {
+            "task_id": task_id,
+            "status": "SUCCESS",
+            "ad_uuid": ad_uuid,
+            "njuskalo_code": njuskalo_code,
+            "message": "Ad published successfully" if njuskalo_code else "Ad published but no code retrieved",
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat()
+        }
+
+        publish_logger.info(f"✅ Publish task {task_id} completed successfully in {execution_time:.2f}s")
+        return result_data
+
+    except subprocess.TimeoutExpired:
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        publish_logger.error(f"Script timeout for ad UUID {ad_uuid} after {execution_time:.2f}s")
+
+        result_data = {
+            "task_id": task_id,
+            "status": "TIMEOUT",
+            "ad_uuid": ad_uuid,
+            "error": "Publishing script timeout after 15 minutes",
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat()
+        }
+
+        raise Exception(f"Publishing script timeout for ad {ad_uuid}")
+
+    except Exception as e:
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        error_msg = str(e)
+        error_traceback = traceback.format_exc()
+
+        publish_logger.error(f"Publish task {task_id} failed after {execution_time:.2f}s: {error_msg}")
+        publish_logger.error(f"Error traceback:\n{error_traceback}")
+
+        result_data = {
+            "task_id": task_id,
+            "status": "FAILED",
+            "ad_uuid": ad_uuid,
+            "error": error_msg,
+            "traceback": error_traceback,
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat()
+        }
+
+        # Re-raise the exception so Celery marks the task as failed
+        raise Exception(f"Publish task failed for ad {ad_uuid}: {error_msg}")
