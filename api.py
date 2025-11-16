@@ -355,9 +355,9 @@ try:
 
             publish_logger.info(f"Executing script: {script_path} with ad-uuid: {ad_uuid}")
 
-            # Execute the script with the ad UUID
+            # Execute the script with xvfb-run for headless display support
             result = subprocess.run(
-                ["python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad"],
+                ["xvfb-run", "-a", "python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad", "--headless"],
                 capture_output=True,
                 text=True,
                 timeout=300  # 5 minutes timeout
