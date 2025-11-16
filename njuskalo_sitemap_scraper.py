@@ -268,7 +268,13 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
             # Server-compatible configuration (exact setup that works)
             firefox_options.headless = True
-            firefox_options.binary_location = "/usr/bin/firefox"  # Set the Firefox binary explicitly
+
+            # ALWAYS use system Firefox, not webdriver's bundled version
+            firefox_binary = "/usr/bin/firefox"
+            if not os.path.exists(firefox_binary):
+                raise FileNotFoundError(f"System Firefox not found at {firefox_binary}. Install with: sudo apt-get install firefox")
+            firefox_options.binary_location = firefox_binary
+            self.logger.info(f"🦊 Using system Firefox: {firefox_binary}")
 
             # Server-specific preferences for stability
             firefox_options.set_preference("browser.tabs.remote.autostart", False)

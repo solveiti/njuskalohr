@@ -718,9 +718,15 @@ class NjuskaloStealthPublish:
             else:
                 self.logger.info("👁️ Running in VISIBLE mode")
 
-            # Set binary location (prefer system Firefox)
-            if os.path.exists("/usr/bin/firefox"):
-                firefox_options.binary_location = "/usr/bin/firefox"
+            # Set binary location (ALWAYS use system Firefox, not webdriver's bundled version)
+            firefox_binary = "/usr/bin/firefox"
+            if not os.path.exists(firefox_binary):
+                error_msg = f"System Firefox not found at {firefox_binary}. Please install Firefox: sudo apt-get install firefox"
+                self.logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
+
+            firefox_options.binary_location = firefox_binary
+            self.logger.info(f"🦊 Using system Firefox: {firefox_binary}")
 
             # === ADVANCED STEALTH PREFERENCES ===
 
