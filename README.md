@@ -166,6 +166,11 @@ sudo apt-get install firefox
 Create `.env` file with:
 
 ```bash
+# Python Virtual Environment (NEW)
+# Specifies the path to your Python virtual environment
+# All standalone scripts will automatically use this venv when executed
+VENV_PATH=.venv
+
 # Njuskalo configuration
 NJUSKALO_BASE_URL=https://www.njuskalo.hr
 
@@ -185,6 +190,8 @@ USER_AGENT_RANDOMIZATION=true
 DEVICE_PERSISTENCE=true
 JAVASCRIPT_STEALTH=true
 ```
+
+**Important:** The `VENV_PATH` variable tells all Python scripts where to find the virtual environment. All standalone scripts (`njuskalo_stealth_publish.py`, `enhanced_njuskalo_scraper.py`, etc.) will automatically restart themselves using this virtual environment if they're not already running in one.
 
 ### 5. SSH Tunnel Setup (Optional)
 

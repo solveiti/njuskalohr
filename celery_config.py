@@ -2,6 +2,31 @@
 Celery configuration for Njuskalo scraper
 """
 import os
+import sys
+
+# Ensure we're running in the virtual environment
+if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+    # Try to load VENV_PATH from .env file
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    venv_path = '.venv'  # Default value
+
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                if line.strip() and not line.strip().startswith('#'):
+                    if '=' in line:
+                        key, value = line.strip().split('=', 1)
+                        if key.strip() == 'VENV_PATH':
+                            venv_path = value.strip()
+                            break
+
+    venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), venv_path, 'bin', 'python3')
+    if os.path.exists(venv_python):
+        print(f"Restarting script in virtual environment: {venv_python}")
+        os.execv(venv_python, [venv_python] + sys.argv)
+    else:
+        print(f"Warning: Virtual environment not found at {venv_python}")
+
 from celery import Celery
 from celery.schedules import crontab
 from dotenv import load_dotenv
