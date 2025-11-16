@@ -16,6 +16,7 @@
                 login: "{{ api_config.endpoints.login }}",
                 logout: "{{ api_config.endpoints.logout }}",
                 scrapeStart: "{{ api_config.endpoints.scrape_start }}",
+                scrapeEnhanced: "{{ api_config.endpoints.scrape_enhanced }}",
                 scrapeTunnel: "{{ api_config.endpoints.scrape_tunnel }}",
                 scrapeTest: "{{ api_config.endpoints.scrape_test }}",
                 scrapeStatus: "{{ api_config.endpoints.scrape_status }}",
@@ -148,6 +149,34 @@
 
             <!-- Advanced Controls -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <!-- Enhanced Scraping (No Tunnels) -->
+                <div class="border rounded-lg p-4 bg-gradient-to-br from-blue-50 to-blue-100">
+                    <h3 class="font-semibold mb-2 text-blue-800">
+                        <i class="fas fa-bolt mr-1"></i>Enhanced Scraping
+                    </h3>
+                    <div class="space-y-2 mb-3">
+                        <label class="block">
+                            <span class="text-sm text-gray-600">Max Stores:</span>
+                            <input type="number" x-model="enhancedScrapeOptions.max_stores"
+                                   placeholder="Leave empty for all"
+                                   class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="enhancedScrapeOptions.use_database" class="mr-2">
+                            <span class="text-sm">Save to Database</span>
+                        </label>
+                        <div class="text-xs text-gray-600 bg-white bg-opacity-50 p-2 rounded">
+                            <i class="fas fa-star mr-1"></i>
+                            XML processing + vehicle counting
+                        </div>
+                    </div>
+                    <button @click="startEnhancedScraping()"
+                            :disabled="isLoading"
+                            class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50">
+                        <i class="fas fa-rocket mr-2"></i>Start Enhanced Scraping
+                    </button>
+                </div>
+
                 <!-- Enhanced Tunnel Scraping -->
                 <div class="border rounded-lg p-4">
                     <h3 class="font-semibold mb-2">Enhanced Tunnel Scraping</h3>
@@ -377,6 +406,10 @@
                 messageType: 'success',
                 tasks: [],
                 activeTaskCount: 0,
+                enhancedScrapeOptions: {
+                    max_stores: null,
+                    use_database: true
+                },
                 tunnelScrapeOptions: {
                     max_stores: null,
                     use_database: true
@@ -490,6 +523,31 @@
                         }
                     } catch (error) {
                         this.showMessage(`Error: ${error.message}`, 'error');
+                    }
+                },
+
+                async startEnhancedScraping() {
+                    this.isLoading = true;
+                    try {
+                        const response = await fetch(window.API_CONFIG.endpoints.scrapeEnhanced, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(this.enhancedScrapeOptions)
+                        });
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            this.showMessage(`✨ Enhanced scraping started: ${data.task_id}`, 'success');
+                            this.loadRecentTasks();
+                        } else {
+                            this.showMessage(`Failed to start enhanced scraping: ${data.detail}`, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage(`Error: ${error.message}`, 'error');
+                    } finally {
+                        this.isLoading = false;
                     }
                 },
 

@@ -21,11 +21,20 @@ from database import NjuskaloDatabase
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import enhanced scrapers
+try:
+    from enhanced_njuskalo_scraper import EnhancedNjuskaloScraper
+    logger.info("✅ EnhancedNjuskaloScraper loaded successfully")
+except ImportError:
+    logger.warning("⚠️ EnhancedNjuskaloScraper not available - enhanced tasks will be disabled")
+    EnhancedNjuskaloScraper = None
+
 # Import tunnel-enabled scraper
 try:
     from enhanced_tunnel_scraper import TunnelEnabledEnhancedScraper
+    logger.info("✅ TunnelEnabledEnhancedScraper loaded successfully")
 except ImportError:
-    logger.warning("TunnelEnabledEnhancedScraper not available - tunnel tasks will be disabled")
+    logger.warning("⚠️ TunnelEnabledEnhancedScraper not available - tunnel tasks will be disabled")
     TunnelEnabledEnhancedScraper = None
 
 # Import API data sender
@@ -74,8 +83,13 @@ def run_full_scrape_task(self, max_stores: Optional[int] = None, use_database: b
             meta={"status": "Initializing scraper", "progress": 0, "start_time": start_time.isoformat()}
         )
 
-        # Create scraper instance
-        scraper = NjuskaloSitemapScraper(headless=True, use_database=use_database)
+        # Create enhanced scraper instance (fallback to base if not available)
+        if EnhancedNjuskaloScraper:
+            scraper = EnhancedNjuskaloScraper(headless=True, use_database=use_database)
+            logger.info("Using EnhancedNjuskaloScraper with XML processing and vehicle counting")
+        else:
+            scraper = NjuskaloSitemapScraper(headless=True, use_database=use_database)
+            logger.warning("Using base NjuskaloSitemapScraper (enhanced features not available)")
 
         # Update task state
         self.update_state(
@@ -184,6 +198,152 @@ def run_full_scrape_task(self, max_stores: Optional[int] = None, use_database: b
 
 
 @celery_app.task(base=CallbackTask, bind=True)
+def run_enhanced_scrape_task(self, max_stores: Optional[int] = None, use_database: bool = True) -> Dict[str, Any]:
+    """
+    Celery task to run enhanced scraping with XML processing and vehicle counting
+    (without SSH tunnels for faster local execution)
+
+    Args:
+        max_stores: Maximum number of stores to scrape (None for all)
+        use_database: Whether to save results to database
+
+    Returns:
+        Dict with task results and statistics
+    """
+    if not EnhancedNjuskaloScraper:
+        error_msg = "EnhancedNjuskaloScraper not available - falling back to basic scraper"
+        logger.warning(error_msg)
+        # Fallback to basic scraper
+        return run_full_scrape_task(self, max_stores=max_stores, use_database=use_database)
+
+    task_id = self.request.id
+    start_time = datetime.now()
+
+    logger.info(f"Starting enhanced scrape task {task_id} with max_stores={max_stores}, use_database={use_database}")
+
+    try:
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Initializing enhanced scraper with XML processing", "progress": 0, "start_time": start_time.isoformat()}
+        )
+
+        # Create enhanced scraper instance
+        scraper = EnhancedNjuskaloScraper(headless=True, use_database=use_database)
+        logger.info("✅ EnhancedNjuskaloScraper initialized with XML processing and vehicle counting")
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Processing XML sitemap", "progress": 10, "start_time": start_time.isoformat()}
+        )
+
+        # Run enhanced scraping
+        stores_data = scraper.run_full_scrape(max_stores=max_stores)
+
+        # Update task state
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": "Processing results", "progress": 90, "start_time": start_time.isoformat()}
+        )
+
+        # Generate statistics
+        total_stores = len(stores_data)
+        auto_moto_stores = len([s for s in stores_data if s.get('has_auto_moto')])
+        stores_with_new_vehicles = len([s for s in stores_data if s.get('new_ads_count', 0) > 0])
+        stores_with_used_vehicles = len([s for s in stores_data if s.get('used_ads_count', 0) > 0])
+        total_new_vehicles = sum(s.get('new_ads_count', 0) for s in stores_data)
+        total_used_vehicles = sum(s.get('used_ads_count', 0) for s in stores_data)
+        stores_with_address = len([s for s in stores_data if s.get('address')])
+
+        # Save to Excel in datadump directory
+        import os
+        datadump_dir = "datadump"
+        os.makedirs(datadump_dir, exist_ok=True)
+
+        timestamp = int(start_time.timestamp())
+        excel_filename = f"njuskalo_enhanced_scrape_{timestamp}.xlsx"
+        excel_saved = scraper.save_to_excel(excel_filename)
+
+        # Get database stats
+        db_stats = None
+        if use_database:
+            try:
+                with NjuskaloDatabase() as db:
+                    db_stats = db.get_database_stats()
+            except Exception as e:
+                logger.warning(f"Failed to get database stats: {e}")
+
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        result = {
+            "task_id": task_id,
+            "status": "SUCCESS",
+            "message": "Enhanced scraping with XML processing completed successfully",
+            "total_stores_scraped": total_stores,
+            "auto_moto_stores": auto_moto_stores,
+            "stores_with_new_vehicles": stores_with_new_vehicles,
+            "stores_with_used_vehicles": stores_with_used_vehicles,
+            "total_new_vehicles": total_new_vehicles,
+            "total_used_vehicles": total_used_vehicles,
+            "stores_with_address": stores_with_address,
+            "xml_processing_enabled": True,
+            "vehicle_counting_enabled": True,
+            "execution_time_seconds": execution_time,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "excel_file": excel_filename if excel_saved else None,
+            "database_stats": db_stats,
+            "errors": []
+        }
+
+        logger.info(f"Enhanced scrape task {task_id} completed: {total_stores} stores, {total_new_vehicles} new + {total_used_vehicles} used vehicles in {execution_time:.2f}s")
+
+        # Clean up browser
+        if scraper.driver:
+            try:
+                scraper.driver.quit()
+            except Exception:
+                pass
+
+        return result
+
+    except Exception as e:
+        end_time = datetime.now()
+        execution_time = (end_time - start_time).total_seconds()
+
+        error_msg = str(e)
+        error_traceback = traceback.format_exc()
+
+        logger.error(f"Enhanced scrape task {task_id} failed after {execution_time:.2f}s: {error_msg}")
+        logger.error(f"Traceback: {error_traceback}")
+
+        # Clean up browser in case of error
+        try:
+            if 'scraper' in locals() and scraper.driver:
+                scraper.driver.quit()
+        except Exception:
+            pass
+
+        # Return error result
+        result = {
+            "task_id": task_id,
+            "status": "FAILED",
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "execution_time_seconds": execution_time,
+            "max_stores_requested": max_stores,
+            "use_database": use_database,
+            "error": error_msg,
+            "traceback": error_traceback
+        }
+
+        # Re-raise the exception so Celery marks the task as failed
+        raise Exception(f"Enhanced scrape task failed: {error_msg}")
+
+
+@celery_app.task(base=CallbackTask, bind=True)
 def run_auto_moto_only_scrape_task(self, max_stores: Optional[int] = None) -> Dict[str, Any]:
     """
     Run optimized scraping that only processes known auto moto stores.
@@ -207,8 +367,13 @@ def run_auto_moto_only_scrape_task(self, max_stores: Optional[int] = None) -> Di
             meta={"status": "Initializing auto moto scraper", "progress": 5, "start_time": start_time.isoformat()}
         )
 
-        # Create scraper instance
-        scraper = NjuskaloSitemapScraper(headless=True, use_database=True)
+        # Create enhanced scraper instance (fallback to base if not available)
+        if EnhancedNjuskaloScraper:
+            scraper = EnhancedNjuskaloScraper(headless=True, use_database=True)
+            logger.info("Using EnhancedNjuskaloScraper with XML processing and vehicle counting")
+        else:
+            scraper = NjuskaloSitemapScraper(headless=True, use_database=True)
+            logger.warning("Using base NjuskaloSitemapScraper (enhanced features not available)")
 
         # Update task state
         self.update_state(

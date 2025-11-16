@@ -54,6 +54,7 @@ from celery_config import celery_app
 from tasks.scraper_tasks import (
     run_full_scrape_task,
     run_auto_moto_only_scrape_task,
+    run_enhanced_scrape_task,
     test_scraper_task,
     get_database_stats_task,
     cleanup_old_excel_files_task,
@@ -437,6 +438,7 @@ async def dashboard(request: Request):
             "login": os.getenv("API_LOGIN_ENDPOINT", "/login"),
             "logout": os.getenv("API_LOGOUT_ENDPOINT", "/logout"),
             "scrape_start": os.getenv("API_SCRAPE_START_ENDPOINT", "/scrape/start"),
+            "scrape_enhanced": os.getenv("API_SCRAPE_ENHANCED_ENDPOINT", "/scrape/enhanced"),
             "scrape_tunnel": os.getenv("API_SCRAPE_TUNNEL_ENDPOINT", "/scrape/tunnel"),
             "scrape_test": os.getenv("API_SCRAPE_TEST_ENDPOINT", "/scrape/test"),
             "scrape_status": os.getenv("API_SCRAPE_STATUS_ENDPOINT", "/scrape/status"),
@@ -527,6 +529,24 @@ async def start_auto_moto_scraping(request: ScrapeRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start auto moto scraping task: {str(e)}")
+
+
+@app.post("/scrape/enhanced", response_model=TaskResponse, dependencies=[Depends(require_auth)])
+async def start_enhanced_scraping(request: ScrapeRequest):
+    """Start enhanced scraping with XML processing and vehicle counting (no tunnels, faster)"""
+    try:
+        task = run_enhanced_scrape_task.delay(
+            max_stores=request.max_stores,
+            use_database=request.use_database
+        )
+
+        return TaskResponse(
+            task_id=task.id,
+            status="PENDING",
+            message=f"Enhanced scraping task started with ID: {task.id}. Using XML processing and vehicle counting."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start enhanced scraping task: {str(e)}")
 
 
 @app.post("/scrape/tunnel", response_model=TaskResponse, dependencies=[Depends(require_auth)])
