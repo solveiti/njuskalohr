@@ -14,17 +14,20 @@ Features:
 - Detailed logging
 
 Usage:
-    # Development mode with visible Firefox
-    python njuskalo_stealth_publish.py --visible
+    # Headless mode (default)
+    python njuskalo_stealth_publish.py --ad-uuid 12345678-1234-1234-1234-123456789abc --submit-ad
 
-    # Headless mode
-    python njuskalo_stealth_publish.py
+    # Explicitly enable headless mode
+    python njuskalo_stealth_publish.py --headless --ad-uuid <uuid> --submit-ad
+
+    # Development mode with visible Firefox
+    python njuskalo_stealth_publish.py --visible --ad-uuid <uuid>
 
     # With SSH tunnel (if configured)
-    python njuskalo_stealth_publish.py --tunnel
+    python njuskalo_stealth_publish.py --tunnel --ad-uuid <uuid> --submit-ad
 
-    # Custom credentials
-    python njuskalo_stealth_publish.py --username "your_user" --password "your_pass"
+    # Custom credentials (optional, usually retrieved from database)
+    python njuskalo_stealth_publish.py --email "your_email" --password "your_pass" --ad-uuid <uuid>
 """
 
 import os
@@ -707,8 +710,13 @@ class NjuskaloStealthPublish:
             # Create Firefox options with stealth configuration
             firefox_options = Options()
 
-            # Headless configuration
-            firefox_options.headless = self.headless
+            # Headless configuration - use both methods for compatibility
+            if self.headless:
+                firefox_options.add_argument("-headless")
+                firefox_options.headless = True  # Also set the property for older Selenium versions
+                self.logger.info("🔇 Running in HEADLESS mode")
+            else:
+                self.logger.info("👁️ Running in VISIBLE mode")
 
             # Set binary location (prefer system Firefox)
             if os.path.exists("/usr/bin/firefox"):
@@ -2848,7 +2856,9 @@ def main():
     """Main function with argument parsing"""
     parser = argparse.ArgumentParser(description="Njuskalo.hr Stealth Publish")
     parser.add_argument("--visible", action="store_true",
-                       help="Run in visible mode (not headless)")
+                       help="Run in visible mode (not headless) - for backward compatibility")
+    parser.add_argument("--headless", action="store_true",
+                       help="Run browser in headless mode (no GUI)")
     parser.add_argument("--tunnel", action="store_true",
                        help="Use SSH tunnel for anonymity")
     parser.add_argument("--email", type=str,
@@ -2868,11 +2878,26 @@ def main():
 
     args = parser.parse_args()
 
+    # Determine headless mode: use --headless if specified, otherwise inverse of --visible
+    # If neither is specified, default to headless (True)
+    if args.headless and args.visible:
+        print("⚠️  Warning: Both --headless and --visible specified. Using --headless.")
+        run_headless = True
+    elif args.headless:
+        run_headless = True
+        print("🔇 Headless mode ENABLED (--headless flag)")
+    elif args.visible:
+        run_headless = False
+        print("👁️  Visible mode ENABLED (--visible flag)")
+    else:
+        run_headless = True  # Default to headless mode
+        print("🔇 Headless mode ENABLED (default)")
+
     # Start Sentry transaction for the entire script run
     with sentry_sdk.start_transaction(op="script", name="njuskalo_stealth_publish"):
         # Set context for Sentry
         sentry_sdk.set_context("script_args", {
-            "visible": not args.visible,
+            "headless": run_headless,
             "tunnel": args.tunnel,
             "persistent": not args.no_persistent,
             "ad_uuid": args.ad_uuid,
@@ -2884,7 +2909,7 @@ def main():
         try:
             # Create stealth publish instance
             stealth_publish = NjuskaloStealthPublish(
-                headless=not args.visible,
+                headless=run_headless,
                 use_tunnel=args.tunnel,
                 email=args.email,
                 password=args.password,
