@@ -502,14 +502,15 @@ class NjuskaloStealthPublish:
             return True
 
         try:
+            import random
             tunnels = self.tunnel_manager.list_tunnels()
             if not tunnels:
                 self.logger.error("❌ No tunnels configured")
                 return False
 
-            # Use first available tunnel
-            tunnel_name = list(tunnels.keys())[0]
-            self.logger.info(f"🚇 Starting SSH tunnel: {tunnel_name}")
+            # Use random tunnel for IP rotation
+            tunnel_name = random.choice(list(tunnels.keys()))
+            self.logger.info(f"🚇 Starting SSH tunnel (random): {tunnel_name}")
 
             success = self.tunnel_manager.establish_tunnel(tunnel_name)
             if success:

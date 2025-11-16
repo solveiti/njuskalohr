@@ -78,7 +78,7 @@ logger = logging.getLogger(__name__)
 class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
     """Enhanced scraper with SSH tunnel support and vehicle counting"""
 
-    def __init__(self, headless=False, use_database=True, tunnel_config_path=None, use_tunnels=True):
+    def __init__(self, headless=False, use_database=True, tunnel_config_path=None, use_tunnels=True, preferred_tunnel=None):
         """
         Initialize enhanced scraper with SSH tunnel support
 
@@ -87,6 +87,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             use_database: Save data to database
             tunnel_config_path: Path to tunnel configuration file
             use_tunnels: Enable/disable tunnel usage
+            preferred_tunnel: Specific tunnel name to use (e.g., 'server2')
         """
         super().__init__(headless, use_database)
         self.use_tunnels = use_tunnels
@@ -94,6 +95,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
         self.tunnel_manager = None
         self.current_tunnel = None
         self.socks_proxy_port = None
+        self.preferred_tunnel = preferred_tunnel
 
         if self.use_tunnels:
             self._setup_tunnel_manager()
@@ -124,9 +126,19 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 logger.error("❌ No tunnels configured")
                 return False
 
-            # Use first available tunnel
-            tunnel_name = list(tunnels.keys())[0]
-            logger.info(f"🚇 Starting SSH tunnel: {tunnel_name}")
+            # Use preferred tunnel if specified, otherwise use random tunnel for rotation
+            if self.preferred_tunnel:
+                if self.preferred_tunnel in tunnels:
+                    tunnel_name = self.preferred_tunnel
+                    logger.info(f"🚇 Using preferred tunnel: {tunnel_name}")
+                else:
+                    logger.error(f"❌ Preferred tunnel '{self.preferred_tunnel}' not found in config")
+                    logger.info(f"Available tunnels: {', '.join(tunnels.keys())}")
+                    return False
+            else:
+                # Random selection for automatic IP rotation
+                tunnel_name = random.choice(list(tunnels.keys()))
+                logger.info(f"🚇 Starting SSH tunnel (random): {tunnel_name}")
 
             # Start the tunnel
             success = self.tunnel_manager.establish_tunnel(tunnel_name)
@@ -504,7 +516,8 @@ def main():
             headless=args.headless,
             use_database=not args.no_database,
             tunnel_config_path=args.tunnel_config,
-            use_tunnels=not args.no_tunnels
+            use_tunnels=not args.no_tunnels,
+            preferred_tunnel=args.tunnel
         )
 
         # Run enhanced scraping
