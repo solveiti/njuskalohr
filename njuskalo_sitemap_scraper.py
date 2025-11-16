@@ -241,7 +241,7 @@ class AntiDetectionMixin:
 class NjuskaloSitemapScraper(AntiDetectionMixin):
     """Web scraper for Njuskalo stores using sitemap approach."""
 
-    def __init__(self, headless: bool = True, use_database: bool = True):
+    def __init__(self, headless: bool = False, use_database: bool = True):
         """
         Initialize the scraper with Firefox WebDriver.
 

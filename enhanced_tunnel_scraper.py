@@ -78,7 +78,7 @@ logger = logging.getLogger(__name__)
 class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
     """Enhanced scraper with SSH tunnel support and vehicle counting"""
 
-    def __init__(self, headless=True, use_database=True, tunnel_config_path=None, use_tunnels=True):
+    def __init__(self, headless=False, use_database=True, tunnel_config_path=None, use_tunnels=True):
         """
         Initialize enhanced scraper with SSH tunnel support
 

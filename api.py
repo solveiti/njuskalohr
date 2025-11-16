@@ -181,7 +181,7 @@ def require_auth(session_token: Optional[str] = Cookie(None)):
 class ScrapeRequest(BaseModel):
     max_stores: Optional[int] = None
     use_database: bool = True
-    headless: bool = True
+    headless: bool = False
 
 class TaskResponse(BaseModel):
     task_id: str
@@ -354,12 +354,12 @@ try:
             script_path = os.path.join(os.path.dirname(__file__), "njuskalo_stealth_publish.py")
 
             publish_logger.info(f"Executing script: {script_path} with ad-uuid: {ad_uuid}")
-            publish_logger.info(f"Command: xvfb-run -a python3 {script_path} --ad-uuid {ad_uuid} --submit-ad --headless")
+            publish_logger.info(f"Command: xvfb-run -a python3 {script_path} --ad-uuid {ad_uuid} --submit-ad")
 
-            # Execute the script with xvfb-run for headless display support
+            # Execute the script with xvfb-run for display support
             # Increased timeout to 15 minutes for slower environments or complex ads
             result = subprocess.run(
-                ["xvfb-run", "-a", "python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad", "--headless"],
+                ["xvfb-run", "-a", "python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad"],
                 capture_output=True,
                 text=True,
                 timeout=900  # 15 minutes timeout

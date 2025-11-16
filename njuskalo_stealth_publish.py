@@ -123,7 +123,7 @@ class NjuskaloStealthPublish:
     This ensures proper ad-user relationships while maintaining session persistence.
     """
 
-    def __init__(self, headless: bool = True, use_tunnel: bool = False,
+    def __init__(self, headless: bool = False, use_tunnel: bool = False,
                  email: str = None, password: str = None, persistent: bool = True,
                  ad_uuid: str = None, user_uuid: str = None, test_mode: bool = False, submit_ad: bool = False):
         """
@@ -2899,7 +2899,7 @@ def main():
     args = parser.parse_args()
 
     # Determine headless mode: use --headless if specified, otherwise inverse of --visible
-    # If neither is specified, default to headless (True)
+    # If neither is specified, default to visible (False)
     if args.headless and args.visible:
         print("⚠️  Warning: Both --headless and --visible specified. Using --headless.")
         run_headless = True
@@ -2910,8 +2910,8 @@ def main():
         run_headless = False
         print("👁️  Visible mode ENABLED (--visible flag)")
     else:
-        run_headless = True  # Default to headless mode
-        print("🔇 Headless mode ENABLED (default)")
+        run_headless = False  # Default to visible mode
+        print("👁️  Visible mode ENABLED (default)")
 
     # Start Sentry transaction for the entire script run
     with sentry_sdk.start_transaction(op="script", name="njuskalo_stealth_publish"):

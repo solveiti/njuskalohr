@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
     """Enhanced scraper with XML processing and vehicle counting capabilities."""
 
-    def __init__(self, headless: bool = True, use_database: bool = True):
+    def __init__(self, headless: bool = False, use_database: bool = True):
         """Initialize enhanced scraper."""
         super().__init__(headless, use_database)
         self.xml_available = True  # Track if XML is accessible
