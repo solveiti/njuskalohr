@@ -354,20 +354,38 @@ try:
             script_path = os.path.join(os.path.dirname(__file__), "njuskalo_stealth_publish.py")
 
             publish_logger.info(f"Executing script: {script_path} with ad-uuid: {ad_uuid}")
+            publish_logger.info(f"Command: xvfb-run -a python3 {script_path} --ad-uuid {ad_uuid} --submit-ad --headless")
 
             # Execute the script with xvfb-run for headless display support
+            # Increased timeout to 15 minutes for slower environments or complex ads
             result = subprocess.run(
                 ["xvfb-run", "-a", "python3", script_path, "--ad-uuid", ad_uuid, "--submit-ad", "--headless"],
                 capture_output=True,
                 text=True,
-                timeout=300  # 5 minutes timeout
+                timeout=900  # 15 minutes timeout
             )
 
             publish_logger.info(f"Script exit code: {result.returncode}")
-            publish_logger.debug(f"Script stdout: {result.stdout}")
 
+            # Log complete stdout output from the script
+            if result.stdout:
+                publish_logger.info("=" * 70)
+                publish_logger.info("SCRIPT OUTPUT (stdout):")
+                publish_logger.info("=" * 70)
+                for line in result.stdout.splitlines():
+                    publish_logger.info(f"  {line}")
+                publish_logger.info("=" * 70)
+            else:
+                publish_logger.warning("Script produced no stdout output")
+
+            # Log complete stderr output from the script
             if result.stderr:
-                publish_logger.warning(f"Script stderr: {result.stderr}")
+                publish_logger.warning("=" * 70)
+                publish_logger.warning("SCRIPT ERRORS (stderr):")
+                publish_logger.warning("=" * 70)
+                for line in result.stderr.splitlines():
+                    publish_logger.warning(f"  {line}")
+                publish_logger.warning("=" * 70)
 
             # Check if script was successful
             if result.returncode != 0:
