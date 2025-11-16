@@ -138,8 +138,8 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             self.driver.get(store_url)
             self.smart_sleep("page_load")
 
-            # Wait for page to load
-            WebDriverWait(self.driver, 15).until(
+            # Wait for page to load (reduced timeout)
+            WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
@@ -249,8 +249,8 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             self.driver.get(filtered_url)
             self.smart_sleep("page_load")
 
-            # Wait for page to load
-            WebDriverWait(self.driver, 15).until(
+            # Wait for page to load (reduced timeout)
+            WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 

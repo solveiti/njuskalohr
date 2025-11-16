@@ -489,7 +489,7 @@ class NjuskaloStealthPublish:
                 proxy_settings = self.tunnel_manager.get_proxy_settings()
                 self.socks_proxy_port = proxy_settings.get('local_port') if proxy_settings else None
                 self.logger.info(f"✅ SSH tunnel active on port {self.socks_proxy_port}")
-                time.sleep(3)  # Let tunnel stabilize
+                time.sleep(1.5)  # Let tunnel stabilize (reduced)
                 return True
             else:
                 self.logger.error(f"❌ Failed to start tunnel: {tunnel_name}")
@@ -628,7 +628,7 @@ class NjuskaloStealthPublish:
         try:
             # First navigate to domain to set cookies
             self.driver.get(self.base_url)
-            time.sleep(2)
+            time.sleep(1.0)
 
             # Restore cookies
             cookies_file = self.profile_dir / "session_cookies.json"
@@ -804,7 +804,7 @@ class NjuskaloStealthPublish:
             self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
             # Set timeouts
-            self.driver.set_page_load_timeout(30)
+            self.driver.set_page_load_timeout(20)
             self.driver.implicitly_wait(10)
 
             # Set window size programmatically
@@ -854,17 +854,17 @@ class NjuskaloStealthPublish:
                 self.driver = None
             return False
 
-    def _human_like_typing(self, element, text: str, min_delay: float = 0.05, max_delay: float = 0.15):
-        """Type text with human-like delays and patterns"""
+    def _human_like_typing(self, element, text: str, min_delay: float = 0.03, max_delay: float = 0.08):
+        """Type text with human-like delays and patterns (optimized)"""
         for char in text:
             element.send_keys(char)
-            # Random delay between keystrokes
+            # Random delay between keystrokes (reduced)
             delay = random.uniform(min_delay, max_delay)
             time.sleep(delay)
 
-            # Occasional longer pause (like thinking)
-            if random.random() < 0.1:  # 10% chance
-                time.sleep(random.uniform(0.2, 0.5))
+            # Occasional longer pause (like thinking) - less frequent
+            if random.random() < 0.05:  # 5% chance (reduced from 10%)
+                time.sleep(random.uniform(0.1, 0.25))
 
     def _human_like_mouse_movement(self, element):
         """Move mouse to element with human-like behavior"""
@@ -883,8 +883,8 @@ class NjuskaloStealthPublish:
             actions.move_to_element_with_offset(element, x_offset, y_offset)
             actions.perform()
 
-            # Small random delay
-            time.sleep(random.uniform(0.1, 0.3))
+            # Small random delay (reduced)
+            time.sleep(random.uniform(0.05, 0.15))
 
         except Exception as e:
             self.logger.debug(f"Mouse movement warning: {e}")
@@ -894,8 +894,8 @@ class NjuskaloStealthPublish:
         try:
             self.logger.info("🔍 Checking for Didomi consent popup...")
 
-            # Wait a bit for popup to appear
-            time.sleep(random.uniform(1, 2))
+            # Wait a bit for popup to appear (reduced)
+            time.sleep(random.uniform(0.5, 1.0))
 
             # Didomi consent management selectors
             didomi_selectors = [
@@ -919,12 +919,12 @@ class NjuskaloStealthPublish:
                     if button.is_displayed():
                         self.logger.info(f"✅ Found Didomi consent button: {selector}")
 
-                        # Human-like interaction
-                        time.sleep(random.uniform(0.5, 1.0))
+                        # Human-like interaction (reduced)
+                        time.sleep(random.uniform(0.3, 0.6))
 
                         # Scroll button into view
                         self.driver.execute_script("arguments[0].scrollIntoView(true);", button)
-                        time.sleep(random.uniform(0.2, 0.5))
+                        time.sleep(random.uniform(0.1, 0.3))
 
                         # Move mouse to button
                         self._human_like_mouse_movement(button)
@@ -938,8 +938,8 @@ class NjuskaloStealthPublish:
                             self.driver.execute_script("arguments[0].click();", button)
                             self.logger.info("🎯 JavaScript clicked Didomi consent button")
 
-                        # Wait for popup to disappear
-                        time.sleep(random.uniform(1, 2))
+                        # Wait for popup to disappear (reduced)
+                        time.sleep(random.uniform(0.5, 1.0))
                         return True
 
                 except (TimeoutException, NoSuchElementException):
@@ -1037,8 +1037,8 @@ class NjuskaloStealthPublish:
             # Navigate to login page
             self.driver.get(self.login_url)
 
-            # Wait for page load with human-like delay
-            time.sleep(random.uniform(2, 4))
+            # Wait for page load with human-like delay (reduced)
+            time.sleep(random.uniform(1.0, 2.0))
 
             self.logger.info(f"📍 Current URL after navigation: {self.driver.current_url}")
 
@@ -1073,7 +1073,7 @@ class NjuskaloStealthPublish:
                     for url in login_urls:
                         self.logger.info(f"🔄 Trying login URL: {url}")
                         self.driver.get(url)
-                        time.sleep(random.uniform(1, 2))
+                        time.sleep(random.uniform(0.5, 1.0))
 
                         if "prijava" in self.driver.current_url.lower() or "login" in self.driver.current_url.lower():
                             self.logger.info(f"✅ Successfully reached login page: {self.driver.current_url}")
@@ -1098,7 +1098,7 @@ class NjuskaloStealthPublish:
                             if element.is_displayed():
                                 self.logger.info(f"🔗 Found login link: {selector}")
                                 element.click()
-                                time.sleep(random.uniform(1, 2))
+                                time.sleep(random.uniform(0.5, 1.0))
                                 if "prijava" in self.driver.current_url.lower():
                                     return True
                         except:
@@ -1182,39 +1182,39 @@ class NjuskaloStealthPublish:
                     self.logger.error("❌ Password field not found")
                     return False
 
-                # Human-like interaction
+                # Human-like interaction (optimized)
                 self.logger.info("👤 Performing human-like login interaction...")
 
                 # Scroll username field into view
                 self.driver.execute_script("arguments[0].scrollIntoView(true);", username_field)
-                time.sleep(random.uniform(0.5, 1.0))
+                time.sleep(random.uniform(0.3, 0.6))
 
                 # Move mouse to username field
                 self._human_like_mouse_movement(username_field)
 
                 # Click username field
                 username_field.click()
-                time.sleep(random.uniform(0.2, 0.5))
+                time.sleep(random.uniform(0.1, 0.2))
 
                 # Clear and type username
                 username_field.clear()
-                time.sleep(random.uniform(0.1, 0.3))
+                time.sleep(random.uniform(0.05, 0.15))
                 self._human_like_typing(username_field, self.email)
 
                 self.logger.info(f"✅ Email entered: {self.email}")
 
-                # Random delay before password
-                time.sleep(random.uniform(0.5, 1.5))
+                # Random delay before password (reduced)
+                time.sleep(random.uniform(0.3, 0.8))
 
                 # Move to password field
                 self._human_like_mouse_movement(password_field)
                 password_field.click()
-                time.sleep(random.uniform(0.2, 0.5))
+                time.sleep(random.uniform(0.1, 0.2))
 
                 # Clear and type password
                 password_field.clear()
-                time.sleep(random.uniform(0.1, 0.3))
-                self._human_like_typing(password_field, self.password, 0.03, 0.1)  # Faster for password
+                time.sleep(random.uniform(0.05, 0.15))
+                self._human_like_typing(password_field, self.password, 0.02, 0.06)  # Faster for password
 
                 self.logger.info("✅ Password entered")
 
@@ -1248,7 +1248,7 @@ class NjuskaloStealthPublish:
                 else:
                     # Click login button with human behavior
                     self.logger.info("🖱️ Clicking login button...")
-                    time.sleep(random.uniform(0.5, 1.0))
+                    time.sleep(random.uniform(0.3, 0.6))
                     self._human_like_mouse_movement(login_button)
 
                     try:
@@ -1257,9 +1257,9 @@ class NjuskaloStealthPublish:
                         # Use JavaScript click if regular click fails
                         self.driver.execute_script("arguments[0].click();", login_button)
 
-                # Wait for initial response
+                # Wait for initial response (reduced but still safe)
                 self.logger.info("⏳ Waiting for login response...")
-                time.sleep(random.uniform(3, 6))
+                time.sleep(random.uniform(1.5, 3.0))
 
                 # Handle Didomi consent if present
                 self.handle_didomi_consent()
@@ -1314,7 +1314,7 @@ class NjuskaloStealthPublish:
             tfa_button_selector = ".form-action.form-action--submit.button-standard.button-standard--alpha.button-standard--full.TwoFactorAuthentication-stepNextAction"
 
             try:
-                tfa_button = WebDriverWait(self.driver, 5).until(
+                tfa_button = WebDriverWait(self.driver, 3).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, tfa_button_selector))
                 )
                 if tfa_button.is_displayed():
@@ -1353,7 +1353,7 @@ class NjuskaloStealthPublish:
             tfa_step_button_selector = ".form-action.form-action--submit.button-standard.button-standard--alpha.button-standard--full.TwoFactorAuthentication-stepNextAction"
 
             try:
-                tfa_step_button = WebDriverWait(self.driver, 10).until(
+                tfa_step_button = WebDriverWait(self.driver, 7).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, tfa_step_button_selector))
                 )
 
@@ -1694,7 +1694,7 @@ class NjuskaloStealthPublish:
 
             try:
                 # Wait for the "Predaj oglas" button to be present and clickable
-                predaj_button = WebDriverWait(self.driver, 10).until(
+                predaj_button = WebDriverWait(self.driver, 7).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "span.Header-submitClassifiedInner"))
                 )
 
@@ -1717,7 +1717,7 @@ class NjuskaloStealthPublish:
 
             try:
                 # Wait for the Auto Moto category to be clickable
-                auto_moto_label = WebDriverWait(self.driver, 10).until(
+                auto_moto_label = WebDriverWait(self.driver, 7).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='submitCategorySelectorLevelCategory2']"))
                 )
 
@@ -1740,7 +1740,7 @@ class NjuskaloStealthPublish:
 
             try:
                 # Wait for the Osobni automobili subcategory to be clickable
-                osobni_label = WebDriverWait(self.driver, 10).until(
+                osobni_label = WebDriverWait(self.driver, 7).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='submitCategorySelectorLevelCategory13688']"))
                 )
 
@@ -1763,7 +1763,7 @@ class NjuskaloStealthPublish:
 
             try:
                 # Wait for the Rabljeni automobili sub-subcategory to be clickable
-                rabljeni_label = WebDriverWait(self.driver, 10).until(
+                rabljeni_label = WebDriverWait(self.driver, 7).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "label[for='submitCategorySelectorLevelCategory7']"))
                 )
 
@@ -1786,7 +1786,7 @@ class NjuskaloStealthPublish:
 
             try:
                 # Wait for the Nastavi button to be clickable
-                nastavi_button = WebDriverWait(self.driver, 10).until(
+                nastavi_button = WebDriverWait(self.driver, 7).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "button.SubmitCategorySelector-submit"))
                 )
 
@@ -2019,7 +2019,7 @@ class NjuskaloStealthPublish:
             time.sleep(random.uniform(2, 3))
 
             # Look for the specific submit button for advertising package
-            odaberi_button = WebDriverWait(self.driver, 10).until(
+            odaberi_button = WebDriverWait(self.driver, 7).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, 'input[type="submit"][id="submit-button-01"]'))
             )
 

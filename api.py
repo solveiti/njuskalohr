@@ -286,7 +286,7 @@ try:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    @app.post("/publish/{ad_uuid}")
+    @app.get("/publish/{ad_uuid}")
     async def publish_ad_to_njuskalo(ad_uuid: str, background_tasks: BackgroundTasks):
         """Trigger njuskalo_stealth_publish script for an ad and store the returned code"""
         import logging

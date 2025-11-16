@@ -110,15 +110,15 @@ class AntiDetectionMixin:
                 # Get window size for realistic movements
                 window_size = self.driver.get_window_size()
 
-                # Multiple small mouse movements
-                for _ in range(random.randint(2, 5)):
+                # Multiple small mouse movements (reduced iterations)
+                for _ in range(random.randint(1, 3)):
                     x = random.randint(100, window_size['width'] - 100)
                     y = random.randint(100, window_size['height'] - 100)
 
                     try:
                         body = self.driver.find_element(By.TAG_NAME, "body")
                         actions.move_to_element_with_offset(body, x, y).perform()
-                        time.sleep(random.uniform(0.1, 0.5))
+                        time.sleep(random.uniform(0.05, 0.2))
                     except Exception:
                         break
 
@@ -132,22 +132,22 @@ class AntiDetectionMixin:
         """Simulate realistic human scrolling patterns."""
         try:
             if hasattr(self, 'driver') and self.driver:
-                # Scroll down in chunks
-                for _ in range(random.randint(2, 4)):
+                # Scroll down in chunks (reduced iterations and wait times)
+                for _ in range(random.randint(1, 2)):
                     scroll_amount = random.randint(200, 600)
                     self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
-                    time.sleep(random.uniform(0.3, 1.2))
+                    time.sleep(random.uniform(0.1, 0.4))
 
                 # Sometimes scroll back up
                 if random.random() > 0.6:
                     back_scroll = random.randint(100, 300)
                     self.driver.execute_script(f"window.scrollBy(0, -{back_scroll});")
-                    time.sleep(random.uniform(0.2, 0.8))
+                    time.sleep(random.uniform(0.1, 0.3))
 
                 # Final scroll to top occasionally
                 if random.random() > 0.8:
                     self.driver.execute_script("window.scrollTo(0, 0);")
-                    time.sleep(random.uniform(0.5, 1.5))
+                    time.sleep(random.uniform(0.2, 0.6))
 
         except Exception as e:
             logger.debug(f"Scroll pattern failed: {e}")
@@ -198,7 +198,7 @@ class AntiDetectionMixin:
 
             for selector in cookie_selectors:
                 try:
-                    cookie_button = WebDriverWait(self.driver, 3).until(
+                    cookie_button = WebDriverWait(self.driver, 2).until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, selector))
                     )
                     cookie_button.click()
@@ -312,8 +312,8 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                     logger.debug(f"Stealth script failed: {e}")
 
             # Set realistic timeouts
-            self.driver.implicitly_wait(10)
-            self.driver.set_page_load_timeout(30)
+            self.driver.implicitly_wait(5)
+            self.driver.set_page_load_timeout(20)
 
             logger.info("Firefox browser setup completed successfully with enhanced anti-detection")
             return True
@@ -445,7 +445,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
             # First, navigate to establish browser session and cookies
             self.driver.get(self.base_url)
-            time.sleep(random.uniform(1, 2))
+            time.sleep(random.uniform(0.5, 1.0))
 
             # Get cookies from browser session
             cookies = {}
@@ -672,7 +672,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
                 # Wait for page to load
                 try:
-                    WebDriverWait(self.driver, 10).until(
+                    WebDriverWait(self.driver, 7).until(
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
                 except TimeoutException:
@@ -1096,11 +1096,11 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                         store_urls = self.extract_store_urls(stores_xml_content)
                         all_store_urls.update(store_urls)
 
-                        # Delay between XML downloads
-                        time.sleep(random.uniform(1, 2))
+                        # Delay between XML downloads (reduced)
+                        time.sleep(random.uniform(0.3, 0.7))
 
-                    # Delay between sitemap processing
-                    time.sleep(random.uniform(1, 2))
+                    # Delay between sitemap processing (reduced)
+                    time.sleep(random.uniform(0.3, 0.7))
 
             # If no stores sitemap found, process all sitemaps as fallback
             if not stores_sitemap_found:
@@ -1118,8 +1118,8 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                     store_urls = self.extract_store_urls(sitemap_content)
                     all_store_urls.update(store_urls)
 
-                    # Small delay between sitemap downloads
-                    time.sleep(random.uniform(1, 2))
+                    # Small delay between sitemap downloads (reduced)
+                    time.sleep(random.uniform(0.3, 0.7))
 
             return list(all_store_urls)
 

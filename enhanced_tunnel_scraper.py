@@ -112,8 +112,8 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 self.current_tunnel = tunnel_name
                 logger.info(f"✅ SSH tunnel active: {tunnel_name} (SOCKS proxy on port {self.socks_proxy_port})")
 
-                # Wait a moment for tunnel to stabilize
-                time.sleep(3)
+                # Wait a moment for tunnel to stabilize (reduced)
+                time.sleep(1.5)
 
                 # Test tunnel connectivity
                 if self._test_tunnel_connectivity():
@@ -325,7 +325,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             self.driver = webdriver.Firefox(service=service, options=firefox_options)
 
             # Set shorter page load timeout to catch server issues
-            self.driver.set_page_load_timeout(30)  # 30 seconds instead of default 300
+            self.driver.set_page_load_timeout(20)  # 20 seconds for faster timeout
             self.driver.implicitly_wait(10)  # 10 seconds for element waits
 
             # Set window size programmatically as well
