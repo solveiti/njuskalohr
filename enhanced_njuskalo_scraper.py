@@ -125,7 +125,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'name': None,
                 'address': None,
                 'ads_count': None,
-                'has_auto_moto': None,  # Will be determined during scraping
+                'has_auto_moto': False,  # Default to False, will be determined during scraping
                 'categories': [],
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
