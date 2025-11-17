@@ -198,7 +198,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
 
             # Check if tunnel port is already in use and clean it up
             tunnel_config = tunnels[tunnel_name]
-            local_port = tunnel_config.local_port
+            local_port = tunnel_config['config']['local_port']
             if self._check_and_kill_port(local_port):
                 logger.info(f"🧹 Cleaned up port {local_port}")
 
