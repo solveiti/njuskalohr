@@ -1133,6 +1133,12 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                 logger.error("No sitemap URLs found for URL discovery")
                 return []
 
+            # Setup browser if not already done (needed for downloading referenced sitemaps)
+            if not self.driver:
+                if not self.setup_browser():
+                    logger.error("Failed to setup browser for downloading referenced sitemaps")
+                    return []
+
             all_store_urls = set()  # Use set to avoid duplicates
 
             # Step 3: Focus on stores sitemap specifically

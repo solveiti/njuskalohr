@@ -134,6 +134,12 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 self.xml_available = False
                 return [], False
 
+            # Ensure browser is set up for downloading referenced sitemaps (even if using local index)
+            if not self.driver:
+                if not self.setup_browser():
+                    logger.error("❌ Failed to setup browser for processing sitemaps")
+                    return [], False
+
             # Get all store URLs from sitemaps
             all_store_urls = self._get_all_store_urls_from_sitemaps()
             if not all_store_urls:
