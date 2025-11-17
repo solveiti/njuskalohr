@@ -2966,6 +2966,14 @@ def main():
             sentry_sdk.capture_exception(e)
             print(f"❌ Fatal error: {e}")
             sys.exit(1)
+        finally:
+            # Ensure browser cleanup
+            try:
+                if 'stealth_publish' in locals() and hasattr(stealth_publish, 'driver') and stealth_publish.driver:
+                    stealth_publish.driver.quit()
+                    print("Browser cleanup completed")
+            except Exception as cleanup_error:
+                print(f"Error during cleanup: {cleanup_error}")
 
 
 if __name__ == "__main__":

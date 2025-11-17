@@ -83,6 +83,10 @@ def test_firefox_with_display():
 
     try:
         driver = webdriver.Firefox(service=service, options=firefox_options)
+
+        # Ensure cleanup happens
+        import atexit
+        atexit.register(lambda: driver.quit() if driver else None)
         print("   ✅ WebDriver started successfully!")
 
         # Test navigation

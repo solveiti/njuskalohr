@@ -491,6 +491,14 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             logger.error(f"❌ Error in tunnel-enabled scraping: {e}")
             return {'error': str(e), 'stores_scraped': 0}
         finally:
+            # Cleanup browser
+            if hasattr(self, 'driver') and self.driver:
+                try:
+                    self.driver.quit()
+                    logger.info("Browser closed successfully")
+                except Exception as e:
+                    logger.warning(f"Error closing browser: {e}")
+
             # Cleanup tunnel
             if self.use_tunnels:
                 self._stop_tunnel()
@@ -552,6 +560,14 @@ def main():
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)
+    finally:
+        # Ensure scraper cleanup happens
+        try:
+            if 'scraper' in locals() and hasattr(scraper, 'driver') and scraper.driver:
+                scraper.driver.quit()
+                logger.info("Browser cleanup completed")
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {e}")
 
 
 if __name__ == "__main__":
