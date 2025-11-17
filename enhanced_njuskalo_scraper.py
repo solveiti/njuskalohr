@@ -98,6 +98,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
     def download_and_process_xml_sitemap(self) -> Tuple[List[str], bool]:
         """
         Download XML sitemap, compare with database, and find new URLs.
+        Checks for local XML file first before attempting download.
 
         Returns:
             Tuple of (new_urls, xml_success)
@@ -105,19 +106,33 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         logger.info("🔄 Starting XML sitemap processing...")
 
         try:
-            # Setup browser for XML download
-            if not self.setup_browser():
-                logger.error("❌ Failed to setup browser for XML processing")
-                return [], False
+            # Check for local sitemap index first
+            local_sitemap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sitemap-index.xml')
+            if os.path.exists(local_sitemap_path):
+                logger.info(f"📁 Found local sitemap file: {local_sitemap_path}")
+                try:
+                    with open(local_sitemap_path, 'r', encoding='utf-8') as f:
+                        sitemap_index_content = f.read()
+                    logger.info("✅ Successfully loaded local sitemap index")
+                except Exception as e:
+                    logger.error(f"❌ Failed to read local sitemap file: {e}")
+                    sitemap_index_content = None
+            else:
+                # No local file - download from web
+                logger.info("🌐 No local sitemap found, downloading from web...")
+                
+                # Setup browser for XML download
+                if not self.setup_browser():
+                    logger.error("❌ Failed to setup browser for XML processing")
+                    return [], False
 
-            # Download sitemap index
-            sitemap_index_content = self.download_sitemap_index()
+                # Download sitemap index
+                sitemap_index_content = self.download_sitemap_index()
+            
             if not sitemap_index_content:
-                logger.error("❌ Failed to download sitemap index")
+                logger.error("❌ Failed to get sitemap index")
                 self.xml_available = False
                 return [], False
-
-            logger.info("✅ Successfully downloaded sitemap index")
 
             # Get all store URLs from sitemaps
             all_store_urls = self._get_all_store_urls_from_sitemaps()

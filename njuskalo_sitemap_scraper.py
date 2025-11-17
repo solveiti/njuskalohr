@@ -371,7 +371,19 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             return False
 
     def download_sitemap_index(self) -> Optional[str]:
-        """Download and parse the sitemap index XML using browser."""
+        """Download and parse the sitemap index XML using browser. Checks for local file first."""
+        # Check for local sitemap index file first
+        local_sitemap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sitemap-index.xml')
+        if os.path.exists(local_sitemap_path):
+            try:
+                logger.info(f"📁 Loading local sitemap index from: {local_sitemap_path}")
+                with open(local_sitemap_path, 'r', encoding='utf-8') as f:
+                    xml_content = f.read()
+                logger.info("✅ Successfully loaded local sitemap index")
+                return xml_content
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to read local sitemap, falling back to download: {e}")
+        
         try:
             logger.info(f"Downloading sitemap index with browser from: {self.sitemap_index_url}")
 
@@ -1086,20 +1098,33 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
     def _get_all_store_urls_from_sitemaps(self) -> List[str]:
         """
         Get all store URLs from sitemaps without scraping individual stores.
+        Checks for local sitemap file first.
 
         Returns:
             List of all store URLs found in sitemaps
         """
         try:
-            # Setup browser
-            if not self.setup_browser():
-                logger.error("Failed to setup browser for URL discovery")
-                return []
+            # Step 1: Check for local sitemap index first
+            local_sitemap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sitemap-index.xml')
+            if os.path.exists(local_sitemap_path):
+                logger.info(f"📁 Using local sitemap index from: {local_sitemap_path}")
+                try:
+                    with open(local_sitemap_path, 'r', encoding='utf-8') as f:
+                        sitemap_index_content = f.read()
+                except Exception as e:
+                    logger.error(f"Failed to read local sitemap index: {e}")
+                    sitemap_index_content = None
+            else:
+                # Setup browser for web download
+                if not self.setup_browser():
+                    logger.error("Failed to setup browser for URL discovery")
+                    return []
 
-            # Step 1: Download sitemap index
-            sitemap_index_content = self.download_sitemap_index()
+                # Download sitemap index from web
+                sitemap_index_content = self.download_sitemap_index()
+            
             if not sitemap_index_content:
-                logger.error("Failed to download sitemap index for URL discovery")
+                logger.error("Failed to get sitemap index for URL discovery")
                 return []
 
             # Step 2: Parse sitemap index to get individual sitemap URLs
