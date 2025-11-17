@@ -383,7 +383,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                 return xml_content
             except Exception as e:
                 logger.warning(f"⚠️ Failed to read local sitemap, falling back to download: {e}")
-        
+
         try:
             logger.info(f"Downloading sitemap index with browser from: {self.sitemap_index_url}")
 
@@ -1122,7 +1122,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
                 # Download sitemap index from web
                 sitemap_index_content = self.download_sitemap_index()
-            
+
             if not sitemap_index_content:
                 logger.error("Failed to get sitemap index for URL discovery")
                 return []

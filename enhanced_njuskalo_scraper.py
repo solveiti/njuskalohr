@@ -120,7 +120,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             else:
                 # No local file - download from web
                 logger.info("🌐 No local sitemap found, downloading from web...")
-                
+
                 # Setup browser for XML download
                 if not self.setup_browser():
                     logger.error("❌ Failed to setup browser for XML processing")
@@ -128,7 +128,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 
                 # Download sitemap index
                 sitemap_index_content = self.download_sitemap_index()
-            
+
             if not sitemap_index_content:
                 logger.error("❌ Failed to get sitemap index")
                 self.xml_available = False
