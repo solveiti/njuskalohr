@@ -413,6 +413,28 @@ class NjuskaloDatabase:
             self.logger.error(f"Error retrieving existing URLs: {e}")
             return set()
 
+    def get_latest_update_timestamp(self) -> Optional[datetime]:
+        """
+        Get the timestamp of the most recently updated record in the database
+
+        Returns:
+            datetime object of the latest update, or None if database is empty
+        """
+        select_sql = "SELECT MAX(updated_at) as latest_update FROM scraped_stores"
+
+        try:
+            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
+                cursor.execute(select_sql)
+                result = cursor.fetchone()
+
+                if result and result['latest_update']:
+                    return result['latest_update']
+                return None
+
+        except pymysql.Error as e:
+            self.logger.error(f"Error retrieving latest update timestamp: {e}")
+            return None
+
     def get_auto_moto_stores(self) -> List[Dict]:
         """
         Get all valid stores that have auto moto category

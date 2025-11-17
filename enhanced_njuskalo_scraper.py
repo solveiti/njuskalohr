@@ -40,6 +40,7 @@ import time
 import random
 import json
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 import logging
 import re
@@ -59,6 +60,40 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         """Initialize enhanced scraper."""
         super().__init__(headless, use_database)
         self.xml_available = True  # Track if XML is accessible
+
+    def _should_fetch_from_xml(self) -> bool:
+        """
+        Check if we should fetch from XML or use existing database URLs.
+        Returns True if database is empty or older than 2 weeks.
+
+        Returns:
+            bool: True if should fetch from XML, False if should use database
+        """
+        if not self.database:
+            logger.warning("⚠️ No database connection - defaulting to XML fetch")
+            return True
+
+        try:
+            latest_update = self.database.get_latest_update_timestamp()
+
+            if latest_update is None:
+                logger.info("📋 Database is empty - will fetch from XML")
+                return True
+
+            # Calculate age of latest update
+            age = datetime.now() - latest_update
+            two_weeks = timedelta(weeks=2)
+
+            if age > two_weeks:
+                logger.info(f"📅 Database is {age.days} days old (last update: {latest_update}) - will fetch from XML")
+                return True
+            else:
+                logger.info(f"✅ Database is fresh ({age.days} days old, last update: {latest_update}) - using existing URLs")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Error checking database age: {e} - defaulting to XML fetch")
+            return True
 
     def download_and_process_xml_sitemap(self) -> Tuple[List[str], bool]:
         """
@@ -499,13 +534,25 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     results['errors'].append(f"Database error: {e}")
                     return results
 
-            # Step 1: Try to download and process XML sitemap
-            new_urls, xml_success = self.download_and_process_xml_sitemap()
-            results['xml_available'] = xml_success
-            results['new_urls_found'] = len(new_urls)
+            # Step 1: Check if we should fetch from XML or use database
+            should_fetch_xml = self._should_fetch_from_xml()
 
-            if not xml_success:
-                logger.warning("⚠️ XML sitemap unavailable - falling back to database URLs")
+            new_urls = []
+            xml_success = False
+
+            if should_fetch_xml:
+                # Database is empty or old - fetch from XML
+                new_urls, xml_success = self.download_and_process_xml_sitemap()
+                results['xml_available'] = xml_success
+                results['new_urls_found'] = len(new_urls)
+
+                if not xml_success:
+                    logger.warning("⚠️ XML sitemap unavailable - falling back to database URLs")
+            else:
+                # Database is fresh - skip XML processing
+                logger.info("⏭️ Skipping XML processing - using fresh database URLs")
+                results['xml_available'] = False  # Didn't fetch XML
+                results['new_urls_found'] = 0  # No new URLs from XML
 
             # Step 2: Determine which URLs to scrape
             urls_to_scrape = []
@@ -515,7 +562,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 urls_to_scrape = new_urls
                 logger.info(f"📋 Will scrape {len(new_urls)} new URLs from XML")
             else:
-                # XML unavailable or no new URLs - scrape from database
+                # XML unavailable or no new URLs or database is fresh - scrape from database
                 if self.database:
                     # Get URLs marked as auto moto for re-scraping
                     auto_moto_urls = self.database.get_auto_moto_urls()
