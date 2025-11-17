@@ -9,28 +9,36 @@ and vehicle counting through SSH tunnels for better anonymity and stability.
 import sys
 import os
 
-# Ensure we're running in the virtual environment
-if not hasattr(sys, 'real_prefix') and not (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-    # Try to load VENV_PATH from .env file
-    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-    venv_path = '.venv'  # Default value
+# Always ensure we're using the virtual environment, even when called via xvfb-run
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    if os.path.exists(env_file):
-        with open(env_file, 'r') as f:
-            for line in f:
-                if line.strip() and not line.strip().startswith('#'):
-                    if '=' in line:
-                        key, value = line.strip().split('=', 1)
-                        if key.strip() == 'VENV_PATH':
-                            venv_path = value.strip()
-                            break
+# Load VENV_PATH from .env file
+env_file = os.path.join(script_dir, '.env')
+venv_path = '.venv'  # Default value
 
-    venv_python = os.path.join(os.path.dirname(os.path.abspath(__file__)), venv_path, 'bin', 'python3')
-    if os.path.exists(venv_python):
-        print(f"Restarting script in virtual environment: {venv_python}")
-        os.execv(venv_python, [venv_python] + sys.argv)
-    else:
-        print(f"Warning: Virtual environment not found at {venv_python}")
+if os.path.exists(env_file):
+    with open(env_file, 'r') as f:
+        for line in f:
+            if line.strip() and not line.strip().startswith('#'):
+                if '=' in line:
+                    key, value = line.strip().split('=', 1)
+                    if key.strip() == 'VENV_PATH':
+                        venv_path = value.strip()
+                        break
+
+venv_python = os.path.join(script_dir, venv_path, 'bin', 'python3')
+
+# Check if we're already using the venv python or if we need to switch
+current_python = sys.executable
+is_venv_python = os.path.samefile(current_python, venv_python) if os.path.exists(venv_python) and os.path.exists(current_python) else False
+
+if not is_venv_python and os.path.exists(venv_python):
+    print(f"Restarting script in virtual environment: {venv_python}")
+    print(f"Current Python: {current_python}")
+    # Preserve xvfb-run or other wrapper commands by only replacing python
+    os.execv(venv_python, [venv_python] + sys.argv)
+elif not os.path.exists(venv_python):
+    print(f"Warning: Virtual environment not found at {venv_python}")
 
 import time
 import logging
