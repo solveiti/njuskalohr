@@ -122,6 +122,54 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             logger.error(f"❌ Failed to initialize tunnel manager: {e}")
             self.use_tunnels = False
 
+    def _check_and_kill_port(self, port: int) -> bool:
+        """Check if port is in use and kill the process using it"""
+        import subprocess
+        try:
+            # Check if port is in use
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                logger.warning(f"⚠️ Port {port} is already in use by PID(s): {', '.join(pids)}")
+
+                # Kill the processes
+                for pid in pids:
+                    try:
+                        subprocess.run(['kill', '-9', pid], timeout=5)
+                        logger.info(f"✅ Killed process {pid} using port {port}")
+                    except Exception as e:
+                        logger.warning(f"Failed to kill process {pid}: {e}")
+
+                # Wait a moment for port to be released
+                time.sleep(1)
+                return True
+            return False
+        except FileNotFoundError:
+            # lsof not available, try netstat
+            try:
+                result = subprocess.run(
+                    ['netstat', '-tlnp', '|', 'grep', f':{port}'],
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.stdout:
+                    logger.warning(f"⚠️ Port {port} appears to be in use")
+                    return False
+            except:
+                pass
+            return False
+        except Exception as e:
+            logger.debug(f"Error checking port {port}: {e}")
+            return False
+
     def _start_tunnel(self) -> bool:
         """Start SSH tunnel and return success status"""
         if not self.use_tunnels or not self.tunnel_manager:
@@ -147,6 +195,12 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 # Random selection for automatic IP rotation
                 tunnel_name = random.choice(list(tunnels.keys()))
                 logger.info(f"🚇 Starting SSH tunnel (random): {tunnel_name}")
+
+            # Check if tunnel port is already in use and clean it up
+            tunnel_config = tunnels[tunnel_name]
+            local_port = tunnel_config.local_port
+            if self._check_and_kill_port(local_port):
+                logger.info(f"🧹 Cleaned up port {local_port}")
 
             # Start the tunnel
             success = self.tunnel_manager.establish_tunnel(tunnel_name)
@@ -378,21 +432,59 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             firefox_options.set_preference("dom.max_script_run_time", 30)
             firefox_options.set_preference("dom.max_chrome_script_run_time", 30)
 
-            # Configure WebDriver with shorter timeout to detect server issues faster
+            # Configure WebDriver with retry logic for connection issues
             logger.info("🔧 Starting Firefox WebDriver (checking for server-side issues)...")
-            try:
-                self.driver = webdriver.Firefox(service=service, options=firefox_options)
-                logger.info("✅ Firefox WebDriver started successfully")
-            except Exception as e:
-                logger.error(f"❌ Failed to start Firefox WebDriver: {e}")
-                logger.error(f"Geckodriver path: {geckodriver_path}")
-                logger.error(f"Firefox binary: {firefox_binary}")
-                logger.error(f"Headless mode: True")
-                logger.error("This may be a display/xvfb issue. Ensure DISPLAY is set or use xvfb-run")
-                raise
+            max_retries = 3
+            retry_delay = 2
+
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        logger.info(f"🔄 Retry attempt {attempt + 1}/{max_retries}")
+                        # Clean up any stale geckodriver processes
+                        import subprocess
+                        try:
+                            subprocess.run(['pkill', '-9', 'geckodriver'], timeout=2)
+                            time.sleep(1)
+                        except:
+                            pass
+
+                    self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                    logger.info("✅ Firefox WebDriver started successfully")
+                    break
+
+                except Exception as e:
+                    error_msg = str(e).lower()
+
+                    if attempt < max_retries - 1:
+                        if 'connection refused' in error_msg or 'newconnectionerror' in error_msg:
+                            logger.warning(f"⚠️ Connection refused on attempt {attempt + 1}, retrying in {retry_delay}s...")
+                            time.sleep(retry_delay)
+                            continue
+                        elif 'timeout' in error_msg:
+                            logger.warning(f"⚠️ Timeout on attempt {attempt + 1}, retrying in {retry_delay}s...")
+                            time.sleep(retry_delay)
+                            continue
+
+                    # Final attempt failed
+                    logger.error(f"❌ Failed to start Firefox WebDriver after {max_retries} attempts: {e}")
+                    logger.error(f"Geckodriver path: {geckodriver_path}")
+                    logger.error(f"Firefox binary: {firefox_binary}")
+                    logger.error(f"Headless mode: True")
+                    logger.error("This may be a display/xvfb issue. Ensure DISPLAY is set or use xvfb-run")
+
+                    # Try to clean up any zombie processes
+                    try:
+                        import subprocess
+                        subprocess.run(['pkill', '-9', 'firefox'], timeout=2)
+                        subprocess.run(['pkill', '-9', 'geckodriver'], timeout=2)
+                    except:
+                        pass
+
+                    raise
 
             # Set shorter page load timeout to catch server issues
-            self.driver.set_page_load_timeout(20)  # 20 seconds for faster timeout
+            self.driver.set_page_load_timeout(30)  # 30 seconds for page loads
             self.driver.implicitly_wait(10)  # 10 seconds for element waits
 
             # Set window size programmatically as well
