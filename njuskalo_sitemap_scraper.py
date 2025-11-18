@@ -319,6 +319,17 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             firefox_options.set_preference("browser.cache.offline.enable", False)
             firefox_options.set_preference("network.http.use-cache", False)
 
+            # Configure profile directory to avoid permission issues
+            # Use a dedicated session directory instead of system temp
+            sessions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "firefoxsessions", "scraper")
+            os.makedirs(sessions_dir, exist_ok=True)
+
+            from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
+            profile = FirefoxProfile(sessions_dir)
+            firefox_options.profile = profile
+
+            self.logger.info(f"📁 Using Firefox profile directory: {sessions_dir}")
+
             # Server compatibility - override headless setting to ensure it's properly set
             if self.headless:
                 firefox_options.headless = True
@@ -331,16 +342,54 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             geckodriver_path = "/usr/local/bin/geckodriver"
             service = Service(geckodriver_path, log_output=os.path.join(tempfile.gettempdir(), "geckodriver.log"))
 
-            self.logger.info("🔧 Starting Firefox WebDriver...")
-            try:
-                self.driver = webdriver.Firefox(service=service, options=firefox_options)
-                self.logger.info("✅ Firefox WebDriver started successfully")
-            except Exception as e:
-                self.logger.error(f"❌ Failed to start Firefox WebDriver: {e}")
-                self.logger.error(f"Geckodriver: {geckodriver_path}")
-                self.logger.error(f"Firefox binary: {firefox_binary}")
-                self.logger.error("Check geckodriver.log in temp directory")
-                raise
+            self.logger.info("🔧 Starting Firefox WebDriver (with retry logic)...")
+            max_retries = 3
+            retry_delay = 2
+
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        self.logger.info(f"🔄 Retry attempt {attempt + 1}/{max_retries}")
+                        # Clean up any stale geckodriver processes
+                        import subprocess
+                        try:
+                            subprocess.run(['pkill', '-9', 'geckodriver'], timeout=2, stderr=subprocess.DEVNULL)
+                            time.sleep(1)
+                        except:
+                            pass
+
+                    self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                    self.logger.info("✅ Firefox WebDriver started successfully")
+                    break
+
+                except Exception as e:
+                    error_msg = str(e).lower()
+
+                    if attempt < max_retries - 1:
+                        if 'connection refused' in error_msg or 'newconnectionerror' in error_msg:
+                            self.logger.warning(f"⚠️ Connection refused on attempt {attempt + 1}, retrying in {retry_delay}s...")
+                            time.sleep(retry_delay)
+                            continue
+                        elif 'timeout' in error_msg:
+                            self.logger.warning(f"⚠️ Timeout on attempt {attempt + 1}, retrying in {retry_delay}s...")
+                            time.sleep(retry_delay)
+                            continue
+
+                    # Final attempt failed
+                    self.logger.error(f"❌ Failed to start Firefox WebDriver after {max_retries} attempts: {e}")
+                    self.logger.error(f"Geckodriver: {geckodriver_path}")
+                    self.logger.error(f"Firefox binary: {firefox_binary}")
+                    self.logger.error("Check geckodriver.log in temp directory")
+
+                    # Try to clean up any zombie processes
+                    try:
+                        import subprocess
+                        subprocess.run(['pkill', '-9', 'firefox'], timeout=2, stderr=subprocess.DEVNULL)
+                        subprocess.run(['pkill', '-9', 'geckodriver'], timeout=2, stderr=subprocess.DEVNULL)
+                    except:
+                        pass
+
+                    raise
 
             # Set window size programmatically as well
             self.driver.set_window_size(width, height)
@@ -372,8 +421,10 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
     def download_sitemap_index(self) -> Optional[str]:
         """Download and parse the sitemap index XML using browser. Checks for local file first."""
-        # Check for local sitemap index file first
-        local_sitemap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sitemap-index.xml')
+        # Check for local sitemap index file first - use realpath for reliability
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        local_sitemap_path = os.path.join(script_dir, 'sitemap-index.xml')
+
         if os.path.exists(local_sitemap_path):
             try:
                 logger.info(f"📁 Loading local sitemap index from: {local_sitemap_path}")
@@ -1105,7 +1156,13 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
         """
         try:
             # Step 1: Check for local sitemap index first
-            local_sitemap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sitemap-index.xml')
+            # Use a more reliable path resolution
+            script_dir = os.path.dirname(os.path.realpath(__file__))
+            local_sitemap_path = os.path.join(script_dir, 'sitemap-index.xml')
+
+            logger.debug(f"Script directory: {script_dir}")
+            logger.debug(f"Looking for sitemap at: {local_sitemap_path}")
+
             if os.path.exists(local_sitemap_path):
                 logger.info(f"📁 Using local sitemap index from: {local_sitemap_path}")
                 try:
