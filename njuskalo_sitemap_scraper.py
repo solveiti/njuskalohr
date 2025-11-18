@@ -1553,23 +1553,35 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             return False
 
     def close(self):
-        """Clean up resources."""
+        """Clean up resources without user confirmation."""
         if self.driver:
             try:
                 self.driver.quit()
                 logger.info("Browser closed successfully")
             except Exception as e:
                 logger.warning(f"Error closing browser: {e}")
+                # Force kill Firefox processes if quit fails
+                try:
+                    import subprocess
+                    subprocess.run(['pkill', '-9', 'firefox'], timeout=2, stderr=subprocess.DEVNULL)
+                    subprocess.run(['pkill', '-9', 'geckodriver'], timeout=2, stderr=subprocess.DEVNULL)
+                    logger.info("Forcefully terminated browser processes")
+                except Exception as kill_error:
+                    logger.warning(f"Could not force kill processes: {kill_error}")
 
         if hasattr(self, 'session'):
-            self.session.close()
+            try:
+                self.session.close()
+            except Exception as e:
+                logger.warning(f"Error closing session: {e}")
 
 
 if __name__ == "__main__":
-    # Example usage - headless by default, use headless=False for manual testing/debugging
-    scraper = NjuskaloSitemapScraper(headless=True)
-
+    scraper = None
     try:
+        # Example usage - headless by default, use headless=False for manual testing/debugging
+        scraper = NjuskaloSitemapScraper(headless=True)
+
         # For testing, limit to 5 stores
         stores_data = scraper.run_full_scrape(max_stores=5)
 
@@ -1591,5 +1603,12 @@ if __name__ == "__main__":
         else:
             print("No stores found. Check the logs for details.")
 
+    except KeyboardInterrupt:
+        logger.info("Script interrupted by user")
+    except Exception as e:
+        logger.error(f"Script failed with error: {e}")
     finally:
-        scraper.close()
+        # Always close browser, even on error or interrupt
+        if scraper:
+            scraper.close()
+        logger.info("Script execution completed")

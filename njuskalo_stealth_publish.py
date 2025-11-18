@@ -3053,19 +3053,32 @@ def main():
             # Exit with appropriate code
             sys.exit(0 if success else 1)
 
+        except KeyboardInterrupt:
+            print("\n⚠️ Script interrupted by user")
+            sentry_sdk.capture_message("Script interrupted by user", level="info")
+            sys.exit(1)
         except Exception as e:
             # Capture any unhandled exceptions
             sentry_sdk.capture_exception(e)
             print(f"❌ Fatal error: {e}")
             sys.exit(1)
         finally:
-            # Ensure browser cleanup
+            # Always ensure browser cleanup without confirmation
             try:
                 if 'stealth_publish' in locals() and hasattr(stealth_publish, 'driver') and stealth_publish.driver:
+                    print("Cleaning up browser...")
                     stealth_publish.driver.quit()
-                    print("Browser cleanup completed")
+                    print("✅ Browser cleanup completed")
             except Exception as cleanup_error:
-                print(f"Error during cleanup: {cleanup_error}")
+                print(f"⚠️ Error during normal cleanup: {cleanup_error}")
+                # Force kill if normal quit fails
+                try:
+                    import subprocess
+                    subprocess.run(['pkill', '-9', 'firefox'], timeout=2, stderr=subprocess.DEVNULL)
+                    subprocess.run(['pkill', '-9', 'geckodriver'], timeout=2, stderr=subprocess.DEVNULL)
+                    print("🔨 Forcefully terminated browser processes")
+                except:
+                    pass
 
 
 if __name__ == "__main__":
