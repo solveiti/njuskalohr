@@ -155,14 +155,24 @@ SENTRY_ENVIRONMENT=production
 
 Always use `run.sh` — it activates the venv, loads `.env`, and sets the display.
 
-### Inside a screen session (recommended for long runs)
+### Detached screen run (default)
+
+`run.sh` now starts in a detached `screen` session automatically when launched from a normal shell.
 
 ```bash
-screen -S scraper          # create session
-./run.sh                   # start scraping (tunnel mode, all stores)
+./run.sh                   # starts detached session "scraper"
+screen -r scraper          # attach to live output
+screen -ls                 # list running sessions
 
 # Ctrl+A then D            # detach — scraper keeps running
 screen -r scraper          # reattach later
+```
+
+Optional flags:
+
+```bash
+./run.sh --screen-session scraper-enhanced --mode enhanced
+./run.sh --no-screen --mode enhanced    # run directly in current terminal
 ```
 
 ### Common options
@@ -180,11 +190,11 @@ screen -r scraper          # reattach later
 
 ### Scraping modes
 
-| Mode | Command | Description |
-|------|---------|-------------|
-| `tunnel` | `./run.sh` | Enhanced scraper routed through SSH SOCKS5 tunnel (default) |
-| `enhanced` | `./run.sh --mode enhanced` | Enhanced scraper, direct connection |
-| `basic` | `./run.sh --mode basic` | Basic sitemap scraper, no vehicle type counting |
+| Mode       | Command                    | Description                                                 |
+| ---------- | -------------------------- | ----------------------------------------------------------- |
+| `tunnel`   | `./run.sh`                 | Enhanced scraper routed through SSH SOCKS5 tunnel (default) |
+| `enhanced` | `./run.sh --mode enhanced` | Enhanced scraper, direct connection                         |
+| `basic`    | `./run.sh --mode basic`    | Basic sitemap scraper, no vehicle type counting             |
 
 ---
 
@@ -218,11 +228,11 @@ For each URL the scraper:
 
 The scraper detects three vehicle conditions from the `li.entity-flag span.flag` elements on each listing and from regex matches on page text and HTML source:
 
-| Type | Croatian label | English alias |
-|------|---------------|---------------|
-| New | `Novo vozilo` | `new vehicle` |
+| Type | Croatian label    | English alias                    |
+| ---- | ----------------- | -------------------------------- |
+| New  | `Novo vozilo`     | `new vehicle`                    |
 | Used | `Rabljeno vozilo` | `used vehicle`, `polovno vozilo` |
-| Test | `Testno vozilo` | — |
+| Test | `Testno vozilo`   | —                                |
 
 All three counts are stored separately.
 `total_vehicle_count = new + used + test`
@@ -244,11 +254,11 @@ On the **first run** for a store there is no previous snapshot, so all deltas ar
 
 ### Example
 
-| run | active_new | delta_new | interpretation |
-|-----|-----------|-----------|----------------|
-| 1 | 12 | 0 | first scrape, no baseline |
-| 2 | 9 | −3 | 3 new-car listings removed/sold |
-| 3 | 11 | +2 | 2 new cars re-stocked |
+| run | active_new | delta_new | interpretation                  |
+| --- | ---------- | --------- | ------------------------------- |
+| 1   | 12         | 0         | first scrape, no baseline       |
+| 2   | 9          | −3        | 3 new-car listings removed/sold |
+| 3   | 11         | +2        | 2 new cars re-stocked           |
 
 ### Querying the history
 
@@ -284,35 +294,35 @@ The scraper uses **SQLite** — a single file (`njuskalo.db` by default, path se
 
 ### `scraped_stores` — one row per store, updated on every scrape
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER | Auto-increment primary key |
-| `url` | TEXT | Store URL (unique) |
-| `results` | TEXT | Raw scraped data (JSON) |
-| `is_valid` | INTEGER | 1 = URL was reachable |
-| `is_automoto` | INTEGER | 1 = store has Auto Moto category |
-| `new_vehicle_count` | INTEGER | Active new-vehicle ads (latest run) |
-| `used_vehicle_count` | INTEGER | Active used-vehicle ads (latest run) |
-| `test_vehicle_count` | INTEGER | Active test-vehicle ads (latest run) |
-| `total_vehicle_count` | INTEGER | Sum of all three types |
-| `created_at` | TEXT | First scrape (ISO 8601) |
-| `updated_at` | TEXT | Last scrape (ISO 8601) |
+| Column                | Type    | Description                          |
+| --------------------- | ------- | ------------------------------------ |
+| `id`                  | INTEGER | Auto-increment primary key           |
+| `url`                 | TEXT    | Store URL (unique)                   |
+| `results`             | TEXT    | Raw scraped data (JSON)              |
+| `is_valid`            | INTEGER | 1 = URL was reachable                |
+| `is_automoto`         | INTEGER | 1 = store has Auto Moto category     |
+| `new_vehicle_count`   | INTEGER | Active new-vehicle ads (latest run)  |
+| `used_vehicle_count`  | INTEGER | Active used-vehicle ads (latest run) |
+| `test_vehicle_count`  | INTEGER | Active test-vehicle ads (latest run) |
+| `total_vehicle_count` | INTEGER | Sum of all three types               |
+| `created_at`          | TEXT    | First scrape (ISO 8601)              |
+| `updated_at`          | TEXT    | Last scrape (ISO 8601)               |
 
 ### `store_snapshots` — one row per store per scrape run
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER | Auto-increment primary key |
-| `url` | TEXT | Store URL |
-| `scraped_at` | TEXT | When this run happened (ISO 8601) |
-| `active_new` | INTEGER | New-vehicle ads visible this run |
-| `active_used` | INTEGER | Used-vehicle ads visible this run |
-| `active_test` | INTEGER | Test-vehicle ads visible this run |
-| `active_total` | INTEGER | Total ads visible this run |
-| `delta_new` | INTEGER | Change vs. previous run (negative = removed) |
-| `delta_used` | INTEGER | Change vs. previous run |
-| `delta_test` | INTEGER | Change vs. previous run |
-| `delta_total` | INTEGER | Change vs. previous run |
+| Column         | Type    | Description                                  |
+| -------------- | ------- | -------------------------------------------- |
+| `id`           | INTEGER | Auto-increment primary key                   |
+| `url`          | TEXT    | Store URL                                    |
+| `scraped_at`   | TEXT    | When this run happened (ISO 8601)            |
+| `active_new`   | INTEGER | New-vehicle ads visible this run             |
+| `active_used`  | INTEGER | Used-vehicle ads visible this run            |
+| `active_test`  | INTEGER | Test-vehicle ads visible this run            |
+| `active_total` | INTEGER | Total ads visible this run                   |
+| `delta_new`    | INTEGER | Change vs. previous run (negative = removed) |
+| `delta_used`   | INTEGER | Change vs. previous run                      |
+| `delta_test`   | INTEGER | Change vs. previous run                      |
+| `delta_total`  | INTEGER | Change vs. previous run                      |
 
 Tables and indexes are created automatically on first run. Migrations are idempotent and safe to re-run on existing databases.
 
@@ -347,12 +357,12 @@ python export_db_to_excel.py --filename my_report.xlsx
 
 Output goes to `datadump/`. The Excel file contains:
 
-| Column group | Columns |
-|---|---|
-| Store info | `id`, `vat`, `name`, `subname`, `address`, `url`, `is_automoto`, `updated_at` |
-| Active counts (latest run) | `active_new`, `active_used`, `active_test`, `active_total` |
-| Deltas vs. previous run | `delta_new`, `delta_used`, `delta_test`, `delta_total` |
-| Legacy convenience | `new`, `used`, `test`, `total` (same values as `active_*`) |
+| Column group               | Columns                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| Store info                 | `id`, `vat`, `name`, `subname`, `address`, `url`, `is_automoto`, `updated_at` |
+| Active counts (latest run) | `active_new`, `active_used`, `active_test`, `active_total`                    |
+| Deltas vs. previous run    | `delta_new`, `delta_used`, `delta_test`, `delta_total`                        |
+| Legacy convenience         | `new`, `used`, `test`, `total` (same values as `active_*`)                    |
 
 Delta columns are `0` for stores that have only been scraped once (no prior baseline).
 
