@@ -409,6 +409,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
         self.use_database = use_database
         self.database = None
         self.stores_data = []
+        self.logger = logger
 
     def setup_browser(self) -> bool:
         """Set up Firefox WebDriver with server-compatible configuration."""
