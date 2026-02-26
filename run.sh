@@ -56,6 +56,14 @@ done
 
 if [[ "$SCREEN_ENABLED" == true && -z "${STY:-}" ]]; then
     if command -v screen >/dev/null 2>&1; then
+        EXISTING_SESSION_ID="$(screen -ls | awk '/\.[[:alnum:]_-]+[[:space:]]/ {print $1}' | awk -F. -v name="$SCREEN_SESSION_NAME" '$2==name {print $0; exit}')"
+
+        if [[ -n "$EXISTING_SESSION_ID" ]]; then
+            echo "Screen session already running: $EXISTING_SESSION_ID"
+            echo "Attach with: screen -d -r $EXISTING_SESSION_ID"
+            exit 0
+        fi
+
         ESCAPED_ARGS=""
         for arg in "${FORWARDED_ARGS[@]}"; do
             ESCAPED_ARGS+=" $(printf '%q' "$arg")"
@@ -65,8 +73,14 @@ if [[ "$SCREEN_ENABLED" == true && -z "${STY:-}" ]]; then
         SCREEN_CMD="cd ${ESCAPED_SCRIPT_DIR} && ./run.sh --no-screen${ESCAPED_ARGS}"
 
         screen -dmS "$SCREEN_SESSION_NAME" bash -lc "$SCREEN_CMD"
-        echo "Started detached screen session: $SCREEN_SESSION_NAME"
-        echo "Attach with: screen -r $SCREEN_SESSION_NAME"
+        NEW_SESSION_ID="$(screen -ls | awk '/\.[[:alnum:]_-]+[[:space:]]/ {print $1}' | awk -F. -v name="$SCREEN_SESSION_NAME" '$2==name {print $0; exit}')"
+        if [[ -n "$NEW_SESSION_ID" ]]; then
+            echo "Started detached screen session: $NEW_SESSION_ID"
+            echo "Attach with: screen -d -r $NEW_SESSION_ID"
+        else
+            echo "Started detached screen session: $SCREEN_SESSION_NAME"
+            echo "Attach with: screen -d -r $SCREEN_SESSION_NAME"
+        fi
         exit 0
     else
         echo "Warning: screen is not installed, running in foreground"

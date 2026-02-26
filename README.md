@@ -161,11 +161,12 @@ Always use `run.sh` — it activates the venv, loads `.env`, and sets the displa
 
 ```bash
 ./run.sh                   # starts detached session "scraper"
-screen -r scraper          # attach to live output
+screen -ls                 # list running sessions (note full ID, e.g. 12345.scraper)
+screen -d -r 12345.scraper # attach safely (detaches elsewhere if needed)
 screen -ls                 # list running sessions
 
 # Ctrl+A then D            # detach — scraper keeps running
-screen -r scraper          # reattach later
+screen -d -r 12345.scraper # reattach later
 ```
 
 Optional flags:
