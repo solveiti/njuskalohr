@@ -171,6 +171,7 @@ Optional flags:
 ```bash
 ./run.sh --mode enhanced
 ./run.sh --foreground --mode enhanced    # run directly in current terminal
+./run.sh --headless --mode enhanced      # hide browser (no VNC window)
 ```
 
 ### Common options
@@ -183,6 +184,7 @@ Optional flags:
 ./run.sh --no-tunnels             # disable SSH tunnels
 ./run.sh --no-database            # print results to stdout only, no DB write
 ./run.sh --verbose                # debug logging
+./run.sh --headless               # run browser without opening VNC window
 ./run.sh --help                   # full option list
 ```
 

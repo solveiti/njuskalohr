@@ -63,7 +63,7 @@ def run_tunnel_scrape(args, logger):
 
     logger.info("Starting enhanced tunnel scrape...")
     scraper = TunnelEnabledEnhancedScraper(
-        headless=True,
+        headless=args.headless,
         use_database=not args.no_database,
         tunnel_config_path=args.tunnel_config,
         use_tunnels=not args.no_tunnels,
@@ -87,7 +87,7 @@ def run_enhanced_scrape(args, logger):
         sys.exit(1)
 
     logger.info("Starting enhanced scrape (no tunnels)...")
-    scraper = EnhancedNjuskaloScraper(headless=True, use_database=not args.no_database)
+    scraper = EnhancedNjuskaloScraper(headless=args.headless, use_database=not args.no_database)
     try:
         results = scraper.run_enhanced_scrape(max_stores=args.max_stores)
         print_results(results)
@@ -102,7 +102,7 @@ def run_basic_scrape(args, logger):
     from njuskalo_sitemap_scraper import NjuskaloSitemapScraper
 
     logger.info("Starting basic sitemap scrape...")
-    scraper = NjuskaloSitemapScraper(headless=True, use_database=not args.no_database)
+    scraper = NjuskaloSitemapScraper(headless=args.headless, use_database=not args.no_database)
     try:
         stores = scraper.run_full_scrape(max_stores=args.max_stores)
 
@@ -194,6 +194,11 @@ def main():
         "--verbose", "-v",
         action="store_true",
         help="Enable debug logging",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run browser headless (default: visible in X/VNC display)",
     )
 
     args = parser.parse_args()

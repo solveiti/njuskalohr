@@ -79,6 +79,7 @@ Scraper options (forwarded):
   --no-tunnels
   --no-database
   --verbose
+    --headless
 
 Examples:
   ./run.sh
