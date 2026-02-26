@@ -773,7 +773,7 @@ if __name__ == "__main__":
     )
 
     # Create and run enhanced scraper
-    scraper = EnhancedNjuskaloScraper(headless=args.headless or True)
+    scraper = EnhancedNjuskaloScraper(headless=args.headless or False)
     results = scraper.run_enhanced_scrape(max_stores=args.max_stores)
 
     print("\\n" + "="*60)

@@ -54,7 +54,7 @@ def test_firefox_with_display():
     print("   Configuring Firefox options...")
 
     firefox_options = Options()
-    firefox_options.headless = True
+    firefox_options.headless = False
     firefox_options.binary_location = firefox_path
 
     # Server-compatible preferences

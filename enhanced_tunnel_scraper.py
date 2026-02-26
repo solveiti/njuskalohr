@@ -333,7 +333,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             firefox_options = Options()
 
             # Server-compatible configuration (exact setup that works)
-            firefox_options.headless = True
+            firefox_options.headless = False
 
             # ALWAYS use system Firefox, not webdriver's bundled version
             firefox_binary = "/usr/bin/firefox"
