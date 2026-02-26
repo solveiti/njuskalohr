@@ -44,6 +44,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 import logging
 import re
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -204,6 +205,162 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         logger.info(f"✅ Successfully added {added_count}/{len(new_urls)} new URLs to database")
         return added_count
 
+    def _extract_auto_moto_category_url(self, store_url: str) -> Optional[str]:
+        """
+        Extract Auto Moto category URL from store page by finding a link that:
+        - contains categoryId=2 in href
+        - and has visible link text containing "auto moto"
+        """
+        try:
+            if not self.driver:
+                return None
+
+            auto_moto_links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*="categoryId=2"]')
+
+            for link in auto_moto_links:
+                try:
+                    link_text = (link.text or "").strip().lower()
+                    href = (link.get_attribute('href') or "").strip()
+
+                    if not href:
+                        continue
+
+                    if 'categoryid=2' not in href.lower():
+                        continue
+
+                    # Expected pattern: "Auto Moto" or "Auto Moto <number>"
+                    if 'auto moto' in link_text:
+                        logger.info(f"✅ Auto Moto link detected: {href} ({link_text})")
+                        return href
+                except Exception:
+                    continue
+
+            return None
+        except Exception as e:
+            logger.debug(f"Auto Moto link extraction failed for {store_url}: {e}")
+            return None
+
+    def _build_paginated_url(self, base_url: str, page: int) -> str:
+        """Build paginated URL by setting/replacing the `page` query parameter."""
+        parsed = urlparse(base_url)
+        query_pairs = [(k, v) for (k, v) in parse_qsl(parsed.query, keep_blank_values=True) if k.lower() != 'page']
+        query_pairs.append(('page', str(page)))
+        new_query = urlencode(query_pairs)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+    def _count_vehicle_types_on_current_page(self) -> Dict[str, int]:
+        """
+        Count new/used/test ads on current page using listing flags.
+        One listing contributes to at most one type bucket.
+        """
+        page_counts = {
+            'new_vehicle_count': 0,
+            'used_vehicle_count': 0,
+            'test_vehicle_count': 0,
+            'total_vehicle_count': 0
+        }
+
+        listing_selectors = [
+            '.entity-item',
+            '.ad-item',
+            '.listing-item',
+            '[data-testid="ad-item"]',
+            '.classified-item'
+        ]
+
+        listings = []
+        for selector in listing_selectors:
+            try:
+                listings = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                if listings:
+                    break
+            except Exception:
+                continue
+
+        # Fallback: try global flag scan if listing wrappers are not found.
+        if not listings:
+            try:
+                flag_elements = self.driver.find_elements(By.CSS_SELECTOR, 'li.entity-flag span.flag')
+                for flag in flag_elements:
+                    flag_text = (flag.text or '').strip().lower()
+                    if 'testno vozilo' in flag_text:
+                        page_counts['test_vehicle_count'] += 1
+                    elif 'novo vozilo' in flag_text:
+                        page_counts['new_vehicle_count'] += 1
+                    elif 'rabljeno vozilo' in flag_text or 'polovno vozilo' in flag_text:
+                        page_counts['used_vehicle_count'] += 1
+            except Exception:
+                pass
+
+            page_counts['total_vehicle_count'] = (
+                page_counts['new_vehicle_count']
+                + page_counts['used_vehicle_count']
+                + page_counts['test_vehicle_count']
+            )
+            return page_counts
+
+        for listing in listings:
+            try:
+                listing_text = (listing.text or '').lower()
+                flag_texts = []
+
+                try:
+                    flags = listing.find_elements(By.CSS_SELECTOR, 'li.entity-flag span.flag, .entity-flag span.flag, .entity-flag, .flag')
+                    flag_texts = [(flag.text or '').lower() for flag in flags if (flag.text or '').strip()]
+                except Exception:
+                    flag_texts = []
+
+                searchable = ' '.join(flag_texts) if flag_texts else listing_text
+
+                if 'testno vozilo' in searchable:
+                    page_counts['test_vehicle_count'] += 1
+                elif 'novo vozilo' in searchable:
+                    page_counts['new_vehicle_count'] += 1
+                elif 'rabljeno vozilo' in searchable or 'polovno vozilo' in searchable:
+                    page_counts['used_vehicle_count'] += 1
+            except Exception:
+                continue
+
+        page_counts['total_vehicle_count'] = (
+            page_counts['new_vehicle_count']
+            + page_counts['used_vehicle_count']
+            + page_counts['test_vehicle_count']
+        )
+        return page_counts
+
+    def _has_next_page(self, current_page: int) -> bool:
+        """Detect if pagination indicates a next page exists."""
+        next_selectors = [
+            '.pagination .next:not(.disabled)',
+            '.pagination .page-next:not(.disabled)',
+            'a[aria-label="Next"]:not([disabled])',
+            '.pager .next:not(.disabled)',
+            '[data-testid="next-page"]:not([disabled])'
+        ]
+
+        for selector in next_selectors:
+            try:
+                next_elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for element in next_elements:
+                    classes = (element.get_attribute('class') or '').lower()
+                    if element.is_enabled() and 'disabled' not in classes:
+                        return True
+            except Exception:
+                continue
+
+        # Numeric pagination fallback: if there is a link/button for current_page + 1
+        try:
+            next_page_num = str(current_page + 1)
+            candidates = self.driver.find_elements(By.CSS_SELECTOR, '.pagination a, .pagination button, .pager a, .pager button')
+            for candidate in candidates:
+                text = (candidate.text or '').strip()
+                if text == next_page_num:
+                    return True
+        except Exception:
+            pass
+
+        return False
+
     def check_auto_moto_category(self, store_url: str) -> bool:
         """
         Check if a store has Auto moto category on the page.
@@ -217,8 +374,14 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         try:
             logger.info(f"🔍 Checking auto moto category for: {store_url}")
 
+            if not self.driver:
+                logger.warning("⚠️ Browser driver missing before auto moto check, reinitializing...")
+                if not self.setup_browser():
+                    raise RuntimeError("Browser initialization failed before auto moto check")
+
             # Visit the store page without category filter first
-            self.navigate_to(store_url)
+            if not self.navigate_to(store_url):
+                raise RuntimeError(f"Navigation failed for {store_url}")
             self.smart_sleep("page_load")
 
             # Wait for page to load (reduced timeout)
@@ -226,87 +389,17 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            # Look for auto moto indicators
-            auto_moto_indicators = [
-                # Category links
-                'a[href*="categoryId=2"]',
-                'a[href*="category=auto"]',
-                'a[href*="category=moto"]',
-                'a[href*="automobili"]',
-                'a[href*="motocikli"]',
+            # Strict requirement: must have explicit Auto Moto link with categoryId=2
+            auto_moto_url = self._extract_auto_moto_category_url(store_url)
+            if auto_moto_url:
+                return True
 
-                # Text content indicators
-                '.category-list',
-                '.categories',
-                '.store-categories',
-                '.navigation',
-                '.category-nav'
-            ]
-
-            # Check for auto moto links or text
-            for selector in auto_moto_indicators:
-                try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for element in elements:
-                        text = element.text.lower() if hasattr(element, 'text') else ''
-                        href = element.get_attribute('href') if hasattr(element, 'get_attribute') else ''
-
-                        if any(keyword in text for keyword in ['auto', 'moto', 'vozil', 'automobil']):
-                            logger.info(f"✅ Auto moto category found via text: {text[:50]}")
-                            return True
-                        if any(keyword in href for keyword in ['categoryId=2', 'auto', 'moto']):
-                            logger.info(f"✅ Auto moto category found via link: {href}")
-                            return True
-                except:
-                    continue
-
-            # Check page source for category indicators
-            try:
-                page_source = self.driver.page_source.lower()
-                if 'categoryid=2' in page_source or 'category=auto' in page_source:
-                    logger.info("✅ Auto moto category found in page source")
-                    return True
-            except:
-                pass
-
-            # Try visiting with auto moto filter to see if it works
-            try:
-                filtered_url = self.add_car_category_filter(store_url)
-                self.navigate_to(filtered_url)
-                self.smart_sleep("page_load", 3, 8)
-
-                # Check if we get results or error page
-                page_text = self.driver.find_element(By.TAG_NAME, "body").text.lower()
-
-                # Look for indicators that auto moto category exists
-                if any(keyword in page_text for keyword in ['vozilo', 'automobil', 'moto', 'auto']):
-                    # Check if there are actual listings
-                    listing_indicators = [
-                        '.entity-list',
-                        '.ads-list',
-                        '.listings',
-                        '.search-results',
-                        '.entity-item'
-                    ]
-
-                    for selector in listing_indicators:
-                        try:
-                            listings = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                            if listings:
-                                logger.info("✅ Auto moto category confirmed - found listings")
-                                return True
-                        except:
-                            continue
-
-            except Exception as e:
-                logger.debug(f"Error checking filtered URL: {e}")
-
-            logger.info("❌ No auto moto category found")
+            logger.info("❌ No valid Auto Moto link (categoryId=2) found on store page")
             return False
 
         except Exception as e:
             logger.error(f"❌ Error checking auto moto category: {e}")
-            return False
+            raise
 
     def count_vehicle_types(self, store_url: str) -> Dict[str, int]:
         """
@@ -326,159 +419,70 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         }
 
         try:
-            # Visit store with auto moto filter
-            filtered_url = self.add_car_category_filter(store_url)
-            logger.info(f"🚗 Counting vehicles for: {filtered_url}")
+            # Resolve Auto Moto category URL from the store page first.
+            # This enforces that counting only happens for explicit Auto Moto category links.
+            if not self.navigate_to(store_url):
+                raise RuntimeError(f"Navigation failed for store URL: {store_url}")
 
-            self.navigate_to(filtered_url)
             self.smart_sleep("page_load")
-
-            # Wait for page to load (reduced timeout)
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            # Get page content for analysis
-            page_source = self.driver.page_source
-            page_text = self.driver.find_element(By.TAG_NAME, "body").text
+            auto_moto_url = self._extract_auto_moto_category_url(store_url)
+            if not auto_moto_url:
+                logger.info(f"⏭️ Skipping vehicle count - no Auto Moto category link found: {store_url}")
+                return vehicle_counts
 
-            # Count "Novo vozilo" (New vehicle)
-            new_vehicle_patterns = [
-                r'novo\s+vozilo',
-                r'new\s+vehicle',
-                r'novo\s*vozilo',
-                r'\bnovo\b.*\bvozilo\b'
-            ]
+            logger.info(f"🚗 Counting vehicles via Auto Moto pagination: {auto_moto_url}")
 
-            new_count = 0
-            for pattern in new_vehicle_patterns:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                new_count += len(matches)
+            page = 1
+            max_pages = 80
 
-            # Also check in HTML source for more accurate counting
-            new_html_patterns = [
-                r'novo[\s\-_]*vozilo',
-                r'new[\s\-_]*vehicle',
-                r'condition["\']?[\s]*:[\s]*["\']?new',
-                r'stanje["\']?[\s]*:[\s]*["\']?novo'
-            ]
+            while page <= max_pages:
+                paginated_url = self._build_paginated_url(auto_moto_url, page)
+                logger.debug(f"📄 Counting page {page}: {paginated_url}")
 
-            for pattern in new_html_patterns:
-                matches = re.findall(pattern, page_source, re.IGNORECASE)
-                new_count += len(matches)
+                if not self.navigate_to(paginated_url):
+                    logger.warning(f"⚠️ Failed to navigate to page {page}, stopping pagination")
+                    break
 
-            # Count "Rabljeno vozilo" (Used vehicle)
-            used_vehicle_patterns = [
-                r'rabljeno\s+vozilo',
-                r'used\s+vehicle',
-                r'rabljeno\s*vozilo',
-                r'\brabljeno\b.*\bvozilo\b',
-                r'polovn[oia]\s*vozilo'
-            ]
+                self.smart_sleep("pagination")
 
-            used_count = 0
-            for pattern in used_vehicle_patterns:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                used_count += len(matches)
+                try:
+                    WebDriverWait(self.driver, 8).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "body"))
+                    )
+                except TimeoutException:
+                    logger.warning(f"⚠️ Timed out loading page {page}, stopping pagination")
+                    break
 
-            # Also check in HTML source
-            used_html_patterns = [
-                r'rabljeno[\s\-_]*vozilo',
-                r'used[\s\-_]*vehicle',
-                r'condition["\']?[\s]*:[\s]*["\']?used',
-                r'stanje["\']?[\s]*:[\s]*["\']?rabljeno',
-                r'polovn[oia][\s\-_]*vozilo'
-            ]
+                page_counts = self._count_vehicle_types_on_current_page()
 
-            for pattern in used_html_patterns:
-                matches = re.findall(pattern, page_source, re.IGNORECASE)
-                used_count += len(matches)
+                vehicle_counts['new_vehicle_count'] += page_counts['new_vehicle_count']
+                vehicle_counts['used_vehicle_count'] += page_counts['used_vehicle_count']
+                vehicle_counts['test_vehicle_count'] += page_counts['test_vehicle_count']
+                vehicle_counts['total_vehicle_count'] += page_counts['total_vehicle_count']
 
-            # Count "Testno vozilo" (Test/demo vehicle)
-            test_vehicle_patterns = [
-                r'testno\s+vozilo',
-                r'testno\s*vozilo',
-                r'\btestno\b.*\bvozilo\b'
-            ]
+                logger.info(
+                    f"📄 Page {page}: new={page_counts['new_vehicle_count']}, "
+                    f"used={page_counts['used_vehicle_count']}, "
+                    f"test={page_counts['test_vehicle_count']}, "
+                    f"ads={page_counts['total_vehicle_count']}"
+                )
 
-            test_count = 0
-            for pattern in test_vehicle_patterns:
-                matches = re.findall(pattern, page_text, re.IGNORECASE)
-                test_count += len(matches)
+                # Stop conditions:
+                # - no ads on current page
+                # - no next page in pagination controls
+                if page_counts['total_vehicle_count'] == 0:
+                    logger.info(f"⏹️ Stopping at page {page}: no ads found")
+                    break
 
-            test_html_patterns = [
-                r'testno[\s\-_]*vozilo',
-                r'condition["\']?[\s]*:[\s]*["\']?test',
-                r'stanje["\']?[\s]*:[\s]*["\']?testno'
-            ]
+                if not self._has_next_page(page):
+                    logger.info(f"⏹️ Stopping at page {page}: no next page")
+                    break
 
-            for pattern in test_html_patterns:
-                matches = re.findall(pattern, page_source, re.IGNORECASE)
-                test_count += len(matches)
-
-            # Try to extract from listing elements directly
-            try:
-                # Look for individual vehicle listings
-                listing_selectors = [
-                    '.entity-item',
-                    '.ad-item',
-                    '.listing-item',
-                    '.search-result',
-                    '.vehicle-item'
-                ]
-
-                for selector in listing_selectors:
-                    listings = self.driver.find_elements(By.CSS_SELECTOR, selector)
-
-                    listing_new_count = 0
-                    listing_used_count = 0
-                    listing_test_count = 0
-
-                    for listing in listings:
-                        try:
-                            listing_text = listing.text.lower()
-                            listing_html = listing.get_attribute('innerHTML').lower()
-
-                            # Check for new vehicle indicators
-                            if any(keyword in listing_text for keyword in ['novo vozilo', 'new vehicle']):
-                                listing_new_count += 1
-                            elif any(keyword in listing_html for keyword in ['novo', 'new']):
-                                listing_new_count += 1
-
-                            # Check for used vehicle indicators
-                            if any(keyword in listing_text for keyword in ['rabljeno vozilo', 'used vehicle', 'polovno']):
-                                listing_used_count += 1
-                            elif any(keyword in listing_html for keyword in ['rabljeno', 'used', 'polovno']):
-                                listing_used_count += 1
-
-                            # Check for test vehicle indicators
-                            if 'testno vozilo' in listing_text:
-                                listing_test_count += 1
-                            elif 'testno' in listing_html:
-                                listing_test_count += 1
-
-                        except:
-                            continue
-
-                    # Use listing counts if they seem more accurate
-                    if listing_new_count > 0 or listing_used_count > 0 or listing_test_count > 0:
-                        new_count = max(new_count, listing_new_count)
-                        used_count = max(used_count, listing_used_count)
-                        test_count = max(test_count, listing_test_count)
-                        break
-
-            except Exception as e:
-                logger.debug(f"Error counting from listings: {e}")
-
-            # Clean up counts (cap at reasonable number)
-            vehicle_counts['new_vehicle_count'] = min(new_count, 100)
-            vehicle_counts['used_vehicle_count'] = min(used_count, 100)
-            vehicle_counts['test_vehicle_count'] = min(test_count, 100)
-            vehicle_counts['total_vehicle_count'] = (
-                vehicle_counts['new_vehicle_count']
-                + vehicle_counts['used_vehicle_count']
-                + vehicle_counts['test_vehicle_count']
-            )
+                page += 1
 
             logger.info(
                 f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, "
@@ -554,7 +558,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'url': store_url,
                 'error': str(e),
                 'has_auto_moto': False,
-                'scraped': True,
+                'scraped': False,
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
                 'test_vehicle_count': 0,
@@ -655,15 +659,38 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 urls_to_scrape = urls_to_scrape[:max_stores]
                 logger.info(f"📊 Limited to {len(urls_to_scrape)} stores for testing")
 
+            # Ensure browser is initialized before any store navigation.
+            # When XML is skipped (fresh DB), setup_browser() may not have run yet.
+            if not self.driver:
+                logger.info("🌐 Initializing browser for store scraping...")
+                if not self.setup_browser():
+                    error_msg = "Failed to initialize browser before store scraping"
+                    logger.error(f"❌ {error_msg}")
+                    results['errors'].append(error_msg)
+                    return results
+
             # Step 3: Scrape stores
             for i, store_url in enumerate(urls_to_scrape, 1):
                 try:
                     logger.info(f"🔄 Scraping store {i}/{len(urls_to_scrape)}: {store_url}")
 
+                    if not self.driver:
+                        logger.warning("⚠️ Browser driver missing before store scrape, reinitializing...")
+                        if not self.setup_browser():
+                            error_msg = f"Browser unavailable for store scrape: {store_url}"
+                            logger.error(f"❌ {error_msg}")
+                            results['errors'].append(error_msg)
+                            continue
+
                     # Scrape store with vehicle counting
                     store_data = self.scrape_store_with_vehicle_counting(store_url)
 
                     if store_data:
+                        if store_data.get('error'):
+                            logger.error(f"❌ Store scrape failed for {store_url}: {store_data['error']}")
+                            results['errors'].append(f"Store {store_url}: {store_data['error']}")
+                            continue
+
                         # Capture counts before save_store_data pops them from the dict
                         snap_new  = store_data.get('new_vehicle_count', 0)
                         snap_used = store_data.get('used_vehicle_count', 0)

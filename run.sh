@@ -137,9 +137,11 @@ if [ -f ".env" ]; then
 fi
 
 # Point Firefox at the VNC display defined in .env (DISPLAY_NUM, default :3).
-# The display must already be running on the remote server.
-if [ -z "$DISPLAY" ]; then
-    export DISPLAY="${DISPLAY_NUM:-:3}"
+# Always prefer DISPLAY_NUM to avoid inheriting SSH/X11-forwarded DISPLAY values.
+if [ -n "${DISPLAY_NUM:-}" ]; then
+    export DISPLAY="$DISPLAY_NUM"
+else
+    export DISPLAY="${DISPLAY:-:3}"
 fi
 
 exec python run_scraper.py "${FORWARDED_ARGS[@]}"

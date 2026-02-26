@@ -14,9 +14,89 @@ Usage:
 import os
 import sys
 import tempfile
+import time
+import signal
+import subprocess
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
+
+
+def _find_processes(pattern: str):
+    """Return list of matching process tuples: (pid, command)."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-a", "-f", pattern],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return []
+
+    processes = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(" ", 1)
+        if not parts:
+            continue
+        try:
+            pid = int(parts[0])
+        except ValueError:
+            continue
+        cmd = parts[1] if len(parts) > 1 else ""
+
+        # Don't target current test process
+        if pid == os.getpid():
+            continue
+
+        processes.append((pid, cmd))
+    return processes
+
+
+def _kill_processes(processes, label: str):
+    """Try SIGTERM then SIGKILL if needed. Returns number killed."""
+    if not processes:
+        print(f"   ℹ️  No {label} processes found")
+        return 0
+
+    print(f"   Found {len(processes)} {label} process(es):")
+    for pid, cmd in processes:
+        print(f"     - PID {pid}: {cmd}")
+
+    killed = 0
+    for pid, _ in processes:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            continue
+        except Exception as e:
+            print(f"   ⚠️  Could not SIGTERM PID {pid}: {e}")
+
+    time.sleep(1.0)
+
+    for pid, _ in processes:
+        try:
+            # Signal 0 succeeds only if process is still alive
+            os.kill(pid, 0)
+            try:
+                os.kill(pid, signal.SIGKILL)
+                print(f"   ⚠️  PID {pid} required SIGKILL")
+            except ProcessLookupError:
+                pass
+            except Exception as e:
+                print(f"   ⚠️  Could not SIGKILL PID {pid}: {e}")
+                continue
+        except ProcessLookupError:
+            pass
+        except Exception:
+            pass
+        killed += 1
+
+    print(f"   ✅ Cleanup finished for {label}, terminated: {killed}")
+    return killed
 
 def test_firefox_with_display():
     """Test Firefox WebDriver initialization with current display settings"""
@@ -49,8 +129,16 @@ def test_firefox_with_display():
         print(f"   ❌ Geckodriver NOT found at {geckodriver_path}")
         return False
 
+    # Cleanup stale Firefox/geckodriver sessions first
+    print("\n4. Existing Session Cleanup:")
+    firefox_processes = _find_processes(r"(^|/)firefox(\s|$)|firefox-esr")
+    geckodriver_processes = _find_processes(r"(^|/)geckodriver(\s|$)")
+
+    _kill_processes(firefox_processes, "Firefox")
+    _kill_processes(geckodriver_processes, "geckodriver")
+
     # Test Firefox WebDriver
-    print("\n4. WebDriver Test:")
+    print("\n5. WebDriver Test:")
     print("   Configuring Firefox options...")
 
     firefox_options = Options()
@@ -78,7 +166,7 @@ def test_firefox_with_display():
     log_file = os.path.join(tempfile.gettempdir(), "test_geckodriver.log")
     service = Service(geckodriver_path, log_output=log_file)
 
-    print(f"   Starting Firefox WebDriver (headless)...")
+    print(f"   Starting Firefox WebDriver (visible mode)...")
     print(f"   Log file: {log_file}")
 
     try:
@@ -90,7 +178,7 @@ def test_firefox_with_display():
         print("   ✅ WebDriver started successfully!")
 
         # Test navigation
-        print("\n5. Navigation Test:")
+        print("\n6. Navigation Test:")
         test_html = "data:text/html,<html><body><h1>Test OK</h1><p>Firefox is working!</p></body></html>"
         driver.get(test_html)
         print(f"   ✅ Navigated to test page")
@@ -105,7 +193,7 @@ def test_firefox_with_display():
 
         # Cleanup
         driver.quit()
-        print("\n6. Cleanup:")
+        print("\n7. Cleanup:")
         print("   ✅ WebDriver closed successfully")
 
         print("\n" + "=" * 70)

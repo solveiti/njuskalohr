@@ -463,7 +463,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                     logger.error(f"❌ Failed to start Firefox WebDriver after {max_retries} attempts: {e}")
                     logger.error(f"Geckodriver path: {geckodriver_path}")
                     logger.error(f"Firefox binary: {firefox_binary}")
-                    logger.error(f"Headless mode: True")
+                    logger.error(f"Headless mode: {self.headless}")
                     logger.error("Display issue: ensure DISPLAY=:3 is set (check DISPLAY_NUM in .env)")
 
                     # Try to clean up any zombie processes
@@ -584,7 +584,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Enhanced Njuskalo Scraper with SSH Tunnel Support")
-    parser.add_argument("--headless", action="store_true", default=True, help="Run browser in headless mode")
+    parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
     parser.add_argument("--max-stores", type=int, help="Maximum number of stores to scrape")
     parser.add_argument("--tunnel-config", default="tunnel_config.json", help="Path to tunnel config file")
     parser.add_argument("--tunnel", help="Specific tunnel name to use")
