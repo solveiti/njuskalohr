@@ -9,7 +9,6 @@ and vehicle counting through SSH tunnels for better anonymity and stability.
 import sys
 import os
 
-# Always ensure we're using the virtual environment, even when called via xvfb-run
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load VENV_PATH from .env file
@@ -35,7 +34,6 @@ is_venv_python = os.path.samefile(current_python, venv_python) if os.path.exists
 if not is_venv_python and os.path.exists(venv_python):
     print(f"Restarting script in virtual environment: {venv_python}")
     print(f"Current Python: {current_python}")
-    # Preserve xvfb-run or other wrapper commands by only replacing python
     os.execv(venv_python, [venv_python] + sys.argv)
 elif not os.path.exists(venv_python):
     print(f"Warning: Virtual environment not found at {venv_python}")
@@ -362,13 +360,8 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             firefox_options.set_preference("general.platform.override", "Linux x86_64")
             firefox_options.set_preference("general.appversion.override", "5.0 (X11)")
 
-            # Set user agent
-            user_agents = [
-                "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
-                "Mozilla/5.0 (X11; Linux x86_64; rv:119.0) Gecko/20100101 Firefox/119.0",
-                "Mozilla/5.0 (X11; Linux x86_64; rv:118.0) Gecko/20100101 Firefox/118.0"
-            ]
-            firefox_options.set_preference("general.useragent.override", random.choice(user_agents))
+            # Set user agent — use the shared pool from AntiDetectionMixin
+            firefox_options.set_preference("general.useragent.override", self.rotate_user_agent())
 
             # Privacy and security preferences
             firefox_options.set_preference("privacy.trackingprotection.enabled", False)
@@ -471,7 +464,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                     logger.error(f"Geckodriver path: {geckodriver_path}")
                     logger.error(f"Firefox binary: {firefox_binary}")
                     logger.error(f"Headless mode: True")
-                    logger.error("This may be a display/xvfb issue. Ensure DISPLAY is set or use xvfb-run")
+                    logger.error("Display issue: ensure DISPLAY=:3 is set (check DISPLAY_NUM in .env)")
 
                     # Try to clean up any zombie processes
                     try:
@@ -490,18 +483,8 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             # Set window size programmatically as well
             self.driver.set_window_size(width, height)
 
-            # Firefox-specific anti-detection JavaScript
-            stealth_scripts = [
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
-                "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
-                "Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en']})",
-            ]
-
-            for script in stealth_scripts:
-                try:
-                    self.driver.execute_script(script)
-                except Exception as e:
-                    logger.debug(f"Could not execute stealth script: {e}")
+            # Apply full stealth suite via shared mixin method
+            self._inject_stealth_scripts()
 
             logger.info("✅ Firefox browser setup completed with tunnel integration")
             return True
@@ -529,13 +512,13 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             elif "geckodriver" in error_msg or "firefox" in error_msg:
                 logger.error("🦊 LOCAL FIREFOX ISSUE DETECTED")
                 logger.error("🔧 SOLUTIONS:")
-                logger.error("   1. Install Firefox: sudo pacman -S firefox")
-                logger.error("   2. Update GeckoDriver: pip install --upgrade geckodriver-autoinstaller")
+                logger.error("   1. Install Firefox: sudo apt install firefox")
+                logger.error("   2. Reinstall GeckoDriver (see README installation section)")
             elif "permission" in error_msg or "display" in error_msg:
                 logger.error("🖥️ DISPLAY/PERMISSION ISSUE DETECTED")
                 logger.error("🔧 SOLUTIONS:")
-                logger.error("   1. Install Xvfb: sudo pacman -S xorg-server-xvfb")
-                logger.error("   2. Run with Xvfb: xvfb-run python script.py")
+                logger.error("   1. Verify the VNC display is running: DISPLAY=:3 xdpyinfo | head -5")
+                logger.error("   2. Check DISPLAY_NUM in .env matches the running screen number")
             else:
                 logger.error("🔍 UNKNOWN ISSUE - Full error details above")
                 logger.error("🔧 GENERAL SOLUTIONS:")

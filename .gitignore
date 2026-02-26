@@ -97,7 +97,6 @@ firefoxsessions/*
 browser_profiles/
 
 # Tests directory
-tests/
 
 # Screenshots directory (ignore contents but keep directory)
 screenshots/*

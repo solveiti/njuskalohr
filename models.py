@@ -210,53 +210,6 @@ class AdItem(BaseModel):
     status: Optional[str] = None
     content: Optional[Dict[str, Any]] = None
     adCode: Optional[str] = None
-    doberAvtoCode: Optional[str] = None
-    publishDoberAvto: Optional[bool] = None
-    publishAvtoNet: Optional[bool] = None
-    publishNjuskalo: Optional[bool] = None
-
-    class Config:
-        from_attributes = True
-
-
-class AdPhoto(BaseModel):
-    """Ad photos table model"""
-    id: Optional[int] = None
-    uuid: Optional[str] = None
-    aditem: Optional[str] = None
-    orderindex: Optional[int] = None
-    photo: Optional[str] = None
-    extUuid: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-class AvtoAdItem(BaseModel):
-    """Avto ad item table model"""
-    id: Optional[int] = None
-    uuid: Optional[str] = None
-    user: Optional[str] = None
-    title: Optional[str] = None
-    adCode: Optional[str] = None
-    created: Optional[datetime] = None
-    updated: Optional[datetime] = None
-    status: Optional[str] = None
-    content: Optional[Dict[str, Any]] = None
-    doberAvtoCode: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-class AvtoAdPhoto(BaseModel):
-    """Avto ad photos table model"""
-    id: Optional[int] = None
-    uuid: Optional[str] = None
-    aditem: Optional[str] = None
-    orderindex: Optional[int] = None
-    photo: Optional[str] = None
-    extUuid: Optional[str] = None
 
     class Config:
         from_attributes = True

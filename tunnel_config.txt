@@ -1,0 +1,29 @@
+# SSH Tunnel Configuration File
+# Format: server_host,ssh_user,local_port,remote_host,remote_port,tunnel_type,persistent
+#
+# Fields:
+#   server_host   - Remote server IP or hostname
+#   ssh_user      - SSH username for connection
+#   local_port    - Local port number
+#   remote_host   - Target host (usually 'localhost' for same server)
+#   remote_port   - Remote/target port number
+#   tunnel_type   - 'local' or 'remote'
+#   persistent    - 'yes' for systemd service, 'no' for manual
+#
+# Tunnel Types:
+#   local  - Forward local port to remote port (access remote service locally)
+#   remote - Forward remote port to local port (expose local service remotely)
+#
+# Examples:
+
+# Example 1: Forward local port 8080 to remote server's port 80
+# Access remote web server at localhost:8080
+# 192.168.1.100,admin,8080,localhost,80,local,yes
+
+# Example 2: Expose local MySQL to remote server on port 3306
+# 192.168.1.101,root,3306,localhost,3306,remote,yes
+
+# Example 3: Access remote PostgreSQL database locally on port 5432
+# 192.168.1.102,postgres,5432,localhost,5432,local,yes
+
+# Add your server configurations below:

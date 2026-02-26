@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Database Management Script for Njuskalo Scraper
-
-This script provides utilities for managing the PostgreSQL database used by the Njuskalo scraper.
+Database Management Script for Njuskalo Scraper (SQLite)
 """
 
 import argparse
@@ -11,7 +9,6 @@ from datetime import datetime
 from database import NjuskaloDatabase
 import logging
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -20,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 def create_tables():
-    """Create database tables"""
     try:
         with NjuskaloDatabase() as db:
             db.create_tables()
@@ -30,186 +26,126 @@ def create_tables():
 
 
 def show_stats():
-    """Show database statistics"""
     try:
         with NjuskaloDatabase() as db:
             stats = db.get_database_stats()
             print("\n📊 Database Statistics:")
-            print(f"Total stores: {stats['total_stores']}")
-            print(f"Valid stores: {stats['valid_stores']}")
-            print(f"Invalid stores: {stats['invalid_stores']}")
-
-            if stats['total_stores'] > 0:
-                valid_percentage = (stats['valid_stores'] / stats['total_stores']) * 100
-                print(f"Valid percentage: {valid_percentage:.1f}%")
-
+            print(f"  Total stores:   {stats['total_stores']}")
+            print(f"  Valid stores:   {stats['valid_stores']}")
+            print(f"  Invalid stores: {stats['invalid_stores']}")
+            if stats['total_stores']:
+                pct = stats['valid_stores'] / stats['total_stores'] * 100
+                print(f"  Valid %:        {pct:.1f}%")
     except Exception as e:
         print(f"❌ Error getting stats: {e}")
 
 
 def list_valid_stores(limit=10):
-    """List valid stores"""
     try:
         with NjuskaloDatabase() as db:
             stores = db.get_all_valid_stores()
-
-            print(f"\n📋 Valid Stores (showing first {limit}):")
-            print("-" * 80)
-
-            for i, store in enumerate(stores[:limit], 1):
-                try:
-                    results = store.get('results') or {}
-                    name = results.get('name', 'Unknown') if isinstance(results, dict) else 'Unknown'
-                    ads_count = results.get('ads_count', 'N/A') if isinstance(results, dict) else 'N/A'
-                    is_automoto = store.get('is_automoto', False)
-                    auto_icon = "🚗" if is_automoto else "❌"
-
-                    print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
-                    print(f"    URL: {store['url']}")
-                    print(f"    Updated: {store['updated_at']}")
-                    print()
-                except Exception as e:
-                    print(f"{i:2d}. ERROR parsing store data: {e}")
-                    print(f"    URL: {store.get('url', 'Unknown')}")
-                    print()
-
+        print(f"\n📋 Valid Stores (showing first {limit}):")
+        print("-" * 80)
+        for i, store in enumerate(stores[:limit], 1):
+            results = store.get('results') or {}
+            name = results.get('name', 'Unknown') if isinstance(results, dict) else 'Unknown'
+            ads_count = results.get('ads_count', 'N/A') if isinstance(results, dict) else 'N/A'
+            auto_icon = "🚗" if store.get('is_automoto') else "❌"
+            print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
+            print(f"    URL: {store['url']}")
+            print(f"    Updated: {store['updated_at']}")
+            print()
     except Exception as e:
         print(f"❌ Error listing stores: {e}")
 
 
 def list_invalid_stores(limit=10):
-    """List invalid stores"""
     try:
         with NjuskaloDatabase() as db:
             stores = db.get_invalid_stores()
-
-            print(f"\n❌ Invalid Stores (showing first {limit}):")
-            print("-" * 80)
-
-            for i, store in enumerate(stores[:limit], 1):
-                results = store.get('results', {})
-                error = results.get('error', 'Unknown error')
-
-                print(f"{i:2d}. URL: {store['url']}")
-                print(f"    Error: {error}")
-                print(f"    Updated: {store['updated_at']}")
-                print()
-
+        print(f"\n❌ Invalid Stores (showing first {limit}):")
+        print("-" * 80)
+        for i, store in enumerate(stores[:limit], 1):
+            results = store.get('results') or {}
+            error = results.get('error', 'Unknown error') if isinstance(results, dict) else 'Unknown'
+            print(f"{i:2d}. URL: {store['url']}")
+            print(f"    Error:   {error}")
+            print(f"    Updated: {store['updated_at']}")
+            print()
     except Exception as e:
         print(f"❌ Error listing invalid stores: {e}")
 
 
 def export_data(filename=None):
-    """Export all valid store data to JSON"""
     if not filename:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"njuskalo_export_{timestamp}.json"
-
     try:
         with NjuskaloDatabase() as db:
             stores = db.get_all_valid_stores()
-
-            # Prepare data for export
-            export_data = []
-            for store in stores:
-                export_data.append({
-                    'url': store['url'],
-                    'results': store['results'],
-                    'created_at': store['created_at'].isoformat() if store['created_at'] else None,
-                    'updated_at': store['updated_at'].isoformat() if store['updated_at'] else None
-                })
-
-            # Write to JSON file
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(export_data, f, indent=2, ensure_ascii=False)
-
-            print(f"✅ Exported {len(export_data)} stores to {filename}")
-
+        export_list = [
+            {
+                'url': s['url'],
+                'results': s['results'],
+                'created_at': s['created_at'],
+                'updated_at': s['updated_at'],
+            }
+            for s in stores
+        ]
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(export_list, f, indent=2, ensure_ascii=False)
+        print(f"✅ Exported {len(export_list)} stores to {filename}")
     except Exception as e:
         print(f"❌ Error exporting data: {e}")
 
 
 def search_stores(query):
-    """Search stores by name or URL"""
     try:
         with NjuskaloDatabase() as db:
             stores = db.get_all_valid_stores()
-
-            # Filter stores based on query
-            matching_stores = []
-            query_lower = query.lower()
-
-            for store in stores:
-                results = store.get('results', {})
-                name = results.get('name', '').lower()
-                url = store['url'].lower()
-
-                if query_lower in name or query_lower in url:
-                    matching_stores.append(store)
-
-            print(f"\n🔍 Search Results for '{query}' ({len(matching_stores)} found):")
-            print("-" * 80)
-
-            for i, store in enumerate(matching_stores, 1):
-                try:
-                    results = store.get('results') or {}
-                    name = results.get('name', 'Unknown') if isinstance(results, dict) else 'Unknown'
-                    ads_count = results.get('ads_count', 'N/A') if isinstance(results, dict) else 'N/A'
-                    is_automoto = store.get('is_automoto', False)
-                    auto_icon = "🚗" if is_automoto else "❌"
-
-                    print(f"{i:2d}. {name[:40]:<40} | Ads: {str(ads_count):>5} | Auto: {auto_icon}")
-                    print(f"    URL: {store['url']}")
-                    print()
-                except Exception as e:
-                    print(f"{i:2d}. ERROR parsing store data: {e}")
-                    print(f"    URL: {store.get('url', 'Unknown')}")
-                    print()
-
+        query_lower = query.lower()
+        matching = [
+            s for s in stores
+            if query_lower in s['url'].lower()
+            or query_lower in (
+                (s.get('results') or {}).get('name', '') if isinstance(s.get('results'), dict) else ''
+            ).lower()
+        ]
+        print(f"\n🔍 Search Results for '{query}' ({len(matching)} found):")
+        print("-" * 80)
+        for i, store in enumerate(matching, 1):
+            results = store.get('results') or {}
+            name = results.get('name', 'Unknown') if isinstance(results, dict) else 'Unknown'
+            auto_icon = "🚗" if store.get('is_automoto') else "❌"
+            print(f"{i:2d}. {name[:40]:<40} | Auto: {auto_icon}")
+            print(f"    URL: {store['url']}")
+            print()
     except Exception as e:
         print(f"❌ Error searching stores: {e}")
 
 
 def migrate_database():
-    """Run database migration to add is_automoto column"""
     try:
-        print("🔄 Running database migration...")
-
-        db = NjuskaloDatabase()
-        db.connect()
-
-        # Run migration
-        db.migrate_add_is_automoto_column()
-
-        # Show results
-        with db.connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM scraped_stores WHERE is_automoto = TRUE")
-            auto_moto_count = cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM scraped_stores")
-            total_count = cursor.fetchone()[0]
-
-            print(f"✅ Migration completed successfully!")
-            print(f"Total stores: {total_count}")
-            print(f"Auto moto stores: {auto_moto_count}")
-            print(f"Non-auto moto stores: {total_count - auto_moto_count}")
-
-        db.disconnect()
-
+        print("🔄 Running database migrations...")
+        with NjuskaloDatabase() as db:
+            db.migrate_add_is_automoto_column()
+            db.migrate_add_store_snapshots_table()
+            stats = db.get_database_stats()
+        print("✅ Migration completed successfully!")
+        print(f"  Total stores:   {stats['total_stores']}")
+        print(f"  Valid stores:   {stats['valid_stores']}")
     except Exception as e:
         print(f"❌ Migration failed: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Njuskalo Database Management')
+    parser = argparse.ArgumentParser(description='Njuskalo Database Management (SQLite)')
     parser.add_argument('command', choices=[
-        'create-tables', 'migrate', 'stats', 'list-valid', 'list-invalid',
-        'export', 'search'
-    ], help='Command to execute')
-    parser.add_argument('--limit', type=int, default=10, help='Limit for list commands')
+        'create-tables', 'migrate', 'stats', 'list-valid', 'list-invalid', 'export', 'search'
+    ])
+    parser.add_argument('--limit',  type=int, default=10)
     parser.add_argument('--output', help='Output filename for export')
-    parser.add_argument('--query', help='Search query')
-
+    parser.add_argument('--query',  help='Search query')
     args = parser.parse_args()
 
     if args.command == 'create-tables':
@@ -226,7 +162,7 @@ def main():
         export_data(args.output)
     elif args.command == 'search':
         if not args.query:
-            print("❌ Search query is required. Use --query 'search term'")
+            print("❌ --query is required for search")
             return
         search_stores(args.query)
 

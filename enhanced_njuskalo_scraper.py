@@ -185,6 +185,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'categories': [],
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
+                'test_vehicle_count': 0,
                 'total_vehicle_count': 0,
                 'scraped': False
             }
@@ -217,7 +218,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             logger.info(f"🔍 Checking auto moto category for: {store_url}")
 
             # Visit the store page without category filter first
-            self.driver.get(store_url)
+            self.navigate_to(store_url)
             self.smart_sleep("page_load")
 
             # Wait for page to load (reduced timeout)
@@ -271,7 +272,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             # Try visiting with auto moto filter to see if it works
             try:
                 filtered_url = self.add_car_category_filter(store_url)
-                self.driver.get(filtered_url)
+                self.navigate_to(filtered_url)
                 self.smart_sleep("page_load", 3, 8)
 
                 # Check if we get results or error page
@@ -309,17 +310,18 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 
     def count_vehicle_types(self, store_url: str) -> Dict[str, int]:
         """
-        Count new and used vehicles on a store page.
+        Count new, used, and test vehicles on a store page.
 
         Args:
             store_url: The store URL to analyze
 
         Returns:
-            Dict with new_count, used_count, and total_count
+            Dict with new_count, used_count, test_count, and total_count
         """
         vehicle_counts = {
             'new_vehicle_count': 0,
             'used_vehicle_count': 0,
+            'test_vehicle_count': 0,
             'total_vehicle_count': 0
         }
 
@@ -328,7 +330,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             filtered_url = self.add_car_category_filter(store_url)
             logger.info(f"🚗 Counting vehicles for: {filtered_url}")
 
-            self.driver.get(filtered_url)
+            self.navigate_to(filtered_url)
             self.smart_sleep("page_load")
 
             # Wait for page to load (reduced timeout)
@@ -392,6 +394,28 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 matches = re.findall(pattern, page_source, re.IGNORECASE)
                 used_count += len(matches)
 
+            # Count "Testno vozilo" (Test/demo vehicle)
+            test_vehicle_patterns = [
+                r'testno\s+vozilo',
+                r'testno\s*vozilo',
+                r'\btestno\b.*\bvozilo\b'
+            ]
+
+            test_count = 0
+            for pattern in test_vehicle_patterns:
+                matches = re.findall(pattern, page_text, re.IGNORECASE)
+                test_count += len(matches)
+
+            test_html_patterns = [
+                r'testno[\s\-_]*vozilo',
+                r'condition["\']?[\s]*:[\s]*["\']?test',
+                r'stanje["\']?[\s]*:[\s]*["\']?testno'
+            ]
+
+            for pattern in test_html_patterns:
+                matches = re.findall(pattern, page_source, re.IGNORECASE)
+                test_count += len(matches)
+
             # Try to extract from listing elements directly
             try:
                 # Look for individual vehicle listings
@@ -408,6 +432,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 
                     listing_new_count = 0
                     listing_used_count = 0
+                    listing_test_count = 0
 
                     for listing in listings:
                         try:
@@ -426,24 +451,41 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                             elif any(keyword in listing_html for keyword in ['rabljeno', 'used', 'polovno']):
                                 listing_used_count += 1
 
+                            # Check for test vehicle indicators
+                            if 'testno vozilo' in listing_text:
+                                listing_test_count += 1
+                            elif 'testno' in listing_html:
+                                listing_test_count += 1
+
                         except:
                             continue
 
                     # Use listing counts if they seem more accurate
-                    if listing_new_count > 0 or listing_used_count > 0:
+                    if listing_new_count > 0 or listing_used_count > 0 or listing_test_count > 0:
                         new_count = max(new_count, listing_new_count)
                         used_count = max(used_count, listing_used_count)
+                        test_count = max(test_count, listing_test_count)
                         break
 
             except Exception as e:
                 logger.debug(f"Error counting from listings: {e}")
 
-            # Clean up counts (remove duplicates/false positives)
-            vehicle_counts['new_vehicle_count'] = min(new_count, 100)  # Cap at reasonable number
+            # Clean up counts (cap at reasonable number)
+            vehicle_counts['new_vehicle_count'] = min(new_count, 100)
             vehicle_counts['used_vehicle_count'] = min(used_count, 100)
-            vehicle_counts['total_vehicle_count'] = vehicle_counts['new_vehicle_count'] + vehicle_counts['used_vehicle_count']
+            vehicle_counts['test_vehicle_count'] = min(test_count, 100)
+            vehicle_counts['total_vehicle_count'] = (
+                vehicle_counts['new_vehicle_count']
+                + vehicle_counts['used_vehicle_count']
+                + vehicle_counts['test_vehicle_count']
+            )
 
-            logger.info(f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, Used: {vehicle_counts['used_vehicle_count']}, Total: {vehicle_counts['total_vehicle_count']}")
+            logger.info(
+                f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, "
+                f"Used: {vehicle_counts['used_vehicle_count']}, "
+                f"Test: {vehicle_counts['test_vehicle_count']}, "
+                f"Total: {vehicle_counts['total_vehicle_count']}"
+            )
 
             return vehicle_counts
 
@@ -477,6 +519,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'categories': [],
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
+                'test_vehicle_count': 0,
                 'total_vehicle_count': 0,
                 'scraped': True,
                 'error': None
@@ -514,6 +557,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'scraped': True,
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
+                'test_vehicle_count': 0,
                 'total_vehicle_count': 0
             }
 
@@ -532,9 +576,10 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             'new_urls_found': 0,
             'stores_scraped': 0,
             'auto_moto_stores': 0,
-            'total_vehicles': 0,
             'new_vehicles': 0,
             'used_vehicles': 0,
+            'test_vehicles': 0,
+            'total_vehicles': 0,
             'errors': []
         }
 
@@ -547,8 +592,9 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     self.database = NjuskaloDatabase()
                     self.database.connect()
                     self.database.create_tables()
-                    # Ensure is_automoto column exists
+                    # Ensure all columns and tables exist
                     self.database.migrate_add_is_automoto_column()
+                    self.database.migrate_add_store_snapshots_table()
                     logger.info("✅ Database initialized successfully")
                 except Exception as e:
                     logger.error(f"❌ Database initialization failed: {e}")
@@ -608,6 +654,12 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     store_data = self.scrape_store_with_vehicle_counting(store_url)
 
                     if store_data:
+                        # Capture counts before save_store_data pops them from the dict
+                        snap_new  = store_data.get('new_vehicle_count', 0)
+                        snap_used = store_data.get('used_vehicle_count', 0)
+                        snap_test = store_data.get('test_vehicle_count', 0)
+                        is_automoto = store_data.get('has_auto_moto', False)
+
                         # Save to database
                         if self.database:
                             success = self.database.save_store_data(
@@ -619,11 +671,20 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                             if success:
                                 results['stores_scraped'] += 1
 
-                                if store_data.get('has_auto_moto'):
+                                if is_automoto:
                                     results['auto_moto_stores'] += 1
-                                    results['new_vehicles'] += store_data.get('new_vehicle_count', 0)
-                                    results['used_vehicles'] += store_data.get('used_vehicle_count', 0)
-                                    results['total_vehicles'] += store_data.get('total_vehicle_count', 0)
+                                    results['new_vehicles'] += snap_new
+                                    results['used_vehicles'] += snap_used
+                                    results['test_vehicles'] += snap_test
+                                    results['total_vehicles'] += snap_new + snap_used + snap_test
+
+                                # Record snapshot for active/sold tracking
+                                self.database.save_store_snapshot(
+                                    url=store_url,
+                                    active_new=snap_new,
+                                    active_used=snap_used,
+                                    active_test=snap_test,
+                                )
 
                         # Add delay between stores
                         self.smart_sleep("store_visit")
@@ -647,6 +708,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             logger.info(f"   🚗 Auto Moto Stores: {results['auto_moto_stores']}")
             logger.info(f"   🆕 New Vehicles: {results['new_vehicles']}")
             logger.info(f"   🔄 Used Vehicles: {results['used_vehicles']}")
+            logger.info(f"   🧪 Test Vehicles: {results['test_vehicles']}")
             logger.info(f"   📈 Total Vehicles: {results['total_vehicles']}")
             logger.info(f"   ❌ Errors: {len(results['errors'])}")
 
@@ -669,14 +731,14 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 def get_auto_moto_urls(self) -> List[str]:
     """Get URLs of stores marked as having auto moto category."""
     try:
-        with self.connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT url FROM scraped_stores
-                WHERE is_automoto = TRUE AND is_valid = TRUE
-                ORDER BY updated_at DESC
-            """)
-            results = cursor.fetchall()
-            return [row[0] for row in results]
+        rows = self.connection.execute(
+            """
+            SELECT url FROM scraped_stores
+            WHERE is_automoto = 1 AND is_valid = 1
+            ORDER BY updated_at DESC
+            """
+        ).fetchall()
+        return [row['url'] for row in rows]
     except Exception as e:
         self.logger.error(f"Error getting auto moto URLs: {e}")
         return []
@@ -713,6 +775,7 @@ if __name__ == "__main__":
     print(f"Auto Moto Stores: {results['auto_moto_stores']}")
     print(f"New Vehicles: {results['new_vehicles']}")
     print(f"Used Vehicles: {results['used_vehicles']}")
+    print(f"Test Vehicles: {results['test_vehicles']}")
     print(f"Total Vehicles: {results['total_vehicles']}")
     print(f"Errors: {len(results['errors'])}")
     print("="*60)

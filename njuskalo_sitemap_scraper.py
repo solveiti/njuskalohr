@@ -178,25 +178,33 @@ class AntiDetectionMixin:
         except Exception as e:
             logger.debug(f"Scroll pattern failed: {e}")
 
+    # Current Firefox releases as of early 2026 (Linux, Windows, macOS)
+    _USER_AGENTS = [
+        # Linux – most common on servers, less suspicious than Windows for scrapers
+        "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0",
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0",
+        # Windows – blend in with the majority of desktop users
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0",
+        # macOS
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.6; rv:132.0) Gecko/20100101 Firefox/132.0",
+    ]
+
     def rotate_user_agent(self) -> str:
-        """Get a random realistic Firefox user agent."""
-        user_agents = [
-            "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
-            "Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
-            "Mozilla/5.0 (X11; Linux x86_64; rv:119.0) Gecko/20100101 Firefox/119.0",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:119.0) Gecko/20100101 Firefox/119.0"
-        ]
-        return random.choice(user_agents)
+        """Return a random realistic Firefox user agent."""
+        return random.choice(self._USER_AGENTS)
 
     def add_request_headers(self) -> dict:
-        """Generate realistic request headers."""
-        headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        """Generate realistic request headers matching a real Firefox browser."""
+        return {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'hr-HR,hr;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
@@ -204,8 +212,8 @@ class AntiDetectionMixin:
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
+            'TE': 'trailers',
         }
-        return headers
 
     def accept_cookies(self) -> None:
         """Accept cookies if cookie banner is present."""
@@ -236,6 +244,147 @@ class AntiDetectionMixin:
 
         except Exception as e:
             logger.debug(f"No cookie banner found or error accepting: {e}")
+
+    def _inject_stealth_scripts(self) -> None:
+        """
+        Inject JavaScript overrides that hide WebDriver/automation signals.
+
+        Covers:
+        - navigator.webdriver  → undefined
+        - navigator.plugins    → realistic 5-item list
+        - navigator.languages  → Croatian/English locale
+        - navigator.platform   → consistent with UA
+        - navigator.hardwareConcurrency → plausible CPU count
+        - navigator.deviceMemory → plausible RAM
+        - window.chrome        → fake Chrome-compat object (some fingerprinters check this)
+        - canvas fingerprint   → slight per-session noise
+        - AudioContext fingerprint → slight per-session noise
+        - WebGL renderer info  → masked
+        - Permissions API      → always returns 'granted'
+        """
+        if not hasattr(self, 'driver') or not self.driver:
+            return
+
+        # Determine platform hint from the UA already set for this session
+        try:
+            ua = self.driver.execute_script("return navigator.userAgent;") or ""
+        except Exception:
+            ua = ""
+        if "Windows" in ua:
+            platform_str = "Win32"
+        elif "Macintosh" in ua:
+            platform_str = "MacIntel"
+        else:
+            platform_str = "Linux x86_64"
+
+        cpu_count = random.choice([4, 6, 8, 12])
+        mem_gb    = random.choice([4, 8, 16])
+        # Tiny per-session canvas noise value (keeps it stable within a session)
+        canvas_noise = random.randint(1, 9)
+
+        scripts = [
+            # --- core webdriver flag ---
+            "try { Object.defineProperty(navigator, 'webdriver', {get: () => undefined, configurable: true}); } catch(e) {}",
+
+            # --- plugins (empty list is a dead giveaway) ---
+            """try {
+              const fakePlugins = [
+                {name:'PDF Viewer',filename:'internal-pdf-viewer',description:'Portable Document Format'},
+                {name:'Chrome PDF Viewer',filename:'mhjfbmdgcfjbbpaeojofohoefgiehjai',description:''},
+                {name:'Chromium PDF Viewer',filename:'internal-pdf-viewer',description:''},
+                {name:'Microsoft Edge PDF Viewer',filename:'edge-pdf-viewer',description:''},
+                {name:'WebKit built-in PDF',filename:'webkit-openpdf-plugin',description:''}
+              ];
+              Object.defineProperty(navigator, 'plugins', {get: () => fakePlugins, configurable: true});
+            } catch(e) {}""",
+
+            # --- languages ---
+            "try { Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en'], configurable: true}); } catch(e) {}",
+
+            # --- platform ---
+            f"try {{ Object.defineProperty(navigator, 'platform', {{get: () => '{platform_str}', configurable: true}}); }} catch(e) {{}}",
+
+            # --- hardware concurrency & device memory ---
+            f"try {{ Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => {cpu_count}, configurable: true}}); }} catch(e) {{}}",
+            f"try {{ Object.defineProperty(navigator, 'deviceMemory', {{get: () => {mem_gb}, configurable: true}}); }} catch(e) {{}}",
+
+            # --- permissions API ---
+            """try {
+              const origQuery = window.Permissions && window.Permissions.prototype.query;
+              if (origQuery) {
+                window.Permissions.prototype.query = (params) =>
+                  Promise.resolve({state: 'granted', onchange: null});
+              }
+            } catch(e) {}""",
+
+            # --- canvas noise ---
+            f"""try {{
+              const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+              HTMLCanvasElement.prototype.toDataURL = function(type) {{
+                const ctx = this.getContext('2d');
+                if (ctx) {{
+                  const noise = {canvas_noise};
+                  const imageData = ctx.getImageData(0, 0, this.width || 1, this.height || 1);
+                  imageData.data[0] = (imageData.data[0] + noise) % 256;
+                  ctx.putImageData(imageData, 0, 0);
+                }}
+                return origToDataURL.apply(this, arguments);
+              }};
+            }} catch(e) {{}}""",
+
+            # --- AudioContext noise ---
+            f"""try {{
+              const origGetChannelData = AudioBuffer.prototype.getChannelData;
+              AudioBuffer.prototype.getChannelData = function() {{
+                const result = origGetChannelData.apply(this, arguments);
+                for (let i = 0; i < result.length; i += 100) {{
+                  result[i] += (Math.random() - 0.5) * 0.000{canvas_noise};
+                }}
+                return result;
+              }};
+            }} catch(e) {{}}""",
+
+            # --- WebGL renderer masking ---
+            """try {
+              const getParameter = WebGLRenderingContext.prototype.getParameter;
+              WebGLRenderingContext.prototype.getParameter = function(param) {
+                if (param === 37445) return 'Intel Inc.';
+                if (param === 37446) return 'Intel Iris OpenGL Engine';
+                return getParameter.apply(this, arguments);
+              };
+            } catch(e) {}""",
+
+            # --- remove automation-related window properties ---
+            """try {
+              ['_phantom','__nightmare','_selenium','callPhantom','callSelenium',
+               '__webdriver_script_fn','__driver_evaluate','__webdriver_evaluate',
+               '__selenium_evaluate','__fxdriver_evaluate','__driver_unwrapped',
+               '__webdriver_unwrapped','__selenium_unwrapped','__fxdriver_unwrapped'
+              ].forEach(prop => { try { delete window[prop]; } catch(e) {} });
+            } catch(e) {}""",
+        ]
+
+        for script in scripts:
+            try:
+                self.driver.execute_script(script)
+            except Exception as ex:
+                logger.debug(f"Stealth script skipped: {ex}")
+
+    def navigate_to(self, url: str, inject_stealth: bool = True) -> bool:
+        """
+        Navigate to a URL and optionally re-inject stealth scripts.
+        Stealth scripts applied via execute_script after page load are
+        ephemeral per-page in Firefox — re-injecting them keeps automation
+        signals hidden on every page.
+        """
+        try:
+            self.driver.get(url)
+            if inject_stealth:
+                self._inject_stealth_scripts()
+            return True
+        except Exception as e:
+            logger.debug(f"navigate_to failed for {url}: {e}")
+            return False
 
 
 class NjuskaloSitemapScraper(AntiDetectionMixin):
@@ -394,19 +543,8 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             # Set window size programmatically as well
             self.driver.set_window_size(width, height)
 
-            # Firefox-specific anti-detection JavaScript
-            stealth_scripts = [
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
-                "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
-                "Object.defineProperty(navigator, 'languages', {get: () => ['hr-HR', 'hr', 'en-US', 'en']})",
-                "Object.defineProperty(navigator, 'permissions', {get: () => ({query: () => Promise.resolve({state: 'granted'})})})",
-            ]
-
-            for script in stealth_scripts:
-                try:
-                    self.driver.execute_script(script)
-                except Exception as e:
-                    logger.debug(f"Stealth script failed: {e}")
+            # Apply stealth patches on the blank startup page
+            self._inject_stealth_scripts()
 
             # Set realistic timeouts
             self.driver.implicitly_wait(5)
@@ -439,7 +577,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             logger.info(f"Downloading sitemap index with browser from: {self.sitemap_index_url}")
 
             # Navigate to the sitemap index URL
-            self.driver.get(self.sitemap_index_url)
+            self.navigate_to(self.sitemap_index_url)
 
             # Enhanced delay and human behavior
             self.smart_sleep("sitemap_download")
@@ -514,7 +652,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             logger.info(f"Downloading sitemap with browser: {sitemap_url}")
 
             # Navigate to the sitemap URL
-            self.driver.get(sitemap_url)
+            self.navigate_to(sitemap_url)
 
             # Enhanced delay and behavior simulation
             self.smart_sleep("sitemap_download")
@@ -555,7 +693,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             logger.info(f"Downloading .gz file: {gz_url}")
 
             # First, navigate to establish browser session and cookies
-            self.driver.get(self.base_url)
+            self.navigate_to(self.base_url)
             time.sleep(random.uniform(0.5, 1.0))
 
             # Get cookies from browser session
@@ -775,7 +913,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
 
                 logger.info(f"Checking page {page} of store ads: {paginated_url}")
 
-                self.driver.get(paginated_url)
+                self.navigate_to(paginated_url)
 
                 # Enhanced delays for pagination
                 self.smart_sleep("pagination")
@@ -856,7 +994,7 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
             filtered_url = self.add_car_category_filter(store_url)
             logger.info(f"Scraping store: {store_url} (filtered: {filtered_url})")
 
-            self.driver.get(filtered_url)
+            self.navigate_to(filtered_url)
 
             # Enhanced delay and human behavior simulation
             self.smart_sleep("page_load")

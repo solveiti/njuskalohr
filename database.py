@@ -1,6 +1,6 @@
 import os
 import json
-import pymysql
+import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 from typing import Dict, List, Optional, Any
@@ -9,499 +9,485 @@ import logging
 # Load environment variables
 load_dotenv()
 
+_DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), 'njuskalo.db')
+
+
+def _dict_factory(cursor, row):
+    """Return rows as dicts."""
+    return {col[0]: val for col, val in zip(cursor.description, row)}
+
+
 class NjuskaloDatabase:
-    """Database manager for Njuskalo scraper data using MySQL"""
+    """Database manager for Njuskalo scraper data using SQLite"""
 
     def __init__(self):
-        self.connection_params = {
-            'host': os.getenv('DATABASE_HOST', 'localhost'),
-            'port': int(os.getenv('DATABASE_PORT', '3306')),
-            'database': os.getenv('DATABASE_NAME', 'njuskalohr'),
-            'user': os.getenv('DATABASE_USER'),
-            'password': os.getenv('DATABASE_PASSWORD'),
-            'charset': 'utf8mb4',
-            'autocommit': False
-        }
-        self.connection = None
+        self.db_path = os.getenv('DATABASE_PATH', _DEFAULT_DB_PATH)
+        self.connection: Optional[sqlite3.Connection] = None
         self.logger = logging.getLogger(__name__)
 
     def connect(self):
         """Establish database connection"""
         try:
-            self.connection = pymysql.connect(**self.connection_params)
-            self.logger.info("Successfully connected to MySQL database")
-        except pymysql.Error as e:
-            self.logger.error(f"Error connecting to MySQL database: {e}")
+            self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.connection.row_factory = _dict_factory
+            # Enable WAL for better concurrent read performance
+            self.connection.execute("PRAGMA journal_mode=WAL")
+            self.connection.execute("PRAGMA foreign_keys=ON")
+            self.logger.info(f"Connected to SQLite database at {self.db_path}")
+        except sqlite3.Error as e:
+            self.logger.error(f"Error connecting to SQLite database: {e}")
             raise
 
     def disconnect(self):
         """Close database connection"""
         if self.connection:
             self.connection.close()
+            self.connection = None
             self.logger.info("Database connection closed")
 
     def create_tables(self):
         """Create the required database tables"""
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS scraped_stores (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            url VARCHAR(2048) UNIQUE NOT NULL,
-            results JSON,
-            is_valid BOOLEAN DEFAULT TRUE,
-            is_automoto BOOLEAN DEFAULT FALSE,
-            new_vehicle_count INT DEFAULT 0,
-            used_vehicle_count INT DEFAULT 0,
-            total_vehicle_count INT DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT unique_url UNIQUE (url)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_scraped_stores_url ON scraped_stores(url);
-        CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_valid ON scraped_stores(is_valid);
-        CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto ON scraped_stores(is_automoto);
-        CREATE INDEX IF NOT EXISTS idx_scraped_stores_created_at ON scraped_stores(created_at);
-        CREATE INDEX IF NOT EXISTS idx_scraped_stores_updated_at ON scraped_stores(updated_at);
-        """
+        statements = [
+            """
+            CREATE TABLE IF NOT EXISTS scraped_stores (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                url             TEXT UNIQUE NOT NULL,
+                results         TEXT,
+                is_valid        INTEGER NOT NULL DEFAULT 1,
+                is_automoto     INTEGER NOT NULL DEFAULT 0,
+                new_vehicle_count  INTEGER NOT NULL DEFAULT 0,
+                used_vehicle_count INTEGER NOT NULL DEFAULT 0,
+                test_vehicle_count INTEGER NOT NULL DEFAULT 0,
+                total_vehicle_count INTEGER NOT NULL DEFAULT 0,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_url        ON scraped_stores(url)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_valid   ON scraped_stores(is_valid)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto ON scraped_stores(is_automoto)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_created_at ON scraped_stores(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_updated_at ON scraped_stores(updated_at)",
+            """
+            CREATE TABLE IF NOT EXISTS store_snapshots (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                url          TEXT NOT NULL,
+                scraped_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                active_new   INTEGER NOT NULL DEFAULT 0,
+                active_used  INTEGER NOT NULL DEFAULT 0,
+                active_test  INTEGER NOT NULL DEFAULT 0,
+                active_total INTEGER NOT NULL DEFAULT 0,
+                delta_new    INTEGER NOT NULL DEFAULT 0,
+                delta_used   INTEGER NOT NULL DEFAULT 0,
+                delta_test   INTEGER NOT NULL DEFAULT 0,
+                delta_total  INTEGER NOT NULL DEFAULT 0
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_snapshots_url        ON store_snapshots(url)",
+            "CREATE INDEX IF NOT EXISTS idx_snapshots_scraped_at ON store_snapshots(scraped_at)",
+        ]
 
         try:
-            with self.connection.cursor() as cursor:
-                # Split and execute each statement separately
-                statements = create_table_sql.strip().split(';')
-                for statement in statements:
-                    statement = statement.strip()
-                    if statement:
-                        cursor.execute(statement)
-                self.connection.commit()
-                self.logger.info("Database tables created successfully")
-        except pymysql.Error as e:
+            for statement in statements:
+                statement = statement.strip()
+                if statement:
+                    self.connection.execute(statement)
+            self.connection.commit()
+            self.logger.info("Database tables created successfully")
+        except sqlite3.Error as e:
             self.logger.error(f"Error creating database tables: {e}")
             self.connection.rollback()
             raise
 
     def migrate_add_is_automoto_column(self):
-        """Add is_automoto and vehicle count columns to existing database"""
+        """Add is_automoto and vehicle count columns to existing database (idempotent)."""
         try:
-            with self.connection.cursor() as cursor:
-                # Check if is_automoto column already exists
-                cursor.execute("""
-                    SELECT COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME = 'scraped_stores'
-                    AND COLUMN_NAME = 'is_automoto'
-                """)
+            existing = {
+                row['name']
+                for row in self.connection.execute("PRAGMA table_info(scraped_stores)").fetchall()
+            }
 
-                if cursor.fetchone() is None:
-                    # Column doesn't exist, add it
-                    cursor.execute("""
-                        ALTER TABLE scraped_stores
-                        ADD COLUMN is_automoto BOOLEAN DEFAULT FALSE
-                        AFTER is_valid
-                    """)
+            if 'is_automoto' not in existing:
+                self.connection.execute(
+                    "ALTER TABLE scraped_stores ADD COLUMN is_automoto INTEGER NOT NULL DEFAULT 0"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto ON scraped_stores(is_automoto)"
+                )
+                # Best-effort update from JSON blob
+                self.connection.execute(
+                    """
+                    UPDATE scraped_stores
+                    SET is_automoto = 1
+                    WHERE json_extract(results, '$.has_auto_moto') = 1
+                    """
+                )
+                self.logger.info("Added is_automoto column")
 
-                    # Create index for the new column
-                    cursor.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto
-                        ON scraped_stores(is_automoto)
-                    """)
+            for col, default in [
+                ('new_vehicle_count',   0),
+                ('used_vehicle_count',  0),
+                ('test_vehicle_count',  0),
+                ('total_vehicle_count', 0),
+            ]:
+                if col not in existing:
+                    self.connection.execute(
+                        f"ALTER TABLE scraped_stores ADD COLUMN {col} INTEGER NOT NULL DEFAULT {default}"
+                    )
+                    self.logger.info(f"Added {col} column")
 
-                    self.connection.commit()
-                    self.logger.info("Added is_automoto column successfully")
+            self.connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scraped_stores_total_vehicles ON scraped_stores(total_vehicle_count)"
+            )
+            self.connection.commit()
+            self.logger.info("Vehicle count columns migration completed")
 
-                    # Update existing records based on has_auto_moto in results
-                    cursor.execute("""
-                        UPDATE scraped_stores
-                        SET is_automoto = TRUE
-                        WHERE JSON_EXTRACT(results, '$.has_auto_moto') = true
-                    """)
-                    self.connection.commit()
-                    self.logger.info("Updated existing records with is_automoto values")
-                else:
-                    self.logger.info("is_automoto column already exists")
-
-                # Check and add vehicle count columns
-                vehicle_columns = [
-                    ('new_vehicle_count', 'INT DEFAULT 0'),
-                    ('used_vehicle_count', 'INT DEFAULT 0'),
-                    ('total_vehicle_count', 'INT DEFAULT 0')
-                ]
-
-                for column_name, column_def in vehicle_columns:
-                    cursor.execute("""
-                        SELECT COLUMN_NAME
-                        FROM INFORMATION_SCHEMA.COLUMNS
-                        WHERE TABLE_SCHEMA = DATABASE()
-                        AND TABLE_NAME = 'scraped_stores'
-                        AND COLUMN_NAME = %s
-                    """, (column_name,))
-
-                    if cursor.fetchone() is None:
-                        cursor.execute(f"""
-                            ALTER TABLE scraped_stores
-                            ADD COLUMN {column_name} {column_def}
-                            AFTER is_automoto
-                        """)
-                        self.logger.info(f"Added {column_name} column successfully")
-
-                # Create indexes for vehicle count columns
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_scraped_stores_total_vehicles
-                    ON scraped_stores(total_vehicle_count)
-                """)
-
-                self.connection.commit()
-                self.logger.info("Vehicle count columns migration completed")
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error adding columns: {e}")
+        except sqlite3.Error as e:
+            self.logger.error(f"Error in migrate_add_is_automoto_column: {e}")
             self.connection.rollback()
             raise
 
-    def save_store_data(self, url: str, store_data: Dict[str, Any], is_valid: bool = True) -> bool:
+    def migrate_add_store_snapshots_table(self):
+        """Create store_snapshots table if it doesn't exist (safe to re-run)."""
+        try:
+            tables = {
+                row['name']
+                for row in self.connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if 'store_snapshots' not in tables:
+                self.connection.execute("""
+                    CREATE TABLE store_snapshots (
+                        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                        url          TEXT NOT NULL,
+                        scraped_at   TEXT NOT NULL DEFAULT (datetime('now')),
+                        active_new   INTEGER NOT NULL DEFAULT 0,
+                        active_used  INTEGER NOT NULL DEFAULT 0,
+                        active_test  INTEGER NOT NULL DEFAULT 0,
+                        active_total INTEGER NOT NULL DEFAULT 0,
+                        delta_new    INTEGER NOT NULL DEFAULT 0,
+                        delta_used   INTEGER NOT NULL DEFAULT 0,
+                        delta_test   INTEGER NOT NULL DEFAULT 0,
+                        delta_total  INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_snapshots_url ON store_snapshots(url)"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_snapshots_scraped_at ON store_snapshots(scraped_at)"
+                )
+                self.connection.commit()
+                self.logger.info("Created store_snapshots table")
+            else:
+                self.logger.info("store_snapshots table already exists")
+        except sqlite3.Error as e:
+            self.logger.error(f"Error creating store_snapshots table: {e}")
+            self.connection.rollback()
+            raise
+
+    def save_store_snapshot(
+        self,
+        url: str,
+        active_new: int,
+        active_used: int,
+        active_test: int,
+    ) -> bool:
         """
-        Save or update store data in the database
+        Record a snapshot of current active vehicle counts and compute delta vs. previous run.
 
-        Args:
-            url: The store URL
-            store_data: Dictionary containing store information
-            is_valid: Whether the URL is valid and accessible
-
-        Returns:
-            bool: True if operation was successful
+        Delta semantics:
+          - Positive  → count went UP (new stock listed)
+          - Negative  → count went DOWN (ads removed / sold)
+          - First run → deltas are 0 (no baseline)
         """
-        # Extract is_automoto from store_data and remove it from results
-        is_automoto = store_data.pop('has_auto_moto', False)
-
-        # Extract vehicle counts
-        new_vehicle_count = store_data.pop('new_vehicle_count', 0)
-        used_vehicle_count = store_data.pop('used_vehicle_count', 0)
-        total_vehicle_count = store_data.pop('total_vehicle_count', 0)
-
-        # Remove categories from results as well
-        store_data.pop('categories', None)
-
-        insert_or_update_sql = """
-        INSERT INTO scraped_stores (url, results, is_valid, is_automoto, new_vehicle_count, used_vehicle_count, total_vehicle_count)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            results = VALUES(results),
-            is_valid = VALUES(is_valid),
-            is_automoto = VALUES(is_automoto),
-            new_vehicle_count = VALUES(new_vehicle_count),
-            used_vehicle_count = VALUES(used_vehicle_count),
-            total_vehicle_count = VALUES(total_vehicle_count),
-            updated_at = CURRENT_TIMESTAMP
-        """
+        active_total = active_new + active_used + active_test
+        delta_new = delta_used = delta_test = delta_total = 0
 
         try:
-            with self.connection.cursor() as cursor:
-                cursor.execute(insert_or_update_sql, (
+            prev = self.connection.execute(
+                """
+                SELECT active_new, active_used, active_test, active_total
+                FROM store_snapshots
+                WHERE url = ?
+                ORDER BY scraped_at DESC
+                LIMIT 1
+                """,
+                (url,),
+            ).fetchone()
+            if prev:
+                delta_new   = active_new   - prev['active_new']
+                delta_used  = active_used  - prev['active_used']
+                delta_test  = active_test  - prev['active_test']
+                delta_total = active_total - prev['active_total']
+        except sqlite3.Error as e:
+            self.logger.warning(f"Could not read previous snapshot for {url}: {e}")
+
+        try:
+            self.connection.execute(
+                """
+                INSERT INTO store_snapshots
+                    (url, active_new, active_used, active_test, active_total,
+                     delta_new, delta_used, delta_test, delta_total)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (url, active_new, active_used, active_test, active_total,
+                 delta_new, delta_used, delta_test, delta_total),
+            )
+            self.connection.commit()
+            self.logger.info(
+                f"Snapshot saved for {url} — "
+                f"active: new={active_new} used={active_used} test={active_test} | "
+                f"delta: new={delta_new:+d} used={delta_used:+d} test={delta_test:+d}"
+            )
+            return True
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving snapshot for {url}: {e}")
+            self.connection.rollback()
+            return False
+
+    def get_store_snapshots(self, url: str, limit: int = 50) -> List[Dict]:
+        """Retrieve snapshot history for a store, newest first."""
+        try:
+            return self.connection.execute(
+                """
+                SELECT scraped_at,
+                       active_new, active_used, active_test, active_total,
+                       delta_new,  delta_used,  delta_test,  delta_total
+                FROM store_snapshots
+                WHERE url = ?
+                ORDER BY scraped_at DESC
+                LIMIT ?
+                """,
+                (url, limit),
+            ).fetchall()
+        except sqlite3.Error as e:
+            self.logger.error(f"Error retrieving snapshots for {url}: {e}")
+            return []
+
+    def save_store_data(self, url: str, store_data: Dict[str, Any], is_valid: bool = True) -> bool:
+        """Save or update store data in the database."""
+        is_automoto        = store_data.pop('has_auto_moto', False)
+        new_vehicle_count  = store_data.pop('new_vehicle_count', 0)
+        used_vehicle_count = store_data.pop('used_vehicle_count', 0)
+        test_vehicle_count = store_data.pop('test_vehicle_count', 0)
+        total_vehicle_count = store_data.pop('total_vehicle_count', 0)
+        store_data.pop('categories', None)
+
+        try:
+            self.connection.execute(
+                """
+                INSERT INTO scraped_stores
+                    (url, results, is_valid, is_automoto,
+                     new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count,
+                     updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(url) DO UPDATE SET
+                    results             = excluded.results,
+                    is_valid            = excluded.is_valid,
+                    is_automoto         = excluded.is_automoto,
+                    new_vehicle_count   = excluded.new_vehicle_count,
+                    used_vehicle_count  = excluded.used_vehicle_count,
+                    test_vehicle_count  = excluded.test_vehicle_count,
+                    total_vehicle_count = excluded.total_vehicle_count,
+                    updated_at          = datetime('now')
+                """,
+                (
                     url,
                     json.dumps(store_data),
-                    is_valid,
-                    is_automoto,
+                    1 if is_valid else 0,
+                    1 if is_automoto else 0,
                     new_vehicle_count,
                     used_vehicle_count,
-                    total_vehicle_count
-                ))
-                self.connection.commit()
-
-                # Check if it was an insert or update
-                if cursor.rowcount == 1:
-                    action = "Inserted"
-                elif cursor.rowcount == 2:
-                    action = "Updated"
-                else:
-                    action = "No change"
-
-                self.logger.info(f"{action} store data for URL: {url} (is_automoto: {is_automoto}, vehicles: {total_vehicle_count})")
-                return True
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error saving store data for URL {url}: {e}")
+                    test_vehicle_count,
+                    total_vehicle_count,
+                ),
+            )
+            self.connection.commit()
+            self.logger.info(
+                f"Saved store {url} "
+                f"(automoto={is_automoto}, new={new_vehicle_count}, "
+                f"used={used_vehicle_count}, test={test_vehicle_count}, total={total_vehicle_count})"
+            )
+            return True
+        except sqlite3.Error as e:
+            self.logger.error(f"Error saving store data for {url}: {e}")
             self.connection.rollback()
             return False
 
     def mark_url_invalid(self, url: str) -> bool:
-        """
-        Mark a URL as invalid in the database
-
-        Args:
-            url: The store URL to mark as invalid
-
-        Returns:
-            bool: True if operation was successful
-        """
-        insert_or_update_sql = """
-        INSERT INTO scraped_stores (url, is_valid, is_automoto, results)
-        VALUES (%s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            is_valid = FALSE,
-            updated_at = CURRENT_TIMESTAMP
-        """
-
+        """Mark a URL as invalid in the database."""
         try:
-            with self.connection.cursor() as cursor:
-                cursor.execute(insert_or_update_sql, (url, False, False, json.dumps({"error": "URL not accessible"})))
-                self.connection.commit()
-                self.logger.info(f"Marked URL as invalid: {url}")
-                return True
-
-        except pymysql.Error as e:
+            self.connection.execute(
+                """
+                INSERT INTO scraped_stores (url, is_valid, is_automoto, results, updated_at)
+                VALUES (?, 0, 0, ?, datetime('now'))
+                ON CONFLICT(url) DO UPDATE SET
+                    is_valid   = 0,
+                    updated_at = datetime('now')
+                """,
+                (url, json.dumps({"error": "URL not accessible"})),
+            )
+            self.connection.commit()
+            self.logger.info(f"Marked URL as invalid: {url}")
+            return True
+        except sqlite3.Error as e:
             self.logger.error(f"Error marking URL as invalid {url}: {e}")
             self.connection.rollback()
             return False
 
     def get_store_data(self, url: str) -> Optional[Dict]:
-        """
-        Retrieve store data for a specific URL
-
-        Args:
-            url: The store URL to retrieve
-
-        Returns:
-            Dict containing store data or None if not found
-        """
-        select_sql = """
-        SELECT url, results, is_valid, created_at, updated_at
-        FROM scraped_stores
-        WHERE url = %s
-        """
-
+        """Retrieve store data for a specific URL."""
         try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql, (url,))
-                result = cursor.fetchone()
-
-                if result:
-                    # Parse JSON results
-                    if result['results']:
-                        result['results'] = json.loads(result['results'])
-                    return result
-                return None
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error retrieving store data for URL {url}: {e}")
+            row = self.connection.execute(
+                "SELECT url, results, is_valid, created_at, updated_at FROM scraped_stores WHERE url = ?",
+                (url,),
+            ).fetchone()
+            if row and row['results']:
+                row['results'] = json.loads(row['results'])
+            return row
+        except sqlite3.Error as e:
+            self.logger.error(f"Error retrieving store data for {url}: {e}")
             return None
 
-    def get_all_valid_stores(self) -> List[Dict]:
-        """
-        Get all valid store entries from the database
-
-        Returns:
-            List of dictionaries containing store data
-        """
-        select_sql = """
-        SELECT url, results, created_at, updated_at, is_automoto
-        FROM scraped_stores
-        WHERE is_valid = TRUE
-        ORDER BY updated_at DESC
-        """
-
+    def _fetch_stores(self, sql: str, params: tuple = ()) -> List[Dict]:
+        """Internal helper: run a SELECT and parse JSON results column."""
         try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql)
-                results = cursor.fetchall()
-
-                # Parse JSON results
-                for result in results:
-                    if result['results']:
-                        result['results'] = json.loads(result['results'])
-
-                return results
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error retrieving valid stores: {e}")
+            rows = self.connection.execute(sql, params).fetchall()
+            for row in rows:
+                if row.get('results'):
+                    row['results'] = json.loads(row['results'])
+                # Normalise SQLite integers to Python bools
+                row['is_valid']    = bool(row.get('is_valid', 1))
+                row['is_automoto'] = bool(row.get('is_automoto', 0))
+            return rows
+        except sqlite3.Error as e:
+            self.logger.error(f"Error executing store query: {e}")
             return []
+
+    def get_all_valid_stores(self) -> List[Dict]:
+        return self._fetch_stores(
+            """
+            SELECT url, results, created_at, updated_at, is_automoto,
+                   new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
+            FROM scraped_stores
+            WHERE is_valid = 1
+            ORDER BY updated_at DESC
+            """
+        )
 
     def get_invalid_stores(self) -> List[Dict]:
-        """
-        Get all invalid store entries from the database
+        return self._fetch_stores(
+            """
+            SELECT url, results, created_at, updated_at, is_automoto,
+                   new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
+            FROM scraped_stores
+            WHERE is_valid = 0
+            ORDER BY updated_at DESC
+            """
+        )
 
-        Returns:
-            List of dictionaries containing invalid store data
-        """
-        select_sql = """
-        SELECT url, results, created_at, updated_at, is_automoto
-        FROM scraped_stores
-        WHERE is_valid = FALSE
-        ORDER BY updated_at DESC
-        """
+    def get_auto_moto_stores(self) -> List[Dict]:
+        return self._fetch_stores(
+            """
+            SELECT url, results, created_at, updated_at, is_automoto,
+                   new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
+            FROM scraped_stores
+            WHERE is_valid = 1 AND is_automoto = 1
+            ORDER BY updated_at DESC
+            """
+        )
 
-        try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql)
-                results = cursor.fetchall()
-
-                # Parse JSON results
-                for result in results:
-                    if result['results']:
-                        result['results'] = json.loads(result['results'])
-
-                return results
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error retrieving invalid stores: {e}")
-            return []
+    def get_non_auto_moto_stores(self) -> List[Dict]:
+        return self._fetch_stores(
+            """
+            SELECT url, results, created_at, updated_at, is_automoto
+            FROM scraped_stores
+            WHERE is_valid = 1 AND is_automoto = 0
+            ORDER BY updated_at DESC
+            """
+        )
 
     def get_database_stats(self) -> Dict[str, int]:
-        """
-        Get statistics about the database
-
-        Returns:
-            Dictionary with counts of valid/invalid stores
-        """
-        stats_sql = """
-        SELECT
-            COUNT(*) as total_stores,
-            SUM(CASE WHEN is_valid = TRUE THEN 1 ELSE 0 END) as valid_stores,
-            SUM(CASE WHEN is_valid = FALSE THEN 1 ELSE 0 END) as invalid_stores
-        FROM scraped_stores
-        """
-
+        """Return counts of valid/invalid stores."""
         try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(stats_sql)
-                result = cursor.fetchone()
-                return result if result else {"total_stores": 0, "valid_stores": 0, "invalid_stores": 0}
-
-        except pymysql.Error as e:
+            row = self.connection.execute(
+                """
+                SELECT
+                    COUNT(*)                              AS total_stores,
+                    SUM(CASE WHEN is_valid = 1 THEN 1 ELSE 0 END) AS valid_stores,
+                    SUM(CASE WHEN is_valid = 0 THEN 1 ELSE 0 END) AS invalid_stores
+                FROM scraped_stores
+                """
+            ).fetchone()
+            return row if row else {"total_stores": 0, "valid_stores": 0, "invalid_stores": 0}
+        except sqlite3.Error as e:
             self.logger.error(f"Error retrieving database stats: {e}")
             return {"total_stores": 0, "valid_stores": 0, "invalid_stores": 0}
 
     def url_exists(self, url: str) -> bool:
-        """
-        Check if a URL already exists in the database
-
-        Args:
-            url: The store URL to check
-
-        Returns:
-            True if URL exists, False otherwise
-        """
-        select_sql = """
-        SELECT COUNT(*) as count FROM scraped_stores WHERE url = %s
-        """
-
+        """Return True if a URL is already in the database."""
         try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql, (url,))
-                result = cursor.fetchone()
-                return result['count'] > 0
-
-        except pymysql.Error as e:
+            row = self.connection.execute(
+                "SELECT COUNT(*) AS cnt FROM scraped_stores WHERE url = ?", (url,)
+            ).fetchone()
+            return (row['cnt'] if row else 0) > 0
+        except sqlite3.Error as e:
             self.logger.error(f"Error checking if URL exists {url}: {e}")
             return False
 
     def get_existing_urls(self) -> set:
-        """
-        Get all existing URLs from the database
-
-        Returns:
-            Set of existing URLs
-        """
-        select_sql = "SELECT url FROM scraped_stores"
-
+        """Return the set of all URLs already in the database."""
         try:
-            with self.connection.cursor() as cursor:
-                cursor.execute(select_sql)
-                results = cursor.fetchall()
-                return {row[0] for row in results}
-
-        except pymysql.Error as e:
+            rows = self.connection.execute("SELECT url FROM scraped_stores").fetchall()
+            return {row['url'] for row in rows}
+        except sqlite3.Error as e:
             self.logger.error(f"Error retrieving existing URLs: {e}")
             return set()
 
     def get_latest_update_timestamp(self) -> Optional[datetime]:
-        """
-        Get the timestamp of the most recently updated record in the database
-
-        Returns:
-            datetime object of the latest update, or None if database is empty
-        """
-        select_sql = "SELECT MAX(updated_at) as latest_update FROM scraped_stores"
-
+        """Return the datetime of the most recently updated record, or None."""
         try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql)
-                result = cursor.fetchone()
-
-                if result and result['latest_update']:
-                    return result['latest_update']
-                return None
-
-        except pymysql.Error as e:
+            row = self.connection.execute(
+                "SELECT MAX(updated_at) AS latest_update FROM scraped_stores"
+            ).fetchone()
+            if row and row['latest_update']:
+                return datetime.fromisoformat(row['latest_update'])
+            return None
+        except sqlite3.Error as e:
             self.logger.error(f"Error retrieving latest update timestamp: {e}")
             return None
 
-    def get_auto_moto_stores(self) -> List[Dict]:
+    def get_latest_snapshots_by_url(self) -> Dict[str, Dict]:
         """
-        Get all valid stores that have auto moto category
+        Return the most recent store_snapshots row for every URL in one query.
 
-        Returns:
-            List of dictionaries containing auto moto store data
+        Returns a dict keyed by store URL; callers should use .get(url, {}) with 0 defaults
+        for stores that have never been snapshotted.
         """
-        select_sql = """
-        SELECT url, results, created_at, updated_at, is_automoto
-        FROM scraped_stores
-        WHERE is_valid = TRUE
-        AND is_automoto = TRUE
-        ORDER BY updated_at DESC
+        sql = """
+        SELECT s.url,
+               s.scraped_at,
+               s.active_new, s.active_used, s.active_test, s.active_total,
+               s.delta_new,  s.delta_used,  s.delta_test,  s.delta_total
+        FROM store_snapshots s
+        INNER JOIN (
+            SELECT url, MAX(scraped_at) AS latest
+            FROM store_snapshots
+            GROUP BY url
+        ) latest ON s.url = latest.url AND s.scraped_at = latest.latest
         """
-
         try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql)
-                results = cursor.fetchall()
-
-                # Parse JSON results
-                for result in results:
-                    if result['results']:
-                        result['results'] = json.loads(result['results'])
-
-                return results
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error retrieving auto moto stores: {e}")
-            return []
-
-    def get_non_auto_moto_stores(self) -> List[Dict]:
-        """
-        Get all valid stores that do NOT have auto moto category
-
-        Returns:
-            List of dictionaries containing non-auto moto store data
-        """
-        select_sql = """
-        SELECT url, results, created_at, updated_at, is_automoto
-        FROM scraped_stores
-        WHERE is_valid = TRUE
-        AND is_automoto = FALSE
-        ORDER BY updated_at DESC
-        """
-
-        try:
-            with self.connection.cursor(pymysql.cursors.DictCursor) as cursor:
-                cursor.execute(select_sql)
-                results = cursor.fetchall()
-
-                # Parse JSON results
-                for result in results:
-                    if result['results']:
-                        result['results'] = json.loads(result['results'])
-
-                return results
-
-        except pymysql.Error as e:
-            self.logger.error(f"Error retrieving non-auto moto stores: {e}")
-            return []
+            rows = self.connection.execute(sql).fetchall()
+            return {row['url']: row for row in rows}
+        except sqlite3.Error as e:
+            self.logger.error(f"Error retrieving latest snapshots: {e}")
+            return {}
 
     def __enter__(self):
-        """Context manager entry"""
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit"""
         self.disconnect()
