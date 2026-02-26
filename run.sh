@@ -4,50 +4,90 @@
 # Requires: the remote server's VNC display :3 must already be running.
 # Firefox will be directed at DISPLAY=:3 automatically.
 #
-# Usage (inside a screen session):
-#   screen -S scraper
-#   ./run.sh                         # full scrape with tunnels
-#   ./run.sh --mode enhanced         # enhanced scrape, no tunnels
-#   ./run.sh --mode basic            # basic sitemap scrape
-#   ./run.sh --max-stores 10         # test run, limit to 10 stores
-#   ./run.sh --no-tunnels            # disable SSH tunnels
-#   ./run.sh --no-database           # skip DB/Excel, print results only
-#   ./run.sh --verbose               # debug logging
+# Usage:
+#   ./run.sh                         # start detached (default)
+#   ./run.sh --foreground            # run in current terminal
+#   ./run.sh --status                # show detached process status
+#   ./run.sh --stop                  # stop detached process
 #
-# Detach from screen: Ctrl+A then D
-# Reattach:          screen -r scraper
-#
-# By default, if this script is started outside a screen session,
-# it will relaunch itself in a detached screen session automatically.
-# Use --no-screen to disable this behavior.
+# Scraper options are forwarded to run_scraper.py, for example:
+#   ./run.sh --mode enhanced
+#   ./run.sh --max-stores 10
+#   ./run.sh --no-tunnels
+#   ./run.sh --no-database
+#   ./run.sh --verbose
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Auto-run in detached screen unless already in screen or explicitly disabled
-SCREEN_ENABLED=true
-SCREEN_SESSION_NAME="${SCREEN_SESSION_NAME:-njuskalo}"
-SCREEN_LOG_DIR="${SCREEN_LOG_DIR:-$SCRIPT_DIR/logs}"
-SCREEN_LOG_FILE="${SCREEN_LOG_FILE:-$SCREEN_LOG_DIR/screen-${SCREEN_SESSION_NAME}.log}"
+DETACH_ENABLED=true
+RUN_LOG_DIR="${RUN_LOG_DIR:-$SCRIPT_DIR/logs}"
+RUN_LOG_FILE="${RUN_LOG_FILE:-$RUN_LOG_DIR/scraper.log}"
+RUN_PID_FILE="${RUN_PID_FILE:-$RUN_LOG_DIR/scraper.pid}"
 FORWARDED_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-screen)
-            SCREEN_ENABLED=false
+        --foreground)
+            DETACH_ENABLED=false
             shift
             ;;
-        --screen-session)
-            shift
-            if [[ -n "${1:-}" ]]; then
-                SCREEN_SESSION_NAME="$1"
-                shift
-            else
-                echo "Error: --screen-session requires a value"
-                exit 1
+        --status)
+            mkdir -p "$RUN_LOG_DIR"
+            if [[ -f "$RUN_PID_FILE" ]]; then
+                PID="$(cat "$RUN_PID_FILE")"
+                if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+                    echo "Scraper is running (PID: $PID)"
+                    echo "Log file: $RUN_LOG_FILE"
+                    exit 0
+                else
+                    echo "Stale PID file found, cleaning up: $RUN_PID_FILE"
+                    rm -f "$RUN_PID_FILE"
+                fi
             fi
+            echo "Scraper is not running"
+            exit 1
+            ;;
+        --stop)
+            if [[ -f "$RUN_PID_FILE" ]]; then
+                PID="$(cat "$RUN_PID_FILE")"
+                if [[ -n "$PID" ]] && kill -0 "$PID" 2>/dev/null; then
+                    kill "$PID"
+                    rm -f "$RUN_PID_FILE"
+                    echo "Stopped scraper process (PID: $PID)"
+                    exit 0
+                fi
+                rm -f "$RUN_PID_FILE"
+            fi
+            echo "No running scraper process found"
+            exit 1
+            ;;
+        --help)
+            cat <<'EOF'
+Usage: ./run.sh [launcher-options] [scraper-options]
+
+Launcher options:
+  --foreground          Run in current terminal (default is detached)
+  --status              Show detached process status
+  --stop                Stop detached process
+
+Scraper options (forwarded):
+  --mode {tunnel,enhanced,basic}
+  --max-stores N
+  --no-tunnels
+  --no-database
+  --verbose
+
+Examples:
+  ./run.sh
+  ./run.sh --mode enhanced
+  ./run.sh --foreground --max-stores 10 --verbose
+  ./run.sh --status
+  ./run.sh --stop
+EOF
+            exit 0
             ;;
         *)
             FORWARDED_ARGS+=("$1")
@@ -56,41 +96,29 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ "$SCREEN_ENABLED" == true && -z "${STY:-}" ]]; then
-    if command -v screen >/dev/null 2>&1; then
-        EXISTING_SESSION_ID="$(screen -ls | awk '/\.[[:alnum:]_-]+[[:space:]]/ {print $1}' | awk -F. -v name="$SCREEN_SESSION_NAME" '$2==name {print $0; exit}')"
+if [[ "$DETACH_ENABLED" == true ]]; then
+    mkdir -p "$RUN_LOG_DIR"
 
-        if [[ -n "$EXISTING_SESSION_ID" ]]; then
-            echo "Screen session already running: $EXISTING_SESSION_ID"
-            echo "Attach with: screen -d -r $SCREEN_SESSION_NAME"
+    if [[ -f "$RUN_PID_FILE" ]]; then
+        EXISTING_PID="$(cat "$RUN_PID_FILE")"
+        if [[ -n "$EXISTING_PID" ]] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+            echo "Scraper already running (PID: $EXISTING_PID)"
+            echo "Log file: $RUN_LOG_FILE"
+            echo "Use: ./run.sh --status"
             exit 0
         fi
-
-        ESCAPED_ARGS=""
-        for arg in "${FORWARDED_ARGS[@]}"; do
-            ESCAPED_ARGS+=" $(printf '%q' "$arg")"
-        done
-
-        ESCAPED_SCRIPT_DIR="$(printf '%q' "$SCRIPT_DIR")"
-        SCREEN_CMD="cd ${ESCAPED_SCRIPT_DIR} && ./run.sh --no-screen${ESCAPED_ARGS}"
-
-        mkdir -p "$SCREEN_LOG_DIR"
-
-        screen -L -Logfile "$SCREEN_LOG_FILE" -dmS "$SCREEN_SESSION_NAME" bash -lc "$SCREEN_CMD"
-        NEW_SESSION_ID="$(screen -ls | awk '/\.[[:alnum:]_-]+[[:space:]]/ {print $1}' | awk -F. -v name="$SCREEN_SESSION_NAME" '$2==name {print $0; exit}')"
-        if [[ -n "$NEW_SESSION_ID" ]]; then
-            echo "Started detached screen session: $SCREEN_SESSION_NAME"
-            echo "Attach with: screen -d -r $SCREEN_SESSION_NAME"
-            echo "Log file: $SCREEN_LOG_FILE"
-        else
-            echo "Screen session ended quickly or failed to start"
-            echo "Check log file: $SCREEN_LOG_FILE"
-            echo "Run without screen for debugging: ./run.sh --no-screen"
-        fi
-        exit 0
-    else
-        echo "Warning: screen is not installed, running in foreground"
+        rm -f "$RUN_PID_FILE"
     fi
+
+    nohup "$SCRIPT_DIR/run.sh" --foreground "${FORWARDED_ARGS[@]}" >> "$RUN_LOG_FILE" 2>&1 < /dev/null &
+    NEW_PID=$!
+    echo "$NEW_PID" > "$RUN_PID_FILE"
+
+    echo "Started detached scraper process (PID: $NEW_PID)"
+    echo "Log file: $RUN_LOG_FILE"
+    echo "Status: ./run.sh --status"
+    echo "Stop:   ./run.sh --stop"
+    exit 0
 fi
 
 # Activate virtual environment

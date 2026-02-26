@@ -2,8 +2,7 @@
 """
 Njuskalo Scraper - Manual Runner
 
-Usage (run inside a screen session):
-    screen -S scraper
+Usage:
     python run_scraper.py                      # full scrape with tunnels
     python run_scraper.py --mode enhanced      # enhanced scrape, no tunnels
     python run_scraper.py --mode basic         # basic sitemap scrape
@@ -11,9 +10,6 @@ Usage (run inside a screen session):
     python run_scraper.py --no-database        # skip database, print results only
     python run_scraper.py --no-tunnels         # disable SSH tunnels
     python run_scraper.py --verbose            # debug logging
-
-Detach from screen: Ctrl+A then D
-Reattach:          screen -r scraper
 """
 
 import os
@@ -156,7 +152,7 @@ def _cleanup_browser(scraper, logger):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Njuskalo Scraper - run manually from terminal or screen session",
+        description="Njuskalo Scraper - run manually from terminal",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

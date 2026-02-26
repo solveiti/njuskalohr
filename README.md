@@ -155,25 +155,22 @@ SENTRY_ENVIRONMENT=production
 
 Always use `run.sh` — it activates the venv, loads `.env`, and sets the display.
 
-### Detached screen run (default)
+### Detached run (default, no screen)
 
-`run.sh` now starts in a detached `screen` session automatically when launched from a normal shell.
+`run.sh` starts the scraper as a detached background process by default (`nohup` + PID file).
 
 ```bash
-./run.sh                   # starts detached session "njuskalo"
-screen -ls                 # list running sessions
-screen -d -r njuskalo      # attach safely (detaches elsewhere if needed)
-screen -ls                 # list running sessions
-
-# Ctrl+A then D            # detach — scraper keeps running
-screen -d -r njuskalo      # reattach later
+./run.sh                   # start detached
+./run.sh --status          # check if running + PID
+tail -f logs/scraper.log   # follow live logs
+./run.sh --stop            # stop detached process
 ```
 
 Optional flags:
 
 ```bash
-./run.sh --screen-session scraper-enhanced --mode enhanced
-./run.sh --no-screen --mode enhanced    # run directly in current terminal
+./run.sh --mode enhanced
+./run.sh --foreground --mode enhanced    # run directly in current terminal
 ```
 
 ### Common options
