@@ -160,13 +160,13 @@ Always use `run.sh` — it activates the venv, loads `.env`, and sets the displa
 `run.sh` now starts in a detached `screen` session automatically when launched from a normal shell.
 
 ```bash
-./run.sh                   # starts detached session "scraper"
-screen -ls                 # list running sessions (note full ID, e.g. 12345.scraper)
-screen -d -r 12345.scraper # attach safely (detaches elsewhere if needed)
+./run.sh                   # starts detached session "njuskalo"
+screen -ls                 # list running sessions
+screen -d -r njuskalo      # attach safely (detaches elsewhere if needed)
 screen -ls                 # list running sessions
 
 # Ctrl+A then D            # detach — scraper keeps running
-screen -d -r 12345.scraper # reattach later
+screen -d -r njuskalo      # reattach later
 ```
 
 Optional flags:

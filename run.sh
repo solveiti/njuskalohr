@@ -28,7 +28,9 @@ cd "$SCRIPT_DIR"
 
 # Auto-run in detached screen unless already in screen or explicitly disabled
 SCREEN_ENABLED=true
-SCREEN_SESSION_NAME="${SCREEN_SESSION_NAME:-scraper}"
+SCREEN_SESSION_NAME="${SCREEN_SESSION_NAME:-njuskalo}"
+SCREEN_LOG_DIR="${SCREEN_LOG_DIR:-$SCRIPT_DIR/logs}"
+SCREEN_LOG_FILE="${SCREEN_LOG_FILE:-$SCREEN_LOG_DIR/screen-${SCREEN_SESSION_NAME}.log}"
 FORWARDED_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -60,7 +62,7 @@ if [[ "$SCREEN_ENABLED" == true && -z "${STY:-}" ]]; then
 
         if [[ -n "$EXISTING_SESSION_ID" ]]; then
             echo "Screen session already running: $EXISTING_SESSION_ID"
-            echo "Attach with: screen -d -r $EXISTING_SESSION_ID"
+            echo "Attach with: screen -d -r $SCREEN_SESSION_NAME"
             exit 0
         fi
 
@@ -72,14 +74,18 @@ if [[ "$SCREEN_ENABLED" == true && -z "${STY:-}" ]]; then
         ESCAPED_SCRIPT_DIR="$(printf '%q' "$SCRIPT_DIR")"
         SCREEN_CMD="cd ${ESCAPED_SCRIPT_DIR} && ./run.sh --no-screen${ESCAPED_ARGS}"
 
-        screen -dmS "$SCREEN_SESSION_NAME" bash -lc "$SCREEN_CMD"
+        mkdir -p "$SCREEN_LOG_DIR"
+
+        screen -L -Logfile "$SCREEN_LOG_FILE" -dmS "$SCREEN_SESSION_NAME" bash -lc "$SCREEN_CMD"
         NEW_SESSION_ID="$(screen -ls | awk '/\.[[:alnum:]_-]+[[:space:]]/ {print $1}' | awk -F. -v name="$SCREEN_SESSION_NAME" '$2==name {print $0; exit}')"
         if [[ -n "$NEW_SESSION_ID" ]]; then
-            echo "Started detached screen session: $NEW_SESSION_ID"
-            echo "Attach with: screen -d -r $NEW_SESSION_ID"
-        else
             echo "Started detached screen session: $SCREEN_SESSION_NAME"
             echo "Attach with: screen -d -r $SCREEN_SESSION_NAME"
+            echo "Log file: $SCREEN_LOG_FILE"
+        else
+            echo "Screen session ended quickly or failed to start"
+            echo "Check log file: $SCREEN_LOG_FILE"
+            echo "Run without screen for debugging: ./run.sh --no-screen"
         fi
         exit 0
     else
