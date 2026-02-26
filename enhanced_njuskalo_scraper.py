@@ -633,8 +633,18 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 if self.database:
                     # Get URLs marked as auto moto for re-scraping
                     auto_moto_urls = self.database.get_auto_moto_urls()
-                    urls_to_scrape = auto_moto_urls
-                    logger.info(f"📋 Will scrape {len(auto_moto_urls)} auto moto URLs from database")
+                    if auto_moto_urls:
+                        urls_to_scrape = auto_moto_urls
+                        logger.info(f"📋 Will scrape {len(auto_moto_urls)} auto moto URLs from database")
+                    else:
+                        # Bootstrap case: DB has URLs but none classified as auto moto yet.
+                        # Scrape valid non-auto rows to discover auto moto stores.
+                        non_auto_rows = self.database.get_non_auto_moto_stores()
+                        urls_to_scrape = [row['url'] for row in non_auto_rows]
+                        logger.warning(
+                            "⚠️ No auto moto URLs in database yet - bootstrapping from "
+                            f"{len(urls_to_scrape)} valid non-auto URLs"
+                        )
 
             if not urls_to_scrape:
                 logger.warning("⚠️ No URLs to scrape found")
