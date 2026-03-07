@@ -506,7 +506,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         Returns:
             Dict with new_count, used_count, test_count, and total_count
         """
-        vehicle_counts = {
+        empty_counts = {
             'new_vehicle_count': 0,
             'used_vehicle_count': 0,
             'test_vehicle_count': 0,
@@ -527,112 +527,145 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             auto_moto_info = self._extract_auto_moto_category_info(store_url)
             if not auto_moto_info:
                 logger.info(f"⏭️ Skipping vehicle count - no Auto Moto category link found: {store_url}")
-                return vehicle_counts
+                return empty_counts
 
             auto_moto_url = auto_moto_info['url']
             expected_total_ads = auto_moto_info.get('total_ads')
 
             logger.info(f"🚗 Counting vehicles via Auto Moto pagination: {auto_moto_url}")
 
-            # Load first page and derive total number of pages from Pagination.
-            first_page_url = self._build_paginated_url(auto_moto_url, 1)
-            if not self.navigate_to(first_page_url):
-                logger.warning("⚠️ Failed to navigate to first Auto Moto page")
-                return vehicle_counts
+            max_recount_attempts = 3
+            last_counts = dict(empty_counts)
 
-            self.smart_sleep("pagination")
-            WebDriverWait(self.driver, 8).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
+            for attempt in range(1, max_recount_attempts + 1):
+                vehicle_counts = {
+                    'new_vehicle_count': 0,
+                    'used_vehicle_count': 0,
+                    'test_vehicle_count': 0,
+                    'total_vehicle_count': 0
+                }
 
-            max_pages = self._get_last_pagination_page()
-            max_pages = max(1, min(max_pages, 150))
-            logger.info(f"📚 Pagination detected: {max_pages} page(s)")
+                # Restart counting for this store from page 1 on each attempt
+                first_page_url = self._build_paginated_url(auto_moto_url, 1)
+                if not self.navigate_to(first_page_url):
+                    logger.warning("⚠️ Failed to navigate to first Auto Moto page")
+                    return empty_counts
 
-            for page in range(1, max_pages + 1):
-                if page > 1:
-                    paginated_url = self._build_paginated_url(auto_moto_url, page)
-                    logger.debug(f"📄 Counting page {page}: {paginated_url}")
-
-                    if not self.navigate_to(paginated_url):
-                        logger.warning(f"⚠️ Failed to navigate to page {page}, stopping pagination")
-                        break
-
-                    self.smart_sleep("pagination")
-
-                    try:
-                        WebDriverWait(self.driver, 8).until(
-                            EC.presence_of_element_located((By.TAG_NAME, "body"))
-                        )
-                    except TimeoutException:
-                        logger.warning(f"⚠️ Timed out loading page {page}, stopping pagination")
-                        break
-
-                page_counts = self._count_vehicle_types_on_current_page()
-                unclassified = page_counts.get('unclassified_count', 0)
-                if unclassified > 0:
-                    page_counts['used_vehicle_count'] += unclassified
-
-                vehicle_counts['new_vehicle_count'] += page_counts['new_vehicle_count']
-                vehicle_counts['used_vehicle_count'] += page_counts['used_vehicle_count']
-                vehicle_counts['test_vehicle_count'] += page_counts['test_vehicle_count']
-
-                logger.info(
-                    f"📄 Page {page}: new={page_counts['new_vehicle_count']}, "
-                    f"used={page_counts['used_vehicle_count']}, "
-                    f"test={page_counts['test_vehicle_count']}, "
-                    f"ads={page_counts['total_vehicle_count']}"
-                    + (f", fallback_used+={unclassified}" if unclassified > 0 else "")
+                self.smart_sleep("pagination")
+                WebDriverWait(self.driver, 8).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
 
-                if page_counts['total_vehicle_count'] == 0:
-                    logger.info(f"⏹️ Stopping at page {page}: no ads found")
-                    break
+                max_pages = self._get_last_pagination_page()
+                max_pages = max(1, min(max_pages, 150))
+                logger.info(f"📚 Pagination detected: {max_pages} page(s) [attempt {attempt}/{max_recount_attempts}]")
 
-            categorized_total = (
-                vehicle_counts['new_vehicle_count']
-                + vehicle_counts['used_vehicle_count']
-                + vehicle_counts['test_vehicle_count']
-            )
+                for page in range(1, max_pages + 1):
+                    if page > 1:
+                        paginated_url = self._build_paginated_url(auto_moto_url, page)
+                        logger.debug(f"📄 Counting page {page}: {paginated_url}")
 
-            if expected_total_ads is not None:
-                delta = expected_total_ads - categorized_total
-                if delta != 0:
-                    logger.warning(
-                        f"⚠️ Category sum ({categorized_total}) differs from Auto Moto link total "
-                        f"({expected_total_ads}). Applying reconciliation delta={delta}."
+                        if not self.navigate_to(paginated_url):
+                            logger.warning(f"⚠️ Failed to navigate to page {page}, stopping pagination")
+                            break
+
+                        self.smart_sleep("pagination")
+
+                        try:
+                            WebDriverWait(self.driver, 8).until(
+                                EC.presence_of_element_located((By.TAG_NAME, "body"))
+                            )
+                        except TimeoutException:
+                            logger.warning(f"⚠️ Timed out loading page {page}, stopping pagination")
+                            break
+
+                    page_counts = self._count_vehicle_types_on_current_page()
+                    unclassified = page_counts.get('unclassified_count', 0)
+                    if unclassified > 0:
+                        page_counts['used_vehicle_count'] += unclassified
+
+                    vehicle_counts['new_vehicle_count'] += page_counts['new_vehicle_count']
+                    vehicle_counts['used_vehicle_count'] += page_counts['used_vehicle_count']
+                    vehicle_counts['test_vehicle_count'] += page_counts['test_vehicle_count']
+
+                    logger.info(
+                        f"📄 Page {page}: new={page_counts['new_vehicle_count']}, "
+                        f"used={page_counts['used_vehicle_count']}, "
+                        f"test={page_counts['test_vehicle_count']}, "
+                        f"ads={page_counts['total_vehicle_count']}"
+                        + (f", fallback_used+={unclassified}" if unclassified > 0 else "")
                     )
-                    if delta > 0:
-                        vehicle_counts['used_vehicle_count'] += delta
-                    else:
-                        to_remove = abs(delta)
-                        for key in ('used_vehicle_count', 'new_vehicle_count', 'test_vehicle_count'):
-                            if to_remove <= 0:
-                                break
-                            removable = min(vehicle_counts[key], to_remove)
-                            vehicle_counts[key] -= removable
-                            to_remove -= removable
 
-                vehicle_counts['total_vehicle_count'] = expected_total_ads
-            else:
-                vehicle_counts['total_vehicle_count'] = (
+                    if page_counts['total_vehicle_count'] == 0:
+                        logger.info(f"⏹️ Stopping at page {page}: no ads found")
+                        break
+
+                categorized_total = (
                     vehicle_counts['new_vehicle_count']
                     + vehicle_counts['used_vehicle_count']
                     + vehicle_counts['test_vehicle_count']
                 )
 
-            logger.info(
-                f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, "
-                f"Used: {vehicle_counts['used_vehicle_count']}, "
-                f"Test: {vehicle_counts['test_vehicle_count']}, "
-                f"Total: {vehicle_counts['total_vehicle_count']}"
-            )
+                if expected_total_ads is None:
+                    vehicle_counts['total_vehicle_count'] = categorized_total
+                    logger.info(
+                        f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, "
+                        f"Used: {vehicle_counts['used_vehicle_count']}, "
+                        f"Test: {vehicle_counts['test_vehicle_count']}, "
+                        f"Total: {vehicle_counts['total_vehicle_count']}"
+                    )
+                    return vehicle_counts
 
-            return vehicle_counts
+                if categorized_total == expected_total_ads:
+                    vehicle_counts['total_vehicle_count'] = expected_total_ads
+                    logger.info(
+                        f"✅ Vehicle totals matched on attempt {attempt}/{max_recount_attempts}: "
+                        f"{categorized_total}/{expected_total_ads}"
+                    )
+                    logger.info(
+                        f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, "
+                        f"Used: {vehicle_counts['used_vehicle_count']}, "
+                        f"Test: {vehicle_counts['test_vehicle_count']}, "
+                        f"Total: {vehicle_counts['total_vehicle_count']}"
+                    )
+                    return vehicle_counts
+
+                last_counts = dict(vehicle_counts)
+                logger.warning(
+                    f"⚠️ Mismatch on attempt {attempt}/{max_recount_attempts}: "
+                    f"categorized={categorized_total}, expected={expected_total_ads}. "
+                    "Restarting store ad count from page 1."
+                )
+                self.smart_sleep("store_visit")
+
+            # Final fallback after retries: keep expected total aligned for downstream DB stats
+            categorized_total = (
+                last_counts['new_vehicle_count']
+                + last_counts['used_vehicle_count']
+                + last_counts['test_vehicle_count']
+            )
+            delta = expected_total_ads - categorized_total
+            if delta > 0:
+                last_counts['used_vehicle_count'] += delta
+            elif delta < 0:
+                to_remove = abs(delta)
+                for key in ('used_vehicle_count', 'new_vehicle_count', 'test_vehicle_count'):
+                    if to_remove <= 0:
+                        break
+                    removable = min(last_counts[key], to_remove)
+                    last_counts[key] -= removable
+                    to_remove -= removable
+
+            last_counts['total_vehicle_count'] = expected_total_ads
+            logger.warning(
+                f"⚠️ Store recount failed after {max_recount_attempts} attempts; "
+                "applied final reconciliation to expected Auto Moto total."
+            )
+            return last_counts
 
         except Exception as e:
             logger.error(f"❌ Error counting vehicle types: {e}")
-            return vehicle_counts
+            return empty_counts
 
     def scrape_store_with_vehicle_counting(self, store_url: str) -> Optional[Dict]:
         """
@@ -742,62 +775,16 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     results['errors'].append(f"Database error: {e}")
                     return results
 
-            # Step 1: Check if we should fetch from XML or use database
-            should_fetch_xml = self._should_fetch_from_xml()
+            # Step 1: Always compare XML vs DB and capture only newly added store URLs
+            new_urls, xml_success = self.download_and_process_xml_sitemap()
+            results['xml_available'] = xml_success
+            results['new_urls_found'] = len(new_urls)
 
-            new_urls = []
-            xml_success = False
-
-            if should_fetch_xml:
-                # Database is empty or old - fetch from XML
-                new_urls, xml_success = self.download_and_process_xml_sitemap()
-                results['xml_available'] = xml_success
-                results['new_urls_found'] = len(new_urls)
-
-                if not xml_success:
-                    logger.warning("⚠️ XML sitemap unavailable - falling back to database URLs")
-            else:
-                # Database is fresh - skip XML processing
-                logger.info("⏭️ Skipping XML processing - using fresh database URLs")
-                results['xml_available'] = False  # Didn't fetch XML
-                results['new_urls_found'] = 0  # No new URLs from XML
-
-            # Step 2: Determine which URLs to scrape
-            urls_to_scrape = []
-
-            if xml_success and new_urls:
-                # XML available - scrape new URLs
-                urls_to_scrape = new_urls
-                logger.info(f"📋 Will scrape {len(new_urls)} new URLs from XML")
-            else:
-                # XML unavailable or no new URLs or database is fresh - scrape from database
-                if self.database:
-                    # Get URLs marked as auto moto for re-scraping
-                    auto_moto_urls = self.database.get_auto_moto_urls()
-                    if auto_moto_urls:
-                        urls_to_scrape = auto_moto_urls
-                        logger.info(f"📋 Will scrape {len(auto_moto_urls)} auto moto URLs from database")
-                    else:
-                        # Bootstrap case: DB has URLs but none classified as auto moto yet.
-                        # Scrape valid non-auto rows to discover auto moto stores.
-                        non_auto_rows = self.database.get_non_auto_moto_stores()
-                        urls_to_scrape = [row['url'] for row in non_auto_rows]
-                        logger.warning(
-                            "⚠️ No auto moto URLs in database yet - bootstrapping from "
-                            f"{len(urls_to_scrape)} valid non-auto URLs"
-                        )
-
-            if not urls_to_scrape:
-                logger.warning("⚠️ No URLs to scrape found")
+            if not xml_success:
+                logger.warning("⚠️ XML sitemap unavailable - cannot determine newly added stores")
                 return results
 
-            # Limit URLs if specified
-            if max_stores and len(urls_to_scrape) > max_stores:
-                urls_to_scrape = urls_to_scrape[:max_stores]
-                logger.info(f"📊 Limited to {len(urls_to_scrape)} stores for testing")
-
             # Ensure browser is initialized before any store navigation.
-            # When XML is skipped (fresh DB), setup_browser() may not have run yet.
             if not self.driver:
                 logger.info("🌐 Initializing browser for store scraping...")
                 if not self.setup_browser():
@@ -806,35 +793,37 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     results['errors'].append(error_msg)
                     return results
 
-            # Step 3: Scrape stores
-            for i, store_url in enumerate(urls_to_scrape, 1):
-                try:
-                    logger.info(f"🔄 Scraping store {i}/{len(urls_to_scrape)}: {store_url}")
+            def process_store_batch(store_urls: List[str], phase_name: str, update_summary: bool) -> None:
+                """Process a batch of stores, optionally updating final summary counters."""
+                self._scrape_phase = phase_name
+                for i, store_url in enumerate(store_urls, 1):
+                    try:
+                        logger.info(f"🔄 [{phase_name}] Scraping store {i}/{len(store_urls)}: {store_url}")
 
-                    if not self.driver:
-                        logger.warning("⚠️ Browser driver missing before store scrape, reinitializing...")
-                        if not self.setup_browser():
-                            error_msg = f"Browser unavailable for store scrape: {store_url}"
-                            logger.error(f"❌ {error_msg}")
-                            results['errors'].append(error_msg)
+                        if not self.driver:
+                            logger.warning("⚠️ Browser driver missing before store scrape, reinitializing...")
+                            if not self.setup_browser():
+                                error_msg = f"Browser unavailable for store scrape: {store_url}"
+                                logger.error(f"❌ {error_msg}")
+                                results['errors'].append(error_msg)
+                                continue
+
+                        store_data = self.scrape_store_with_vehicle_counting(store_url)
+
+                        if not store_data:
+                            logger.warning(f"⚠️ No data retrieved for store: {store_url}")
                             continue
 
-                    # Scrape store with vehicle counting
-                    store_data = self.scrape_store_with_vehicle_counting(store_url)
-
-                    if store_data:
                         if store_data.get('error'):
                             logger.error(f"❌ Store scrape failed for {store_url}: {store_data['error']}")
                             results['errors'].append(f"Store {store_url}: {store_data['error']}")
                             continue
 
-                        # Capture counts before save_store_data pops them from the dict
-                        snap_new  = store_data.get('new_vehicle_count', 0)
+                        snap_new = store_data.get('new_vehicle_count', 0)
                         snap_used = store_data.get('used_vehicle_count', 0)
                         snap_test = store_data.get('test_vehicle_count', 0)
                         is_automoto = store_data.get('has_auto_moto', False)
 
-                        # Save to database
                         if self.database:
                             success = self.database.save_store_data(
                                 url=store_url,
@@ -843,16 +832,6 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                             )
 
                             if success:
-                                results['stores_scraped'] += 1
-
-                                if is_automoto:
-                                    results['auto_moto_stores'] += 1
-                                    results['new_vehicles'] += snap_new
-                                    results['used_vehicles'] += snap_used
-                                    results['test_vehicles'] += snap_test
-                                    results['total_vehicles'] += snap_new + snap_used + snap_test
-
-                                # Record snapshot for active/sold tracking
                                 self.database.save_store_snapshot(
                                     url=store_url,
                                     active_new=snap_new,
@@ -860,19 +839,53 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                                     active_test=snap_test,
                                 )
 
-                        # Add delay between stores
+                                if update_summary:
+                                    results['stores_scraped'] += 1
+                                    if is_automoto:
+                                        results['auto_moto_stores'] += 1
+                                        results['new_vehicles'] += snap_new
+                                        results['used_vehicles'] += snap_used
+                                        results['test_vehicles'] += snap_test
+                                        results['total_vehicles'] += snap_new + snap_used + snap_test
+
                         self.smart_sleep("store_visit")
 
-                    else:
-                        logger.warning(f"⚠️ No data retrieved for store: {store_url}")
+                    except Exception as e:
+                        logger.error(f"❌ Error scraping store {store_url}: {e}")
+                        results['errors'].append(f"Store {store_url}: {e}")
+                        if self.database:
+                            self.database.mark_url_invalid(store_url)
+                self._scrape_phase = None
 
-                except Exception as e:
-                    logger.error(f"❌ Error scraping store {store_url}: {e}")
-                    results['errors'].append(f"Store {store_url}: {e}")
+            # Step 2: Scrape newly added stores first to classify which of them are auto stores.
+            new_urls_to_classify = list(new_urls)
+            random.shuffle(new_urls_to_classify)
+            if new_urls_to_classify:
+                logger.info(
+                    f"📋 Phase 1 - classify new stores: {len(new_urls_to_classify)} URL(s) "
+                    "(randomized order)"
+                )
+                process_store_batch(new_urls_to_classify, "new-store-classification", update_summary=False)
+            else:
+                logger.info("ℹ️ No newly added stores found in XML compared to DB")
 
-                    # Mark as invalid in database
-                    if self.database:
-                        self.database.mark_url_invalid(store_url)
+            # Step 3: Scrape all auto stores in randomized order to reduce detection risk.
+            auto_store_urls = self.database.get_auto_moto_urls() if self.database else []
+            random.shuffle(auto_store_urls)
+
+            if max_stores and len(auto_store_urls) > max_stores:
+                auto_store_urls = auto_store_urls[:max_stores]
+                logger.info(f"📊 Limited auto-store scraping to {len(auto_store_urls)} stores for testing")
+
+            if not auto_store_urls:
+                logger.warning("⚠️ No auto moto store URLs found after new-store classification")
+                return results
+
+            logger.info(
+                f"📋 Phase 2 - scrape all auto stores: {len(auto_store_urls)} URL(s) "
+                "(randomized order)"
+            )
+            process_store_batch(auto_store_urls, "auto-store-full-scrape", update_summary=True)
 
             # Step 4: Final statistics
             logger.info("📊 Scraping completed - Final statistics:")

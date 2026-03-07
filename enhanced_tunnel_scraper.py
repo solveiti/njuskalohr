@@ -317,10 +317,11 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
         mode_changed = target_mode != self.current_connection_mode
 
         if mode_changed:
+            active_phase = getattr(self, '_scrape_phase', None) or 'unknown-phase'
             logger.info(
                 f"🔄 Rotating connection from "
                 f"{self.current_connection_mode or self.DIRECT_CONNECTION} to {target_mode} "
-                f"after {self.stores_on_current_tunnel} store(s)"
+                f"after {self.stores_on_current_tunnel} store(s) during {active_phase}"
             )
 
             if self.driver:
@@ -347,6 +348,8 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
 
     def scrape_store_with_vehicle_counting(self, store_url: str) -> Optional[Dict]:
         """Scrape one store and rotate tunnel randomly between stores when enabled."""
+        active_phase = getattr(self, '_scrape_phase', None) or 'unspecified-phase'
+        logger.info(f"🧭 Tunnel scrape phase: {active_phase}")
         if self.use_tunnels:
             if not self._rotate_tunnel_before_store():
                 return {
@@ -686,6 +689,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                     self.current_connection_mode = self.DIRECT_CONNECTION
 
             # Step 2: Run enhanced scraping workflow
+            logger.info("🧭 Two-phase scrape enabled: (1) classify new XML stores, (2) scrape all auto stores in random order")
             logger.info("🔧 Setting up browser with tunnel configuration...")
             results = self.run_enhanced_scrape(max_stores)
 
