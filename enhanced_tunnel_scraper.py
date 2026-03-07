@@ -40,7 +40,7 @@ elif not os.path.exists(venv_python):
 
 import time
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from pathlib import Path
 
 # Add current directory to Python path
@@ -84,6 +84,8 @@ logger = logging.getLogger(__name__)
 class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
     """Enhanced scraper with SSH tunnel support and vehicle counting"""
 
+    DIRECT_CONNECTION = "__DIRECT__"
+
     def __init__(self, headless=False, use_database=True, tunnel_config_path=None, use_tunnels=True, preferred_tunnel=None):
         """
         Initialize enhanced scraper with SSH tunnel support
@@ -102,6 +104,10 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
         self.current_tunnel = None
         self.socks_proxy_port = None
         self.preferred_tunnel = preferred_tunnel
+        self.current_connection_mode = self.DIRECT_CONNECTION
+        self.mix_direct_ip = use_tunnels and not bool(preferred_tunnel)
+        self.stores_on_current_tunnel = 0
+        self._next_rotation_after = random.randint(2, 5)
 
         if self.use_tunnels:
             self._setup_tunnel_manager()
@@ -168,7 +174,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             logger.debug(f"Error checking port {port}: {e}")
             return False
 
-    def _start_tunnel(self) -> bool:
+    def _start_tunnel(self, tunnel_name: Optional[str] = None, exclude_current: bool = False) -> bool:
         """Start SSH tunnel and return success status"""
         if not self.use_tunnels or not self.tunnel_manager:
             return True
@@ -180,8 +186,13 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 logger.error("❌ No tunnels configured")
                 return False
 
-            # Use preferred tunnel if specified, otherwise use random tunnel for rotation
-            if self.preferred_tunnel:
+            # Resolve target tunnel
+            if tunnel_name:
+                if tunnel_name not in tunnels:
+                    logger.error(f"❌ Requested tunnel '{tunnel_name}' not found in config")
+                    logger.info(f"Available tunnels: {', '.join(tunnels.keys())}")
+                    return False
+            elif self.preferred_tunnel:
                 if self.preferred_tunnel in tunnels:
                     tunnel_name = self.preferred_tunnel
                     logger.info(f"🚇 Using preferred tunnel: {tunnel_name}")
@@ -190,8 +201,10 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                     logger.info(f"Available tunnels: {', '.join(tunnels.keys())}")
                     return False
             else:
-                # Random selection for automatic IP rotation
-                tunnel_name = random.choice(list(tunnels.keys()))
+                candidates = list(tunnels.keys())
+                if exclude_current and self.current_tunnel and len(candidates) > 1:
+                    candidates = [name for name in candidates if name != self.current_tunnel]
+                tunnel_name = random.choice(candidates)
                 logger.info(f"🚇 Starting SSH tunnel (random): {tunnel_name}")
 
             # Check if tunnel port is already in use and clean it up
@@ -206,6 +219,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 proxy_settings = self.tunnel_manager.get_proxy_settings()
                 self.socks_proxy_port = proxy_settings.get('local_port') if proxy_settings else None
                 self.current_tunnel = tunnel_name
+                self.current_connection_mode = tunnel_name
                 logger.info(f"✅ SSH tunnel active: {tunnel_name} (SOCKS proxy on port {self.socks_proxy_port})")
 
                 # Wait a moment for tunnel to stabilize (reduced)
@@ -253,6 +267,116 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             finally:
                 self.current_tunnel = None
                 self.socks_proxy_port = None
+
+    def _switch_to_direct_connection(self):
+        """Switch scraping traffic back to the server's original IP (no SOCKS proxy)."""
+        if self.current_tunnel:
+            self._stop_tunnel()
+        self.current_tunnel = None
+        self.socks_proxy_port = None
+        self.current_connection_mode = self.DIRECT_CONNECTION
+        logger.info("🌐 Using direct connection (original server IP)")
+
+    def _configured_tunnel_names(self) -> List[str]:
+        """Return configured tunnel names."""
+        if not self.tunnel_manager:
+            return []
+        return list(self.tunnel_manager.list_tunnels().keys())
+
+    def _ensure_browser_with_current_tunnel(self) -> bool:
+        """Ensure browser exists and uses currently selected tunnel/proxy."""
+        if self.driver:
+            return True
+        return self.setup_browser()
+
+    def _rotate_tunnel_before_store(self) -> bool:
+        """Rotate between direct server IP and SOCKS tunnels between stores."""
+        if not self.use_tunnels or not self.tunnel_manager:
+            return self._ensure_browser_with_current_tunnel()
+
+        tunnel_names = self._configured_tunnel_names()
+        if not tunnel_names:
+            logger.error("❌ No tunnels configured")
+            return False
+
+        if self.preferred_tunnel:
+            target_mode = self.preferred_tunnel
+        else:
+            candidates = list(tunnel_names)
+            if self.mix_direct_ip:
+                candidates.append(self.DIRECT_CONNECTION)
+
+            current_mode = self.current_connection_mode
+            target_mode = current_mode
+
+            if not current_mode:
+                target_mode = random.choice(candidates)
+            elif len(candidates) > 1 and self.stores_on_current_tunnel >= self._next_rotation_after:
+                target_mode = random.choice([mode for mode in candidates if mode != current_mode])
+
+        mode_changed = target_mode != self.current_connection_mode
+
+        if mode_changed:
+            logger.info(
+                f"🔄 Rotating connection from "
+                f"{self.current_connection_mode or self.DIRECT_CONNECTION} to {target_mode} "
+                f"after {self.stores_on_current_tunnel} store(s)"
+            )
+
+            if self.driver:
+                try:
+                    self.driver.quit()
+                except Exception:
+                    pass
+                self.driver = None
+
+            if target_mode == self.DIRECT_CONNECTION:
+                self._switch_to_direct_connection()
+            else:
+                if self.current_tunnel and self.current_tunnel != target_mode:
+                    self._stop_tunnel()
+
+                if not self._start_tunnel(tunnel_name=target_mode):
+                    logger.error(f"❌ Failed to switch to tunnel {target_mode}")
+                    return False
+
+            self.stores_on_current_tunnel = 0
+            self._next_rotation_after = random.randint(2, 5)
+
+        return self._ensure_browser_with_current_tunnel()
+
+    def scrape_store_with_vehicle_counting(self, store_url: str) -> Optional[Dict]:
+        """Scrape one store and rotate tunnel randomly between stores when enabled."""
+        if self.use_tunnels:
+            if not self._rotate_tunnel_before_store():
+                return {
+                    'url': store_url,
+                    'error': 'Failed to initialize/rotate SSH tunnel',
+                    'has_auto_moto': False,
+                    'scraped': False,
+                    'new_vehicle_count': 0,
+                    'used_vehicle_count': 0,
+                    'test_vehicle_count': 0,
+                    'total_vehicle_count': 0
+                }
+        elif not self.driver and not self.setup_browser():
+            return {
+                'url': store_url,
+                'error': 'Failed to initialize browser',
+                'has_auto_moto': False,
+                'scraped': False,
+                'new_vehicle_count': 0,
+                'used_vehicle_count': 0,
+                'test_vehicle_count': 0,
+                'total_vehicle_count': 0
+            }
+
+        result = super().scrape_store_with_vehicle_counting(store_url)
+
+        if self.use_tunnels and result and not result.get('error'):
+            self.stores_on_current_tunnel += 1
+
+        return result
 
     def test_firefox_local(self):
         """Test if Firefox works locally without tunnels using server-compatible config"""
@@ -382,7 +506,7 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             firefox_options.set_preference("network.http.use-cache", False)
 
             # 🔥 SOCKS PROXY CONFIGURATION 🔥
-            if self.use_tunnels and hasattr(self, 'socks_proxy_port') and self.socks_proxy_port:
+            if self.use_tunnels and self.current_tunnel and self.socks_proxy_port:
                 # Configure SOCKS proxy in Firefox
                 firefox_options.set_preference("network.proxy.type", 1)  # Manual proxy configuration
                 firefox_options.set_preference("network.proxy.socks", "127.0.0.1")
@@ -390,12 +514,11 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
                 firefox_options.set_preference("network.proxy.socks_version", 5)
                 firefox_options.set_preference("network.proxy.socks_remote_dns", True)
                 logger.info(f"🌐 Firefox configured to use SOCKS proxy: 127.0.0.1:{self.socks_proxy_port}")
-            elif not self.use_tunnels:
-                # Ensure no proxy when tunnels disabled (server-compatible setting)
-                firefox_options.set_preference("network.proxy.type", 0)
             else:
-                logger.warning("⚠️ Tunnels enabled but no SOCKS proxy port available - using direct connection")
+                # Ensure direct connection when no active tunnel is selected
                 firefox_options.set_preference("network.proxy.type", 0)
+                if self.use_tunnels:
+                    logger.info("🌐 Firefox configured for direct connection (original server IP)")
 
             # Server compatibility - ensure headless mode is properly set
             if self.headless:
@@ -547,11 +670,20 @@ class TunnelEnabledEnhancedScraper(EnhancedNjuskaloScraper):
             logger.info("🚀 Enhanced Njuskalo Scraper with SSH Tunnel Support")
             logger.info("=" * 60)
 
-            # Step 1: Setup tunnel if enabled
+            # Step 1: Validate tunnel setup and announce connection strategy
             if self.use_tunnels:
-                if not self._start_tunnel():
-                    logger.error("❌ Failed to setup tunnel, continuing without tunnel...")
+                tunnel_names = self._configured_tunnel_names()
+                if not tunnel_names:
+                    logger.error("❌ No usable tunnel definitions found, continuing without tunnel support")
                     self.use_tunnels = False
+                elif self.preferred_tunnel:
+                    logger.info(f"🔒 Preferred tunnel mode enabled: {self.preferred_tunnel}")
+                else:
+                    logger.info(
+                        "🔀 Mixed connection mode enabled: direct server IP + SOCKS tunnels "
+                        f"({', '.join(tunnel_names)})"
+                    )
+                    self.current_connection_mode = self.DIRECT_CONNECTION
 
             # Step 2: Run enhanced scraping workflow
             logger.info("🔧 Setting up browser with tunnel configuration...")

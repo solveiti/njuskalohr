@@ -205,40 +205,100 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         logger.info(f"✅ Successfully added {added_count}/{len(new_urls)} new URLs to database")
         return added_count
 
-    def _extract_auto_moto_category_url(self, store_url: str) -> Optional[str]:
+    def _normalize_auto_moto_url(self, href: str) -> str:
+        """Normalize Auto Moto URL so it explicitly contains categoryId=2."""
+        parsed = urlparse(href)
+        query_pairs = [
+            (k, v)
+            for (k, v) in parse_qsl(parsed.query, keep_blank_values=True)
+            if k.lower() not in ('categoryid', 'category_id')
+        ]
+        query_pairs.append(('categoryId', '2'))
+        new_query = urlencode(query_pairs)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+
+    def _parse_count_from_text(self, text: str) -> Optional[int]:
+        """Parse integer ad count from text like 'Auto moto 1.234'."""
+        if not text:
+            return None
+
+        match = re.search(r'(\d[\d\.\s]*)', text)
+        if not match:
+            return None
+
+        digits_only = re.sub(r'\D', '', match.group(1))
+        if not digits_only:
+            return None
+
+        try:
+            return int(digits_only)
+        except ValueError:
+            return None
+
+    def _extract_auto_moto_category_info(self, store_url: str) -> Optional[Dict[str, Optional[int]]]:
         """
-        Extract Auto Moto category URL from store page by finding a link that:
-        - contains categoryId=2 in href
-        - and has visible link text containing "auto moto"
+        Extract Auto Moto link info from store page.
+
+        Returns:
+            {
+                'url': '<auto moto url normalized to categoryId=2>',
+                'total_ads': <count from link text or None>
+            }
         """
         try:
             if not self.driver:
                 return None
 
-            auto_moto_links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href*="categoryId=2"]')
+            link_selectors = [
+                'a[href*="categoryId=2"]',
+                'a[href*="category_id=2"]',
+                'a[href*="categoryid=2"]',
+                'a'
+            ]
 
-            for link in auto_moto_links:
+            seen_hrefs = set()
+            for selector in link_selectors:
                 try:
-                    link_text = (link.text or "").strip().lower()
-                    href = (link.get_attribute('href') or "").strip()
-
-                    if not href:
-                        continue
-
-                    if 'categoryid=2' not in href.lower():
-                        continue
-
-                    # Expected pattern: "Auto Moto" or "Auto Moto <number>"
-                    if 'auto moto' in link_text:
-                        logger.info(f"✅ Auto Moto link detected: {href} ({link_text})")
-                        return href
+                    links = self.driver.find_elements(By.CSS_SELECTOR, selector)
                 except Exception:
-                    continue
+                    links = []
+
+                for link in links:
+                    try:
+                        href = (link.get_attribute('href') or '').strip()
+                        if not href or href in seen_hrefs:
+                            continue
+                        seen_hrefs.add(href)
+
+                        link_text = (link.text or '').strip().lower()
+                        text_content = (link.get_attribute('textContent') or '').strip().lower()
+                        if 'auto moto' not in link_text and 'auto moto' not in text_content:
+                            continue
+
+                        href_lower = href.lower()
+                        if 'categoryid=2' not in href_lower and 'category_id=2' not in href_lower:
+                            continue
+
+                        normalized_url = self._normalize_auto_moto_url(href)
+                        total_ads = self._parse_count_from_text(link.get_attribute('textContent') or link.text or '')
+
+                        logger.info(
+                            f"✅ Auto Moto link detected: {normalized_url} "
+                            f"(total near link: {total_ads if total_ads is not None else 'unknown'})"
+                        )
+                        return {'url': normalized_url, 'total_ads': total_ads}
+                    except Exception:
+                        continue
 
             return None
         except Exception as e:
             logger.debug(f"Auto Moto link extraction failed for {store_url}: {e}")
             return None
+
+    def _extract_auto_moto_category_url(self, store_url: str) -> Optional[str]:
+        """Backward-compatible helper that returns only Auto Moto URL."""
+        info = self._extract_auto_moto_category_info(store_url)
+        return info.get('url') if info else None
 
     def _build_paginated_url(self, base_url: str, page: int) -> str:
         """Build paginated URL by setting/replacing the `page` query parameter."""
@@ -257,7 +317,8 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             'new_vehicle_count': 0,
             'used_vehicle_count': 0,
             'test_vehicle_count': 0,
-            'total_vehicle_count': 0
+            'total_vehicle_count': 0,
+            'unclassified_count': 0
         }
 
         listing_selectors = [
@@ -302,7 +363,9 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         for listing in listings:
             try:
                 listing_text = (listing.text or '').lower()
+                listing_html = (listing.get_attribute('innerHTML') or '').lower()
                 flag_texts = []
+                classified = False
 
                 try:
                     flags = listing.find_elements(By.CSS_SELECTOR, 'li.entity-flag span.flag, .entity-flag span.flag, .entity-flag, .flag')
@@ -314,23 +377,39 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 
                 if 'testno vozilo' in searchable:
                     page_counts['test_vehicle_count'] += 1
+                    classified = True
                 elif 'novo vozilo' in searchable:
                     page_counts['new_vehicle_count'] += 1
+                    classified = True
                 elif 'rabljeno vozilo' in searchable or 'polovno vozilo' in searchable:
                     page_counts['used_vehicle_count'] += 1
+                    classified = True
+
+                if not classified:
+                    html_searchable = f"{listing_text} {listing_html}"
+                    if 'testno vozilo' in html_searchable:
+                        page_counts['test_vehicle_count'] += 1
+                        classified = True
+                    elif 'novo vozilo' in html_searchable:
+                        page_counts['new_vehicle_count'] += 1
+                        classified = True
+                    elif 'rabljeno vozilo' in html_searchable or 'polovno vozilo' in html_searchable:
+                        page_counts['used_vehicle_count'] += 1
+                        classified = True
+
+                if not classified:
+                    page_counts['unclassified_count'] += 1
             except Exception:
                 continue
 
-        page_counts['total_vehicle_count'] = (
-            page_counts['new_vehicle_count']
-            + page_counts['used_vehicle_count']
-            + page_counts['test_vehicle_count']
-        )
+        page_counts['total_vehicle_count'] = len(listings)
         return page_counts
 
     def _has_next_page(self, current_page: int) -> bool:
         """Detect if pagination indicates a next page exists."""
         next_selectors = [
+            '.Pagination .next:not(.disabled)',
+            '.Pagination .page-next:not(.disabled)',
             '.pagination .next:not(.disabled)',
             '.pagination .page-next:not(.disabled)',
             'a[aria-label="Next"]:not([disabled])',
@@ -351,7 +430,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         # Numeric pagination fallback: if there is a link/button for current_page + 1
         try:
             next_page_num = str(current_page + 1)
-            candidates = self.driver.find_elements(By.CSS_SELECTOR, '.pagination a, .pagination button, .pager a, .pager button')
+            candidates = self.driver.find_elements(By.CSS_SELECTOR, '.Pagination a, .Pagination button, .pagination a, .pagination button, .pager a, .pager button')
             for candidate in candidates:
                 text = (candidate.text or '').strip()
                 if text == next_page_num:
@@ -360,6 +439,22 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             pass
 
         return False
+
+    def _get_last_pagination_page(self) -> int:
+        """Get last page number from Pagination controls."""
+        try:
+            elements = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                '.Pagination a, .Pagination button, .pagination a, .pagination button, .pager a, .pager button'
+            )
+            pages = []
+            for element in elements:
+                text = (element.text or '').strip()
+                if text.isdigit():
+                    pages.append(int(text))
+            return max(pages) if pages else 1
+        except Exception:
+            return 1
 
     def check_auto_moto_category(self, store_url: str) -> bool:
         """
@@ -390,8 +485,8 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             )
 
             # Strict requirement: must have explicit Auto Moto link with categoryId=2
-            auto_moto_url = self._extract_auto_moto_category_url(store_url)
-            if auto_moto_url:
+            auto_moto_info = self._extract_auto_moto_category_info(store_url)
+            if auto_moto_info and auto_moto_info.get('url'):
                 return True
 
             logger.info("❌ No valid Auto Moto link (categoryId=2) found on store page")
@@ -429,60 +524,102 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            auto_moto_url = self._extract_auto_moto_category_url(store_url)
-            if not auto_moto_url:
+            auto_moto_info = self._extract_auto_moto_category_info(store_url)
+            if not auto_moto_info:
                 logger.info(f"⏭️ Skipping vehicle count - no Auto Moto category link found: {store_url}")
                 return vehicle_counts
 
+            auto_moto_url = auto_moto_info['url']
+            expected_total_ads = auto_moto_info.get('total_ads')
+
             logger.info(f"🚗 Counting vehicles via Auto Moto pagination: {auto_moto_url}")
 
-            page = 1
-            max_pages = 80
+            # Load first page and derive total number of pages from Pagination.
+            first_page_url = self._build_paginated_url(auto_moto_url, 1)
+            if not self.navigate_to(first_page_url):
+                logger.warning("⚠️ Failed to navigate to first Auto Moto page")
+                return vehicle_counts
 
-            while page <= max_pages:
-                paginated_url = self._build_paginated_url(auto_moto_url, page)
-                logger.debug(f"📄 Counting page {page}: {paginated_url}")
+            self.smart_sleep("pagination")
+            WebDriverWait(self.driver, 8).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
 
-                if not self.navigate_to(paginated_url):
-                    logger.warning(f"⚠️ Failed to navigate to page {page}, stopping pagination")
-                    break
+            max_pages = self._get_last_pagination_page()
+            max_pages = max(1, min(max_pages, 150))
+            logger.info(f"📚 Pagination detected: {max_pages} page(s)")
 
-                self.smart_sleep("pagination")
+            for page in range(1, max_pages + 1):
+                if page > 1:
+                    paginated_url = self._build_paginated_url(auto_moto_url, page)
+                    logger.debug(f"📄 Counting page {page}: {paginated_url}")
 
-                try:
-                    WebDriverWait(self.driver, 8).until(
-                        EC.presence_of_element_located((By.TAG_NAME, "body"))
-                    )
-                except TimeoutException:
-                    logger.warning(f"⚠️ Timed out loading page {page}, stopping pagination")
-                    break
+                    if not self.navigate_to(paginated_url):
+                        logger.warning(f"⚠️ Failed to navigate to page {page}, stopping pagination")
+                        break
+
+                    self.smart_sleep("pagination")
+
+                    try:
+                        WebDriverWait(self.driver, 8).until(
+                            EC.presence_of_element_located((By.TAG_NAME, "body"))
+                        )
+                    except TimeoutException:
+                        logger.warning(f"⚠️ Timed out loading page {page}, stopping pagination")
+                        break
 
                 page_counts = self._count_vehicle_types_on_current_page()
+                unclassified = page_counts.get('unclassified_count', 0)
+                if unclassified > 0:
+                    page_counts['used_vehicle_count'] += unclassified
 
                 vehicle_counts['new_vehicle_count'] += page_counts['new_vehicle_count']
                 vehicle_counts['used_vehicle_count'] += page_counts['used_vehicle_count']
                 vehicle_counts['test_vehicle_count'] += page_counts['test_vehicle_count']
-                vehicle_counts['total_vehicle_count'] += page_counts['total_vehicle_count']
 
                 logger.info(
                     f"📄 Page {page}: new={page_counts['new_vehicle_count']}, "
                     f"used={page_counts['used_vehicle_count']}, "
                     f"test={page_counts['test_vehicle_count']}, "
                     f"ads={page_counts['total_vehicle_count']}"
+                    + (f", fallback_used+={unclassified}" if unclassified > 0 else "")
                 )
 
-                # Stop conditions:
-                # - no ads on current page
-                # - no next page in pagination controls
                 if page_counts['total_vehicle_count'] == 0:
                     logger.info(f"⏹️ Stopping at page {page}: no ads found")
                     break
 
-                if not self._has_next_page(page):
-                    logger.info(f"⏹️ Stopping at page {page}: no next page")
-                    break
+            categorized_total = (
+                vehicle_counts['new_vehicle_count']
+                + vehicle_counts['used_vehicle_count']
+                + vehicle_counts['test_vehicle_count']
+            )
 
-                page += 1
+            if expected_total_ads is not None:
+                delta = expected_total_ads - categorized_total
+                if delta != 0:
+                    logger.warning(
+                        f"⚠️ Category sum ({categorized_total}) differs from Auto Moto link total "
+                        f"({expected_total_ads}). Applying reconciliation delta={delta}."
+                    )
+                    if delta > 0:
+                        vehicle_counts['used_vehicle_count'] += delta
+                    else:
+                        to_remove = abs(delta)
+                        for key in ('used_vehicle_count', 'new_vehicle_count', 'test_vehicle_count'):
+                            if to_remove <= 0:
+                                break
+                            removable = min(vehicle_counts[key], to_remove)
+                            vehicle_counts[key] -= removable
+                            to_remove -= removable
+
+                vehicle_counts['total_vehicle_count'] = expected_total_ads
+            else:
+                vehicle_counts['total_vehicle_count'] = (
+                    vehicle_counts['new_vehicle_count']
+                    + vehicle_counts['used_vehicle_count']
+                    + vehicle_counts['test_vehicle_count']
+                )
 
             logger.info(
                 f"🚗 Vehicle counts - New: {vehicle_counts['new_vehicle_count']}, "
