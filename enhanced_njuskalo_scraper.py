@@ -405,6 +405,71 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         page_counts['total_vehicle_count'] = len(listings)
         return page_counts
 
+    def _click_next_page(self, current_page: int) -> bool:
+        """
+        Click the next page link/button in pagination using a real mouse click.
+        Returns True if a click was performed, False if no next page element found.
+        """
+        from selenium.webdriver.common.action_chains import ActionChains
+
+        next_page_num = str(current_page + 1)
+
+        # Priority 1: explicit "Next" / ">" button
+        next_selectors = [
+            '.Pagination .next:not(.disabled)',
+            '.Pagination .page-next:not(.disabled)',
+            '.pagination .next:not(.disabled)',
+            '.pagination .page-next:not(.disabled)',
+            'a[aria-label="Next"]:not([disabled])',
+            '.pager .next:not(.disabled)',
+            '[data-testid="next-page"]:not([disabled])',
+        ]
+        for selector in next_selectors:
+            try:
+                elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for el in elements:
+                    classes = (el.get_attribute('class') or '').lower()
+                    if el.is_enabled() and 'disabled' not in classes:
+                        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+                        ActionChains(self.driver).move_to_element(el).pause(0.3).click(el).perform()
+                        return True
+            except Exception:
+                continue
+
+        # Priority 2: numeric link for current_page + 1
+        try:
+            candidates = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                '.Pagination a, .Pagination button, .pagination a, .pagination button, .pager a, .pager button'
+            )
+            for el in candidates:
+                text = (el.text or '').strip()
+                if text == next_page_num and el.is_enabled():
+                    self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+                    ActionChains(self.driver).move_to_element(el).pause(0.3).click(el).perform()
+                    return True
+        except Exception:
+            pass
+
+        # Priority 3: any visible page number higher than current_page (for ellipsis pagination —
+        # click the lowest visible one that is > current_page)
+        try:
+            candidates = self.driver.find_elements(
+                By.CSS_SELECTOR,
+                '.Pagination a, .Pagination button, .pagination a, .pagination button, .pager a, .pager button'
+            )
+            higher = [(int(el.text.strip()), el) for el in candidates
+                      if (el.text or '').strip().isdigit() and int(el.text.strip()) > current_page and el.is_enabled()]
+            if higher:
+                _, el = min(higher, key=lambda t: t[0])
+                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", el)
+                ActionChains(self.driver).move_to_element(el).pause(0.3).click(el).perform()
+                return True
+        except Exception:
+            pass
+
+        return False
+
     def _has_next_page(self, current_page: int) -> bool:
         """Detect if pagination indicates a next page exists."""
         next_selectors = [
@@ -427,14 +492,33 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             except Exception:
                 continue
 
-        # Numeric pagination fallback: if there is a link/button for current_page + 1
+        # Numeric pagination fallback: if there is a link/button for current_page + 1,
+        # OR any page number higher than current_page (handles ellipsis/truncated pagination)
         try:
-            next_page_num = str(current_page + 1)
             candidates = self.driver.find_elements(By.CSS_SELECTOR, '.Pagination a, .Pagination button, .pagination a, .pagination button, .pager a, .pager button')
             for candidate in candidates:
                 text = (candidate.text or '').strip()
-                if text == next_page_num:
+                if text.isdigit() and int(text) > current_page:
                     return True
+        except Exception:
+            pass
+
+        # Ellipsis/truncated pagination: presence of '...' or '›' after current page means more pages exist
+        try:
+            pagination_text = ''
+            for selector in ('.Pagination', '.pagination', '.pager'):
+                try:
+                    el = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    pagination_text = (el.text or '')
+                    break
+                except Exception:
+                    continue
+            if pagination_text:
+                # If there's an ellipsis and a page number greater than current page after it
+                if '...' in pagination_text or '…' in pagination_text:
+                    numbers_in_pagination = [int(n) for n in re.findall(r'\d+', pagination_text)]
+                    if any(n > current_page for n in numbers_in_pagination):
+                        return True
         except Exception:
             pass
 
@@ -545,28 +629,46 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     'total_vehicle_count': 0
                 }
 
-                # Restart counting for this store from page 1 on each attempt
-                first_page_url = self._build_paginated_url(auto_moto_url, 1)
-                if not self.navigate_to(first_page_url):
-                    logger.warning("⚠️ Failed to navigate to first Auto Moto page")
+                # Restart counting for this store from page 1 on each attempt.
+                # Click the Auto Moto category link from the store page (human navigation).
+                if not self.navigate_to(store_url):
+                    logger.warning("⚠️ Failed to navigate to store page for Auto Moto click")
                     return empty_counts
+
+                self.smart_sleep("page_load")
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+
+                # Click the Auto Moto category link to enter the filtered listing
+                try:
+                    from selenium.webdriver.common.action_chains import ActionChains
+                    auto_moto_link = WebDriverWait(self.driver, 8).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'a[href*="categoryId=2"], a[href*="category_id=2"]'))
+                    )
+                    self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", auto_moto_link)
+                    ActionChains(self.driver).move_to_element(auto_moto_link).pause(0.3).click(auto_moto_link).perform()
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not click Auto Moto link, falling back to navigate_to: {e}")
+                    if not self.navigate_to(auto_moto_url):
+                        logger.warning("⚠️ Failed to navigate to first Auto Moto page")
+                        return empty_counts
 
                 self.smart_sleep("pagination")
                 WebDriverWait(self.driver, 8).until(
                     EC.presence_of_element_located((By.TAG_NAME, "body"))
                 )
 
-                max_pages = self._get_last_pagination_page()
-                max_pages = max(1, min(max_pages, 150))
-                logger.info(f"📚 Pagination detected: {max_pages} page(s) [attempt {attempt}/{max_recount_attempts}]")
+                hint_pages = self._get_last_pagination_page()
+                logger.info(f"📚 Pagination hint: {hint_pages} visible page(s) [attempt {attempt}/{max_recount_attempts}]")
 
-                for page in range(1, max_pages + 1):
+                page = 1
+                max_page_guard = 150
+                while page <= max_page_guard:
                     if page > 1:
-                        paginated_url = self._build_paginated_url(auto_moto_url, page)
-                        logger.debug(f"📄 Counting page {page}: {paginated_url}")
-
-                        if not self.navigate_to(paginated_url):
-                            logger.warning(f"⚠️ Failed to navigate to page {page}, stopping pagination")
+                        logger.debug(f"📄 Clicking to page {page}")
+                        if not self._click_next_page(page - 1):
+                            logger.warning(f"⚠️ Could not find/click next page after page {page - 1}, stopping pagination")
                             break
 
                         self.smart_sleep("pagination")
@@ -599,6 +701,12 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     if page_counts['total_vehicle_count'] == 0:
                         logger.info(f"⏹️ Stopping at page {page}: no ads found")
                         break
+
+                    if not self._has_next_page(page):
+                        logger.info(f"⏹️ No next page after page {page}, pagination complete")
+                        break
+
+                    page += 1
 
                 categorized_total = (
                     vehicle_counts['new_vehicle_count']
@@ -666,6 +774,25 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         except Exception as e:
             logger.error(f"❌ Error counting vehicle types: {e}")
             return empty_counts
+
+    def _visit_decoy_store(self, non_auto_urls: List[str]) -> None:
+        """
+        Silently navigate to a random non-auto-moto store to break scraping patterns.
+        No logging, no data saved — purely for evasion.
+        """
+        if not non_auto_urls or not self.driver:
+            return
+        url = random.choice(non_auto_urls)
+        try:
+            self.driver.get(url)
+            time.sleep(random.uniform(3.0, 9.0))
+            # Occasionally scroll a bit to mimic human reading
+            if random.random() < 0.5:
+                scroll_px = random.randint(200, 800)
+                self.driver.execute_script(f"window.scrollBy(0, {scroll_px});")
+                time.sleep(random.uniform(1.0, 3.0))
+        except Exception:
+            pass
 
     def scrape_store_with_vehicle_counting(self, store_url: str) -> Optional[Dict]:
         """
@@ -793,10 +920,34 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     results['errors'].append(error_msg)
                     return results
 
-            def process_store_batch(store_urls: List[str], phase_name: str, update_summary: bool) -> None:
-                """Process a batch of stores, optionally updating final summary counters."""
+            # Build decoy pool from known non-auto-moto stores already in DB.
+            # This is populated once and reused across both phases.
+            def _get_decoy_pool() -> List[str]:
+                if not self.database:
+                    return []
+                try:
+                    rows = self.database.get_non_auto_moto_stores()
+                    return [r['url'] for r in rows if r.get('url')]
+                except Exception:
+                    return []
+
+            def _maybe_decoy(decoy_pool: List[str], chance: float = 0.25) -> None:
+                """Insert a silent decoy visit with the given probability."""
+                if decoy_pool and random.random() < chance:
+                    self._visit_decoy_store(decoy_pool)
+
+            def process_store_batch(
+                store_urls: List[str],
+                phase_name: str,
+                update_summary: bool,
+                decoy_pool: List[str],
+            ) -> None:
+                """Process a batch of stores with random decoy visits interspersed."""
                 self._scrape_phase = phase_name
                 for i, store_url in enumerate(store_urls, 1):
+                    # Random decoy before each real store visit (~25% chance)
+                    _maybe_decoy(decoy_pool)
+
                     try:
                         logger.info(f"🔄 [{phase_name}] Scraping store {i}/{len(store_urls)}: {store_url}")
 
@@ -857,7 +1008,9 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                             self.database.mark_url_invalid(store_url)
                 self._scrape_phase = None
 
-            # Step 2: Scrape newly added stores first to classify which of them are auto stores.
+            # Step 2: Classify only new stores (not yet in DB).
+            # Decoy pool is empty at this point since we have no non-auto stores yet,
+            # but we still try — it grows after the first few stores are classified.
             new_urls_to_classify = list(new_urls)
             random.shuffle(new_urls_to_classify)
             if new_urls_to_classify:
@@ -865,11 +1018,12 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     f"📋 Phase 1 - classify new stores: {len(new_urls_to_classify)} URL(s) "
                     "(randomized order)"
                 )
-                process_store_batch(new_urls_to_classify, "new-store-classification", update_summary=False)
+                decoy_pool = _get_decoy_pool()
+                process_store_batch(new_urls_to_classify, "new-store-classification", update_summary=False, decoy_pool=decoy_pool)
             else:
                 logger.info("ℹ️ No newly added stores found in XML compared to DB")
 
-            # Step 3: Scrape all auto stores in randomized order to reduce detection risk.
+            # Step 3: Scrape all confirmed auto-moto stores in randomized order.
             auto_store_urls = self.database.get_auto_moto_urls() if self.database else []
             random.shuffle(auto_store_urls)
 
@@ -885,7 +1039,9 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 f"📋 Phase 2 - scrape all auto stores: {len(auto_store_urls)} URL(s) "
                 "(randomized order)"
             )
-            process_store_batch(auto_store_urls, "auto-store-full-scrape", update_summary=True)
+            # Refresh decoy pool — now includes all non-auto stores classified in Phase 1.
+            decoy_pool = _get_decoy_pool()
+            process_store_batch(auto_store_urls, "auto-store-full-scrape", update_summary=True, decoy_pool=decoy_pool)
 
             # Step 4: Final statistics
             logger.info("📊 Scraping completed - Final statistics:")
