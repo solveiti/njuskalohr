@@ -311,7 +311,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
     def _count_vehicle_types_on_current_page(self) -> Dict[str, int]:
         """
         Count new/used/test ads on current page using listing flags.
-        One listing contributes to at most one type bucket.
+        Uses a layered approach matching the proven detect_vehicle_flags pattern.
         """
         page_counts = {
             'new_vehicle_count': 0,
@@ -321,88 +321,127 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             'unclassified_count': 0
         }
 
+        def _tally(text: str) -> Optional[str]:
+            """Return the vehicle type key for a flag text, or None."""
+            t = text.lower()
+            if 'testno vozilo' in t:
+                return 'test_vehicle_count'
+            if 'novo vozilo' in t:
+                return 'new_vehicle_count'
+            if 'rabljeno vozilo' in t or 'polovno vozilo' in t:
+                return 'used_vehicle_count'
+            return None
+
+        # Layer 1: li.entity-flag span.flag — primary selector used by the working parent scraper.
+        try:
+            flag_spans = self.driver.find_elements(By.CSS_SELECTOR, 'li.entity-flag span.flag')
+            if flag_spans:
+                for span in flag_spans:
+                    key = _tally(span.text or '')
+                    if key:
+                        page_counts[key] += 1
+                total = (page_counts['new_vehicle_count']
+                         + page_counts['used_vehicle_count']
+                         + page_counts['test_vehicle_count'])
+                if total > 0:
+                    page_counts['total_vehicle_count'] = total
+                    return page_counts
+        except Exception:
+            pass
+
+        # Layer 2: li.entity-flag containers (text of whole container).
+        try:
+            flag_containers = self.driver.find_elements(By.CSS_SELECTOR, 'li.entity-flag')
+            if flag_containers:
+                for container in flag_containers:
+                    key = _tally(container.text or '')
+                    if key:
+                        page_counts[key] += 1
+                total = (page_counts['new_vehicle_count']
+                         + page_counts['used_vehicle_count']
+                         + page_counts['test_vehicle_count'])
+                if total > 0:
+                    page_counts['total_vehicle_count'] = total
+                    return page_counts
+        except Exception:
+            pass
+
+        # Layer 3: per-listing wrapper elements — flag sub-elements first, then full listing text.
         listing_selectors = [
+            'article.entity-body',
             '.entity-item',
             '.ad-item',
             '.listing-item',
+            'article',
             '[data-testid="ad-item"]',
-            '.classified-item'
+            '.classified-item',
         ]
-
         listings = []
         for selector in listing_selectors:
             try:
-                listings = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                if listings:
+                found = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                if found:
+                    listings = found
                     break
             except Exception:
                 continue
 
-        # Fallback: try global flag scan if listing wrappers are not found.
-        if not listings:
-            try:
-                flag_elements = self.driver.find_elements(By.CSS_SELECTOR, 'li.entity-flag span.flag')
-                for flag in flag_elements:
-                    flag_text = (flag.text or '').strip().lower()
-                    if 'testno vozilo' in flag_text:
-                        page_counts['test_vehicle_count'] += 1
-                    elif 'novo vozilo' in flag_text:
-                        page_counts['new_vehicle_count'] += 1
-                    elif 'rabljeno vozilo' in flag_text or 'polovno vozilo' in flag_text:
-                        page_counts['used_vehicle_count'] += 1
-            except Exception:
-                pass
+        if listings:
+            for listing in listings:
+                try:
+                    classified = False
+                    # Try flag sub-elements first
+                    try:
+                        flags = listing.find_elements(
+                            By.CSS_SELECTOR,
+                            'li.entity-flag span.flag, li.entity-flag, .entity-flag span.flag, .entity-flag'
+                        )
+                        for flag in flags:
+                            key = _tally(flag.text or '')
+                            if key:
+                                page_counts[key] += 1
+                                classified = True
+                                break
+                    except Exception:
+                        pass
 
+                    if not classified:
+                        # Fall back to full listing text + innerHTML
+                        searchable = (listing.text or '').lower()
+                        if not any(k in searchable for k in ('novo vozilo', 'rabljeno vozilo', 'polovno vozilo', 'testno vozilo')):
+                            try:
+                                searchable += ' ' + (listing.get_attribute('innerHTML') or '').lower()
+                            except Exception:
+                                pass
+                        key = _tally(searchable)
+                        if key:
+                            page_counts[key] += 1
+                            classified = True
+
+                    if not classified:
+                        page_counts['unclassified_count'] += 1
+                except Exception:
+                    continue
+
+            page_counts['total_vehicle_count'] = len(listings)
+            return page_counts
+
+        # Layer 4: full body text count — last resort, counts string occurrences.
+        try:
+            body_text = self.driver.find_element(By.TAG_NAME, 'body').text.lower()
+            page_counts['test_vehicle_count'] = body_text.count('testno vozilo')
+            page_counts['new_vehicle_count'] = body_text.count('novo vozilo')
+            page_counts['used_vehicle_count'] = (
+                body_text.count('rabljeno vozilo') + body_text.count('polovno vozilo')
+            )
             page_counts['total_vehicle_count'] = (
                 page_counts['new_vehicle_count']
                 + page_counts['used_vehicle_count']
                 + page_counts['test_vehicle_count']
             )
-            return page_counts
+        except Exception:
+            pass
 
-        for listing in listings:
-            try:
-                listing_text = (listing.text or '').lower()
-                listing_html = (listing.get_attribute('innerHTML') or '').lower()
-                flag_texts = []
-                classified = False
-
-                try:
-                    flags = listing.find_elements(By.CSS_SELECTOR, 'li.entity-flag span.flag, .entity-flag span.flag, .entity-flag, .flag')
-                    flag_texts = [(flag.text or '').lower() for flag in flags if (flag.text or '').strip()]
-                except Exception:
-                    flag_texts = []
-
-                searchable = ' '.join(flag_texts) if flag_texts else listing_text
-
-                if 'testno vozilo' in searchable:
-                    page_counts['test_vehicle_count'] += 1
-                    classified = True
-                elif 'novo vozilo' in searchable:
-                    page_counts['new_vehicle_count'] += 1
-                    classified = True
-                elif 'rabljeno vozilo' in searchable or 'polovno vozilo' in searchable:
-                    page_counts['used_vehicle_count'] += 1
-                    classified = True
-
-                if not classified:
-                    html_searchable = f"{listing_text} {listing_html}"
-                    if 'testno vozilo' in html_searchable:
-                        page_counts['test_vehicle_count'] += 1
-                        classified = True
-                    elif 'novo vozilo' in html_searchable:
-                        page_counts['new_vehicle_count'] += 1
-                        classified = True
-                    elif 'rabljeno vozilo' in html_searchable or 'polovno vozilo' in html_searchable:
-                        page_counts['used_vehicle_count'] += 1
-                        classified = True
-
-                if not classified:
-                    page_counts['unclassified_count'] += 1
-            except Exception:
-                continue
-
-        page_counts['total_vehicle_count'] = len(listings)
         return page_counts
 
     def _click_next_page(self, current_page: int) -> bool:
@@ -580,12 +619,14 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             logger.error(f"❌ Error checking auto moto category: {e}")
             raise
 
-    def count_vehicle_types(self, store_url: str) -> Dict[str, int]:
+    def count_vehicle_types(self, store_url: str, auto_moto_info: Optional[Dict] = None) -> Dict[str, int]:
         """
         Count new, used, and test vehicles on a store page.
 
         Args:
             store_url: The store URL to analyze
+            auto_moto_info: Pre-resolved auto moto info dict (url, total_ads). When provided
+                            the initial store-page navigation is skipped entirely.
 
         Returns:
             Dict with new_count, used_count, test_count, and total_count
@@ -598,17 +639,18 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         }
 
         try:
-            # Resolve Auto Moto category URL from the store page first.
-            # This enforces that counting only happens for explicit Auto Moto category links.
-            if not self.navigate_to(store_url):
-                raise RuntimeError(f"Navigation failed for store URL: {store_url}")
+            if auto_moto_info is None:
+                # Caller didn't pre-resolve — navigate to store page and extract now.
+                if not self.navigate_to(store_url):
+                    raise RuntimeError(f"Navigation failed for store URL: {store_url}")
 
-            self.smart_sleep("page_load")
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
+                self.smart_sleep("page_load")
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
 
-            auto_moto_info = self._extract_auto_moto_category_info(store_url)
+                auto_moto_info = self._extract_auto_moto_category_info(store_url)
+
             if not auto_moto_info:
                 logger.info(f"⏭️ Skipping vehicle count - no Auto Moto category link found: {store_url}")
                 return empty_counts
@@ -807,17 +849,32 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
         try:
             logger.info(f"🏪 Scraping store with vehicle counting: {store_url}")
 
-            # First check if store has auto moto category
-            has_auto_moto = self.check_auto_moto_category(store_url)
+            if not self.driver:
+                if not self.setup_browser():
+                    raise RuntimeError("Browser initialization failed")
 
-            # Start with basic store data
+            # Single navigation to the store page — extract everything from here.
+            if not self.navigate_to(store_url):
+                raise RuntimeError(f"Navigation failed for {store_url}")
+            self.smart_sleep("page_load")
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+
+            # Extract auto moto info and basic store info from the already-loaded page.
+            auto_moto_info = self._extract_auto_moto_category_info(store_url)
+            has_auto_moto = bool(auto_moto_info and auto_moto_info.get('url'))
+
+            # Extract basic store info (name, address, ads count, categories) from current page.
+            basic_store_data = self.scrape_store_info(store_url) if has_auto_moto else {}
+
             store_data = {
                 'url': store_url,
-                'name': None,
-                'address': None,
-                'ads_count': None,
+                'name': (basic_store_data or {}).get('name'),
+                'address': (basic_store_data or {}).get('address'),
+                'ads_count': (basic_store_data or {}).get('ads_count'),
                 'has_auto_moto': has_auto_moto,
-                'categories': [],
+                'categories': (basic_store_data or {}).get('categories', []),
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
                 'test_vehicle_count': 0,
@@ -826,23 +883,13 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'error': None
             }
 
-            # If no auto moto category, return early
             if not has_auto_moto:
                 logger.info(f"⏭️ Skipping detailed scraping - no auto moto category: {store_url}")
                 return store_data
 
-            # Scrape basic store info (name, address, etc.)
-            basic_store_data = self.scrape_store_info(store_url)
-            if basic_store_data:
-                store_data.update({
-                    'name': basic_store_data.get('name'),
-                    'address': basic_store_data.get('address'),
-                    'ads_count': basic_store_data.get('ads_count'),
-                    'categories': basic_store_data.get('categories', [])
-                })
-
-            # Count vehicle types for auto moto stores
-            vehicle_counts = self.count_vehicle_types(store_url)
+            # Pass the already-resolved auto_moto_info so count_vehicle_types
+            # does not navigate to the store page a second time.
+            vehicle_counts = self.count_vehicle_types(store_url, auto_moto_info=auto_moto_info)
             store_data.update(vehicle_counts)
 
             logger.info(f"✅ Successfully scraped store: {store_data['name'] or 'Unknown'} - Auto moto: {has_auto_moto}, Vehicles: {store_data['total_vehicle_count']}")
@@ -976,28 +1023,36 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                         is_automoto = store_data.get('has_auto_moto', False)
 
                         if self.database:
-                            success = self.database.save_store_data(
-                                url=store_url,
-                                store_data=store_data,
-                                is_valid=True
-                            )
-
-                            if success:
-                                self.database.save_store_snapshot(
+                            if is_automoto:
+                                success = self.database.save_store_data(
                                     url=store_url,
-                                    active_new=snap_new,
-                                    active_used=snap_used,
-                                    active_test=snap_test,
+                                    store_data=store_data,
+                                    is_valid=True
                                 )
 
-                                if update_summary:
-                                    results['stores_scraped'] += 1
-                                    if is_automoto:
+                                if success:
+                                    self.database.save_store_snapshot(
+                                        url=store_url,
+                                        active_new=snap_new,
+                                        active_used=snap_used,
+                                        active_test=snap_test,
+                                    )
+
+                                    if update_summary:
+                                        results['stores_scraped'] += 1
                                         results['auto_moto_stores'] += 1
                                         results['new_vehicles'] += snap_new
                                         results['used_vehicles'] += snap_used
                                         results['test_vehicles'] += snap_test
                                         results['total_vehicles'] += snap_new + snap_used + snap_test
+                            else:
+                                # Non-auto-moto: persist the classification flag only,
+                                # no snapshot, no detailed data.
+                                self.database.save_store_data(
+                                    url=store_url,
+                                    store_data={'has_auto_moto': False, 'scraped': True},
+                                    is_valid=True
+                                )
 
                         self.smart_sleep("store_visit")
 
