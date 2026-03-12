@@ -1085,7 +1085,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             else:
                 logger.info("ℹ️ No newly added stores found in XML compared to DB")
 
-            # Step 3: Scrape all confirmed auto-moto stores in randomized order.
+            # Step 3: Scrape auto-moto vehicle stores not updated in the last 7 days.
             auto_store_urls = self.database.get_auto_moto_urls() if self.database else []
             random.shuffle(auto_store_urls)
 
@@ -1093,19 +1093,36 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 auto_store_urls = auto_store_urls[:max_stores]
                 logger.info(f"📊 Limited auto-store scraping to {len(auto_store_urls)} stores for testing")
 
-            if not auto_store_urls:
-                logger.warning("⚠️ No auto moto store URLs found after new-store classification")
-                return results
-
-            logger.info(
-                f"📋 Phase 2 - scrape all auto stores: {len(auto_store_urls)} URL(s) "
-                "(randomized order)"
-            )
             # Refresh decoy pool — now includes all non-auto stores classified in Phase 1.
             decoy_pool = _get_decoy_pool()
-            process_store_batch(auto_store_urls, "auto-store-full-scrape", update_summary=True, decoy_pool=decoy_pool)
 
-            # Step 4: Final statistics
+            if auto_store_urls:
+                logger.info(
+                    f"📋 Phase 2 - scrape auto stores due for rescrape: {len(auto_store_urls)} URL(s) "
+                    "(not updated in last 7 days, randomized order)"
+                )
+                process_store_batch(auto_store_urls, "auto-store-full-scrape", update_summary=True, decoy_pool=decoy_pool)
+            else:
+                logger.info("ℹ️ No auto-moto vehicle stores due for rescrape (all updated within last 7 days)")
+
+            # Step 4: Re-check parts-only stores not updated in the last 7 days.
+            # These may have started listing vehicles since last visit.
+            parts_only_urls = self.database.get_parts_only_urls_for_recheck() if self.database else []
+            random.shuffle(parts_only_urls)
+
+            if parts_only_urls:
+                logger.info(
+                    f"📋 Phase 3 - recheck parts-only stores: {len(parts_only_urls)} URL(s) "
+                    "(not updated in last 7 days, randomized order)"
+                )
+                process_store_batch(parts_only_urls, "parts-only-recheck", update_summary=False, decoy_pool=decoy_pool)
+            else:
+                logger.info("ℹ️ No parts-only stores due for recheck (all updated within last 7 days)")
+
+            if not auto_store_urls and not parts_only_urls:
+                logger.info("ℹ️ All stores are up to date — nothing to scrape this run")
+
+            # Step 5: Final statistics
             logger.info("📊 Scraping completed - Final statistics:")
             logger.info(f"   🌐 XML Available: {results['xml_available']}")
             logger.info(f"   🆕 New URLs Found: {results['new_urls_found']}")
@@ -1134,13 +1151,22 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 
 # Add helper method to database class for getting auto moto URLs
 def get_auto_moto_urls(self) -> List[str]:
-    """Get URLs of auto-moto stores that sell vehicles (excludes parts/cosmetics stores)."""
+    """
+    Get URLs of auto-moto vehicle stores not scraped in the last 7 days.
+    Excludes parts/cosmetics stores (is_parts_only=1).
+    """
     try:
         rows = self.connection.execute(
             """
             SELECT url FROM scraped_stores
-            WHERE is_automoto = 1 AND is_valid = 1 AND is_parts_only = 0
-            ORDER BY updated_at DESC
+            WHERE is_automoto = 1
+              AND is_valid = 1
+              AND is_parts_only = 0
+              AND (
+                  updated_at IS NULL
+                  OR datetime(updated_at) < datetime('now', '-7 days')
+              )
+            ORDER BY updated_at ASC
             """
         ).fetchall()
         return [row['url'] for row in rows]
@@ -1148,8 +1174,36 @@ def get_auto_moto_urls(self) -> List[str]:
         self.logger.error(f"Error getting auto moto URLs: {e}")
         return []
 
-# Monkey patch the method to NjuskaloDatabase class
+
+def get_parts_only_urls_for_recheck(self) -> List[str]:
+    """
+    Get URLs of parts-only stores not re-checked in the last 7 days.
+    These stores have the auto-moto category but showed zero vehicles on last scrape —
+    they are periodically re-scraped in case they start selling vehicles.
+    """
+    try:
+        rows = self.connection.execute(
+            """
+            SELECT url FROM scraped_stores
+            WHERE is_automoto = 1
+              AND is_valid = 1
+              AND is_parts_only = 1
+              AND (
+                  updated_at IS NULL
+                  OR datetime(updated_at) < datetime('now', '-7 days')
+              )
+            ORDER BY updated_at ASC
+            """
+        ).fetchall()
+        return [row['url'] for row in rows]
+    except Exception as e:
+        self.logger.error(f"Error getting parts-only URLs for recheck: {e}")
+        return []
+
+
+# Monkey patch both methods onto NjuskaloDatabase
 NjuskaloDatabase.get_auto_moto_urls = get_auto_moto_urls
+NjuskaloDatabase.get_parts_only_urls_for_recheck = get_parts_only_urls_for_recheck
 
 
 if __name__ == "__main__":
