@@ -55,6 +55,7 @@ class NjuskaloDatabase:
                 results         TEXT,
                 is_valid        INTEGER NOT NULL DEFAULT 1,
                 is_automoto     INTEGER NOT NULL DEFAULT 0,
+                is_parts_only   INTEGER NOT NULL DEFAULT 0,
                 new_vehicle_count  INTEGER NOT NULL DEFAULT 0,
                 used_vehicle_count INTEGER NOT NULL DEFAULT 0,
                 test_vehicle_count INTEGER NOT NULL DEFAULT 0,
@@ -65,8 +66,9 @@ class NjuskaloDatabase:
             """,
             "CREATE INDEX IF NOT EXISTS idx_scraped_stores_url        ON scraped_stores(url)",
             "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_valid   ON scraped_stores(is_valid)",
-            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto ON scraped_stores(is_automoto)",
-            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_created_at ON scraped_stores(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_automoto  ON scraped_stores(is_automoto)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_parts_only ON scraped_stores(is_parts_only)",
+            "CREATE INDEX IF NOT EXISTS idx_scraped_stores_created_at  ON scraped_stores(created_at)",
             "CREATE INDEX IF NOT EXISTS idx_scraped_stores_updated_at ON scraped_stores(updated_at)",
             """
             CREATE TABLE IF NOT EXISTS store_snapshots (
@@ -144,6 +146,37 @@ class NjuskaloDatabase:
 
         except sqlite3.Error as e:
             self.logger.error(f"Error in migrate_add_is_automoto_column: {e}")
+            self.connection.rollback()
+            raise
+
+    def migrate_add_is_parts_only_column(self):
+        """Add is_parts_only column to existing database (idempotent)."""
+        try:
+            existing = {
+                row['name']
+                for row in self.connection.execute("PRAGMA table_info(scraped_stores)").fetchall()
+            }
+            if 'is_parts_only' not in existing:
+                self.connection.execute(
+                    "ALTER TABLE scraped_stores ADD COLUMN is_parts_only INTEGER NOT NULL DEFAULT 0"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_scraped_stores_is_parts_only ON scraped_stores(is_parts_only)"
+                )
+                # Mark existing auto-moto stores with zero vehicles as parts-only
+                self.connection.execute(
+                    """
+                    UPDATE scraped_stores
+                    SET is_parts_only = 1
+                    WHERE is_automoto = 1 AND total_vehicle_count = 0
+                    """
+                )
+                self.connection.commit()
+                self.logger.info("Added is_parts_only column and backfilled from existing data")
+            else:
+                self.logger.info("is_parts_only column already exists")
+        except sqlite3.Error as e:
+            self.logger.error(f"Error in migrate_add_is_parts_only_column: {e}")
             self.connection.rollback()
             raise
 
@@ -268,10 +301,11 @@ class NjuskaloDatabase:
 
     def save_store_data(self, url: str, store_data: Dict[str, Any], is_valid: bool = True) -> bool:
         """Save or update store data in the database."""
-        is_automoto        = store_data.pop('has_auto_moto', False)
-        new_vehicle_count  = store_data.pop('new_vehicle_count', 0)
-        used_vehicle_count = store_data.pop('used_vehicle_count', 0)
-        test_vehicle_count = store_data.pop('test_vehicle_count', 0)
+        is_automoto         = store_data.pop('has_auto_moto', False)
+        is_parts_only       = store_data.pop('is_parts_only', False)
+        new_vehicle_count   = store_data.pop('new_vehicle_count', 0)
+        used_vehicle_count  = store_data.pop('used_vehicle_count', 0)
+        test_vehicle_count  = store_data.pop('test_vehicle_count', 0)
         total_vehicle_count = store_data.pop('total_vehicle_count', 0)
         store_data.pop('categories', None)
 
@@ -279,14 +313,15 @@ class NjuskaloDatabase:
             self.connection.execute(
                 """
                 INSERT INTO scraped_stores
-                    (url, results, is_valid, is_automoto,
+                    (url, results, is_valid, is_automoto, is_parts_only,
                      new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count,
                      updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 ON CONFLICT(url) DO UPDATE SET
                     results             = excluded.results,
                     is_valid            = excluded.is_valid,
                     is_automoto         = excluded.is_automoto,
+                    is_parts_only       = excluded.is_parts_only,
                     new_vehicle_count   = excluded.new_vehicle_count,
                     used_vehicle_count  = excluded.used_vehicle_count,
                     test_vehicle_count  = excluded.test_vehicle_count,
@@ -298,6 +333,7 @@ class NjuskaloDatabase:
                     json.dumps(store_data),
                     1 if is_valid else 0,
                     1 if is_automoto else 0,
+                    1 if is_parts_only else 0,
                     new_vehicle_count,
                     used_vehicle_count,
                     test_vehicle_count,
@@ -307,7 +343,7 @@ class NjuskaloDatabase:
             self.connection.commit()
             self.logger.info(
                 f"Saved store {url} "
-                f"(automoto={is_automoto}, new={new_vehicle_count}, "
+                f"(automoto={is_automoto}, parts_only={is_parts_only}, new={new_vehicle_count}, "
                 f"used={used_vehicle_count}, test={test_vehicle_count}, total={total_vehicle_count})"
             )
             return True
@@ -359,8 +395,9 @@ class NjuskaloDatabase:
                 if row.get('results'):
                     row['results'] = json.loads(row['results'])
                 # Normalise SQLite integers to Python bools
-                row['is_valid']    = bool(row.get('is_valid', 1))
-                row['is_automoto'] = bool(row.get('is_automoto', 0))
+                row['is_valid']      = bool(row.get('is_valid', 1))
+                row['is_automoto']   = bool(row.get('is_automoto', 0))
+                row['is_parts_only'] = bool(row.get('is_parts_only', 0))
             return rows
         except sqlite3.Error as e:
             self.logger.error(f"Error executing store query: {e}")
@@ -369,7 +406,7 @@ class NjuskaloDatabase:
     def get_all_valid_stores(self) -> List[Dict]:
         return self._fetch_stores(
             """
-            SELECT url, results, created_at, updated_at, is_automoto,
+            SELECT url, results, created_at, updated_at, is_automoto, is_parts_only,
                    new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
             FROM scraped_stores
             WHERE is_valid = 1
@@ -380,7 +417,7 @@ class NjuskaloDatabase:
     def get_invalid_stores(self) -> List[Dict]:
         return self._fetch_stores(
             """
-            SELECT url, results, created_at, updated_at, is_automoto,
+            SELECT url, results, created_at, updated_at, is_automoto, is_parts_only,
                    new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
             FROM scraped_stores
             WHERE is_valid = 0
@@ -389,12 +426,25 @@ class NjuskaloDatabase:
         )
 
     def get_auto_moto_stores(self) -> List[Dict]:
+        """Return auto-moto stores that sell vehicles (excludes parts/cosmetics stores)."""
         return self._fetch_stores(
             """
-            SELECT url, results, created_at, updated_at, is_automoto,
+            SELECT url, results, created_at, updated_at, is_automoto, is_parts_only,
                    new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
             FROM scraped_stores
-            WHERE is_valid = 1 AND is_automoto = 1
+            WHERE is_valid = 1 AND is_automoto = 1 AND is_parts_only = 0
+            ORDER BY updated_at DESC
+            """
+        )
+
+    def get_parts_only_stores(self) -> List[Dict]:
+        """Return auto-moto stores that only sell parts/accessories (no vehicle listings)."""
+        return self._fetch_stores(
+            """
+            SELECT url, results, created_at, updated_at, is_automoto, is_parts_only,
+                   new_vehicle_count, used_vehicle_count, test_vehicle_count, total_vehicle_count
+            FROM scraped_stores
+            WHERE is_valid = 1 AND is_parts_only = 1
             ORDER BY updated_at DESC
             """
         )
@@ -402,7 +452,7 @@ class NjuskaloDatabase:
     def get_non_auto_moto_stores(self) -> List[Dict]:
         return self._fetch_stores(
             """
-            SELECT url, results, created_at, updated_at, is_automoto
+            SELECT url, results, created_at, updated_at, is_automoto, is_parts_only
             FROM scraped_stores
             WHERE is_valid = 1 AND is_automoto = 0
             ORDER BY updated_at DESC

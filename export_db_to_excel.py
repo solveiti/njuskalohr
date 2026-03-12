@@ -161,9 +161,10 @@ def export_database_to_excel(
                 'used':         active_used,
                 'test':         active_test,
                 'total':        active_total,
-                'url':          store_record.get('url', ''),
-                'is_automoto':  store_record.get('is_automoto', False),
-                'updated_at':   store_record.get('updated_at', ''),
+                'url':           store_record.get('url', ''),
+                'is_automoto':   store_record.get('is_automoto', False),
+                'is_parts_only': store_record.get('is_parts_only', False),
+                'updated_at':    store_record.get('updated_at', ''),
             })
 
         df = pd.DataFrame(df_data)
@@ -173,7 +174,7 @@ def export_database_to_excel(
             'active_new', 'active_used', 'active_test', 'active_total',
             'delta_new', 'delta_used', 'delta_test', 'delta_total',
             'new', 'used', 'test', 'total',
-            'url', 'is_automoto', 'updated_at',
+            'url', 'is_automoto', 'is_parts_only', 'updated_at',
         ]
         df = df.reindex(columns=column_order)
 
@@ -197,6 +198,7 @@ def export_database_to_excel(
         print(f"\n📊 Export Summary:")
         print(f"  Stores exported:      {len(stores)}")
         print(f"  Auto moto stores:     {df['is_automoto'].sum()}")
+        print(f"  Parts-only stores:    {df['is_parts_only'].sum()}")
         print(f"  Active new ads:       {df['active_new'].sum()}")
         print(f"  Active used ads:      {df['active_used'].sum()}")
         print(f"  Active test ads:      {df['active_test'].sum()}")

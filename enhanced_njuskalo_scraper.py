@@ -874,6 +874,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                 'address': (basic_store_data or {}).get('address'),
                 'ads_count': (basic_store_data or {}).get('ads_count'),
                 'has_auto_moto': has_auto_moto,
+                'is_parts_only': False,
                 'categories': (basic_store_data or {}).get('categories', []),
                 'new_vehicle_count': 0,
                 'used_vehicle_count': 0,
@@ -892,7 +893,12 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
             vehicle_counts = self.count_vehicle_types(store_url, auto_moto_info=auto_moto_info)
             store_data.update(vehicle_counts)
 
-            logger.info(f"✅ Successfully scraped store: {store_data['name'] or 'Unknown'} - Auto moto: {has_auto_moto}, Vehicles: {store_data['total_vehicle_count']}")
+            # Has auto-moto category but no vehicle listings → parts/cosmetics store
+            if store_data['total_vehicle_count'] == 0:
+                store_data['is_parts_only'] = True
+                logger.info(f"🔧 Parts-only store detected (auto-moto category, zero vehicles): {store_url}")
+
+            logger.info(f"✅ Successfully scraped store: {store_data['name'] or 'Unknown'} - Auto moto: {has_auto_moto}, Parts only: {store_data['is_parts_only']}, Vehicles: {store_data['total_vehicle_count']}")
 
             return store_data
 
@@ -942,6 +948,7 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
                     self.database.create_tables()
                     # Ensure all columns and tables exist
                     self.database.migrate_add_is_automoto_column()
+                    self.database.migrate_add_is_parts_only_column()
                     self.database.migrate_add_store_snapshots_table()
                     logger.info("✅ Database initialized successfully")
                 except Exception as e:
@@ -1127,12 +1134,12 @@ class EnhancedNjuskaloScraper(NjuskaloSitemapScraper):
 
 # Add helper method to database class for getting auto moto URLs
 def get_auto_moto_urls(self) -> List[str]:
-    """Get URLs of stores marked as having auto moto category."""
+    """Get URLs of auto-moto stores that sell vehicles (excludes parts/cosmetics stores)."""
     try:
         rows = self.connection.execute(
             """
             SELECT url FROM scraped_stores
-            WHERE is_automoto = 1 AND is_valid = 1
+            WHERE is_automoto = 1 AND is_valid = 1 AND is_parts_only = 0
             ORDER BY updated_at DESC
             """
         ).fetchall()
