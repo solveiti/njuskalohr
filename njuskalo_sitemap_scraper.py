@@ -1034,11 +1034,13 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                     '.store-title'
                 ]
 
+                _ANTIBOT_NAMES = {'ispričavam se zbog neugodnosti', 'sorry for the inconvenience'}
                 for selector in name_selectors:
                     try:
                         name_element = self.driver.find_element(By.CSS_SELECTOR, selector)
-                        store_data['name'] = name_element.text.strip()
-                        if store_data['name']:
+                        candidate = name_element.text.strip()
+                        if candidate and candidate.lower() not in _ANTIBOT_NAMES:
+                            store_data['name'] = candidate
                             break
                     except NoSuchElementException:
                         continue
@@ -1074,17 +1076,12 @@ class NjuskaloSitemapScraper(AntiDetectionMixin):
                 if not store_data['address']:
                     try:
                         page_text = self.driver.find_element(By.TAG_NAME, "body").text
-                        # Look for Croatian city patterns or postal codes
-                        address_patterns = [
-                            r'\d{5}\s+[A-ZČĆŽŠĐ][a-zčćžšđ]+',  # Postal code + city
-                            r'[A-ZČĆŽŠĐ][a-zčćžšđ]+\s+\d+[a-z]?',  # Street + number
-                        ]
-
-                        for pattern in address_patterns:
-                            matches = re.findall(pattern, page_text)
-                            if matches:
-                                store_data['address'] = matches[0]
-                                break
+                        # Look for Croatian postal code patterns only (5 digits + city).
+                        # The street+number pattern (e.g. "Word 1") is intentionally
+                        # omitted because it also matches car model names from ad listings.
+                        matches = re.findall(r'\d{5}\s+[A-ZČĆŽŠĐ][a-zčćžšđ]+', page_text)
+                        if matches:
+                            store_data['address'] = matches[0]
                     except Exception:
                         pass
 
