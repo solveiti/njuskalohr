@@ -101,3 +101,4 @@ browser_profiles/
 # Screenshots directory (ignore contents but keep directory)
 screenshots/*
 !screenshots/.gitkeep
+njuskalo.db
